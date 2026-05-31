@@ -32,7 +32,7 @@ export default function LoginPage() {
         >
           <Car className="w-8 h-8 text-[#020813]" strokeWidth={2.5} />
         </div>
-        <h1 className="font-serif text-3xl font-bold text-white tracking-tight">EV Exec</h1>
+        <h1 className="text-3xl font-bold text-white tracking-tight">EV Exec</h1>
         <p className="text-white/40 mt-1 tracking-widest uppercase text-xs">Driver Portal</p>
       </div>
 

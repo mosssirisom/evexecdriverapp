@@ -1,78 +1,47 @@
-export type JobStatus =
-  | 'scheduled'
-  | 'assigned'
+export type BookingStatus =
+  | 'pending'
+  | 'accepted'
+  | 'confirmed'
+  | 'rejected'
+  | 'cancelled'
   | 'en_route'
   | 'arrived'
-  | 'in_progress'
+  | 'active'
   | 'completed'
-  | 'cancelled'
 
-export type JobPriority = 'standard' | 'priority' | 'vip'
-
-export interface Stop {
-  address: string
-  name: string
-  time: string
-}
-
-export interface Job {
+export interface Booking {
   id: string
-  status: JobStatus
-  priority: JobPriority
-  date: string
-  scheduledTime: string
-  passenger: {
-    name: string
-    phone: string
-    company: string
-  }
-  pickup: {
-    address: string
-    name: string
-    time: string
-  }
-  dropoff: {
-    address: string
-    name: string
-  }
-  stops?: Stop[]
-  distance: string
-  estimatedDuration: string
-  fare: number
-  notes?: string
-  vehicleRequired: string
-}
-
-export interface EarningEntry {
-  jobId: string
-  date: string
-  passenger: string
-  pickup: string
-  dropoff: string
-  baseFare: number
-  tip: number
-  total: number
-  rating?: number
+  created_at: string
+  updated_at: string | null
+  journey_type: string | null
+  pickup_location: string | null
+  airport: string | null
+  flight_number: string | null
+  dropoff_address: string | null
+  travel_date: string | null
+  travel_time: string | null
+  passengers: number
+  luggage: string | null
+  return_journey: boolean
+  customer_name: string
+  customer_phone: string
+  customer_email: string | null
+  contact_method: string
+  status: BookingStatus
+  operator_note: string | null
+  quoted_price: number | null
+  payment_method: string | null
+  payment_status: string
+  assigned_driver_id: string | null
+  driver_notes: string | null
 }
 
 export interface Driver {
   id: string
-  name: string
-  email: string
-  phone: string
-  rating: number
-  totalTrips: number
-  vehicle: {
-    make: string
-    model: string
-    year: string
-    color: string
-    plate: string
-    type: string
-  }
-  documents: {
-    license: { status: 'valid' | 'expiring_soon' | 'expired'; expiry: string }
-    insurance: { status: 'valid' | 'expiring_soon' | 'expired'; expiry: string }
-    inspection: { status: 'valid' | 'expiring_soon' | 'expired'; expiry: string }
-  }
+  full_name: string
+  phone: string | null
+  vehicle_registration: string | null
+  vehicle_model: string | null
+  is_online: boolean
+  avatar_url: string | null
 }

@@ -1,107 +1,136 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
-import { ChevronRight, Clock, MapPin } from 'lucide-react'
-import { MOCK_JOBS } from '@/lib/mock-data'
-import { JobStatusBadge, PriorityBadge } from '@/components/badges'
-import type { Job } from '@/lib/types'
+import { ChevronRight, Clock, Car } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
+import { BookingStatusBadge } from '@/components/badges'
+import type { Booking } from '@/lib/types'
 
-type Tab = 'today' | 'upcoming' | 'completed'
+type Tab = 'upcoming' | 'active' | 'completed'
 
-function JobCard({ job }: { job: Job }) {
+function BookingCard({ booking }: { booking: Booking }) {
   return (
-    <Link href={`/jobs/${job.id}`}>
+    <Link href={`/jobs/${booking.id}`}>
       <div className="bg-[#0B1525] border border-white/8 rounded-2xl p-4 active:opacity-80 transition-opacity">
         <div className="flex items-start justify-between mb-3">
           <div className="flex items-center gap-2">
-            <span className="text-[#d5a538] font-semibold text-sm">{job.scheduledTime}</span>
-            <PriorityBadge priority={job.priority} />
+            <span className="text-[#d5a538] font-semibold text-sm">{booking.travel_time ?? '—'}</span>
+            <span className="text-white/20 text-xs">{booking.travel_date ?? ''}</span>
           </div>
           <div className="flex items-center gap-2">
-            <JobStatusBadge status={job.status} />
+            <BookingStatusBadge status={booking.status} />
             <ChevronRight size={14} className="text-white/30" />
           </div>
         </div>
 
-        <p className="text-white font-medium text-sm mb-0.5">{job.passenger.name}</p>
-        <p className="text-white/30 text-xs mb-3">{job.passenger.company}</p>
+        <p className="text-white font-medium text-sm mb-0.5">{booking.customer_name}</p>
+        {booking.journey_type && (
+          <p className="text-white/30 text-xs mb-3 capitalize">{booking.journey_type.replace(/_/g, ' ')}</p>
+        )}
 
         <div className="space-y-1.5">
           <div className="flex items-start gap-2">
             <div className="w-1.5 h-1.5 rounded-full bg-[#10b981] mt-1.5 flex-shrink-0" />
-            <p className="text-white/50 text-xs leading-tight">{job.pickup.name || job.pickup.address}</p>
+            <p className="text-white/50 text-xs leading-tight">
+              {booking.pickup_location ?? booking.airport ?? '—'}
+            </p>
           </div>
-          {job.stops?.map((stop, i) => (
-            <div key={i} className="flex items-start gap-2">
-              <div className="w-1.5 h-1.5 rounded-full bg-[#d5a538] mt-1.5 flex-shrink-0" />
-              <p className="text-white/50 text-xs leading-tight">{stop.name}</p>
-            </div>
-          ))}
           <div className="flex items-start gap-2">
             <div className="w-1.5 h-1.5 rounded-full bg-red-400 mt-1.5 flex-shrink-0" />
-            <p className="text-white/50 text-xs leading-tight">{job.dropoff.name || job.dropoff.address}</p>
+            <p className="text-white/50 text-xs leading-tight">{booking.dropoff_address ?? '—'}</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3 mt-3 pt-3 border-t border-white/5">
-          <span className="text-white/40 text-xs flex items-center gap-1">
-            <Clock size={11} /> {job.estimatedDuration}
-          </span>
-          <span className="text-white/40 text-xs flex items-center gap-1">
-            <MapPin size={11} /> {job.distance}
-          </span>
-          <span className="ml-auto text-[#d5a538] font-semibold text-sm">£{job.fare.toFixed(0)}</span>
-        </div>
+        {booking.quoted_price && (
+          <div className="flex items-center gap-3 mt-3 pt-3 border-t border-white/5">
+            {booking.passengers > 0 && (
+              <span className="text-white/40 text-xs flex items-center gap-1">
+                <Clock size={11} /> {booking.passengers} pax
+              </span>
+            )}
+            <span className="ml-auto text-[#d5a538] font-semibold text-sm">
+              £{booking.quoted_price.toFixed(0)}
+            </span>
+          </div>
+        )}
       </div>
     </Link>
   )
 }
 
 export default function JobsPage() {
-  const [tab, setTab] = useState<Tab>('today')
+  const [tab, setTab] = useState<Tab>('upcoming')
+  const [bookings, setBookings] = useState<Booking[]>([])
+  const [loading, setLoading] = useState(true)
 
-  const today = MOCK_JOBS.filter((j) => j.date === '2026-05-30' && j.status !== 'completed' && j.status !== 'cancelled')
-  const upcoming = MOCK_JOBS.filter((j) => j.date > '2026-05-30')
-  const completed = MOCK_JOBS.filter((j) => j.status === 'completed' || j.status === 'cancelled')
+  const supabase = createClient()
 
-  const jobs = tab === 'today' ? today : tab === 'upcoming' ? upcoming : completed
+  const loadBookings = useCallback(async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+
+    const { data } = await supabase
+      .from('bookings')
+      .select('*')
+      .eq('assigned_driver_id', user.id)
+      .in('status', ['accepted', 'confirmed', 'en_route', 'arrived', 'active', 'completed', 'cancelled'])
+      .order('travel_date', { ascending: false })
+      .order('travel_time', { ascending: true })
+
+    if (data) setBookings(data)
+    setLoading(false)
+  }, [supabase])
+
+  useEffect(() => { loadBookings() }, [loadBookings])
+
+  const upcoming = bookings.filter((b) => ['accepted', 'confirmed'].includes(b.status))
+  const active = bookings.filter((b) => ['en_route', 'arrived', 'active'].includes(b.status))
+  const completed = bookings.filter((b) => ['completed', 'cancelled'].includes(b.status))
+
+  const currentList = tab === 'upcoming' ? upcoming : tab === 'active' ? active : completed
+
+  const today = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
 
   return (
     <div className="min-h-screen bg-[#020813] px-4 pt-12 pb-4">
-      {/* Header */}
       <div className="mb-6">
-        <h1 className="text-white font-bold text-xl">Jobs</h1>
-        <p className="text-white/40 text-xs mt-1">30 May 2026</p>
+        <h1 className="text-white font-bold text-xl">Board</h1>
+        <p className="text-white/40 text-xs mt-1">{today}</p>
       </div>
 
-      {/* Tabs */}
       <div className="flex gap-1 bg-white/5 rounded-xl p-1 mb-5">
-        {(['today', 'upcoming', 'completed'] as const).map((t) => (
+        {([
+          { key: 'upcoming' as Tab, label: `Upcoming (${upcoming.length})` },
+          { key: 'active' as Tab, label: `Active (${active.length})` },
+          { key: 'completed' as Tab, label: 'Done' },
+        ]).map(({ key, label }) => (
           <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={`flex-1 py-2 rounded-lg text-xs font-semibold capitalize transition-all ${
-              tab === t
-                ? 'text-[#020813]'
-                : 'text-white/40 hover:text-white/60'
+            key={key}
+            onClick={() => setTab(key)}
+            className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all ${
+              tab === key ? 'text-[#020813]' : 'text-white/40 hover:text-white/60'
             }`}
-            style={tab === t ? { background: 'linear-gradient(135deg, #f1c56a, #d5a538 55%, #a97918)' } : {}}
+            style={tab === key ? { background: 'linear-gradient(135deg, #f1c56a, #d5a538 55%, #a97918)' } : {}}
           >
-            {t === 'today' ? `Today (${today.length})` : t === 'upcoming' ? 'Upcoming' : 'Completed'}
+            {label}
           </button>
         ))}
       </div>
 
-      {/* Job list */}
-      {jobs.length === 0 ? (
+      {loading ? (
+        <div className="flex items-center justify-center py-20">
+          <div className="w-7 h-7 rounded-full border-2 border-[#d5a538] border-t-transparent animate-spin" />
+        </div>
+      ) : currentList.length === 0 ? (
         <div className="bg-[#0B1525] border border-white/8 rounded-2xl p-10 text-center">
+          <Car size={28} className="mx-auto mb-2 text-white/20" />
           <p className="text-white/30 text-sm">No {tab} jobs</p>
         </div>
       ) : (
         <div className="space-y-3">
-          {jobs.map((job) => (
-            <JobCard key={job.id} job={job} />
+          {currentList.map((booking) => (
+            <BookingCard key={booking.id} booking={booking} />
           ))}
         </div>
       )}

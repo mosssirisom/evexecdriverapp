@@ -1,6 +1,64 @@
-import type { Driver, Job, EarningEntry } from './types'
+// Mock data used only by the earnings page
 
-export const MOCK_DRIVER: Driver = {
+type DocStatus = 'valid' | 'expiring_soon' | 'expired'
+
+interface MockDoc {
+  status: DocStatus
+  expiry: string
+}
+
+interface MockDriver {
+  id: string
+  name: string
+  email: string
+  phone: string
+  rating: number
+  totalTrips: number
+  vehicle: {
+    make: string
+    model: string
+    year: string
+    color: string
+    plate: string
+    type: string
+  }
+  documents: {
+    license: MockDoc
+    insurance: MockDoc
+    inspection: MockDoc
+  }
+}
+
+interface MockJob {
+  id: string
+  status: string
+  priority: 'vip' | 'priority' | 'standard'
+  date: string
+  scheduledTime: string
+  passenger: { name: string; phone: string; company: string }
+  pickup: { address: string; name: string; time: string }
+  dropoff: { address: string; name: string }
+  stops?: { address: string; name: string; time: string }[]
+  distance: string
+  estimatedDuration: string
+  fare: number
+  notes?: string
+  vehicleRequired: string
+}
+
+export interface EarningEntry {
+  jobId: string
+  date: string
+  passenger: string
+  pickup: string
+  dropoff: string
+  baseFare: number
+  tip: number
+  total: number
+  rating?: number
+}
+
+export const MOCK_DRIVER: MockDriver = {
   id: 'DRV-2024-089',
   name: 'James Mitchell',
   email: 'james.mitchell@evexec.co.uk',
@@ -22,194 +80,7 @@ export const MOCK_DRIVER: Driver = {
   },
 }
 
-export const MOCK_JOBS: Job[] = [
-  {
-    id: 'JOB-2026-0847',
-    status: 'assigned',
-    priority: 'vip',
-    date: '2026-05-30',
-    scheduledTime: '06:30',
-    passenger: {
-      name: 'Lord Christopher Hale',
-      phone: '+44 7700 900456',
-      company: 'Hale Capital Partners',
-    },
-    pickup: {
-      address: '45 Grosvenor Square, London W1K 2HP',
-      name: 'Private Residence',
-      time: '06:30',
-    },
-    dropoff: {
-      address: 'Heathrow Airport, Terminal 5, London TW6 2GA',
-      name: 'LHR — Terminal 5',
-    },
-    distance: '22.4 mi',
-    estimatedDuration: '55 min',
-    fare: 185.00,
-    notes: 'Client requests silence. 2 cabin bags. Drop at BA Club check-in.',
-    vehicleRequired: 'Luxury Saloon',
-  },
-  {
-    id: 'JOB-2026-0848',
-    status: 'scheduled',
-    priority: 'priority',
-    date: '2026-05-30',
-    scheduledTime: '10:15',
-    passenger: {
-      name: 'Ms Priya Sharma',
-      phone: '+44 7700 900789',
-      company: 'Goldman Sachs',
-    },
-    pickup: {
-      address: 'Heathrow Airport, Terminal 2, London TW6 1EW',
-      name: 'LHR — Terminal 2',
-      time: '10:15',
-    },
-    dropoff: {
-      address: 'Plumtree Court, 25 Shoe Lane, London EC4A 4AU',
-      name: 'Goldman Sachs HQ',
-    },
-    distance: '19.8 mi',
-    estimatedDuration: '50 min',
-    fare: 165.00,
-    notes: 'Meet & greet with name board. Flight BA982 from Frankfurt.',
-    vehicleRequired: 'Luxury Saloon',
-  },
-  {
-    id: 'JOB-2026-0849',
-    status: 'scheduled',
-    priority: 'standard',
-    date: '2026-05-30',
-    scheduledTime: '14:00',
-    passenger: {
-      name: 'Dr. Oliver Bennett',
-      phone: '+44 7700 900321',
-      company: 'Royal Academy of Sciences',
-    },
-    pickup: {
-      address: '6-9 Carlton House Terrace, London SW1Y 5AG',
-      name: 'Royal Academy of Sciences',
-      time: '14:00',
-    },
-    dropoff: {
-      address: 'Gatwick Airport, North Terminal, Horley RH6 0NP',
-      name: 'LGW — North Terminal',
-    },
-    stops: [
-      {
-        address: 'Claridge\'s Hotel, Brook St, London W1K 4HR',
-        name: 'Claridge\'s Hotel',
-        time: '14:25',
-      },
-    ],
-    distance: '31.2 mi',
-    estimatedDuration: '1 hr 10 min',
-    fare: 220.00,
-    notes: 'Multi-stop. Collect luggage from hotel. Client has tight flight window.',
-    vehicleRequired: 'Luxury Saloon',
-  },
-  {
-    id: 'JOB-2026-0850',
-    status: 'scheduled',
-    priority: 'vip',
-    date: '2026-05-30',
-    scheduledTime: '19:30',
-    passenger: {
-      name: 'Sheikh Ahmed Al-Rashid',
-      phone: '+44 7700 900654',
-      company: 'Al-Rashid Holdings',
-    },
-    pickup: {
-      address: 'The Dorchester, Park Lane, London W1K 1QA',
-      name: 'The Dorchester Hotel',
-      time: '19:30',
-    },
-    dropoff: {
-      address: 'Harrods, 87-135 Brompton Rd, London SW1X 7XL',
-      name: 'Harrods',
-    },
-    distance: '3.1 mi',
-    estimatedDuration: '20 min',
-    fare: 95.00,
-    notes: 'VIP client. Full discretion required. Security escort may be present.',
-    vehicleRequired: 'Luxury SUV',
-  },
-  {
-    id: 'JOB-2026-0831',
-    status: 'completed',
-    priority: 'priority',
-    date: '2026-05-29',
-    scheduledTime: '07:00',
-    passenger: {
-      name: 'Mr James Thornton',
-      phone: '+44 7700 900111',
-      company: 'Barclays Capital',
-    },
-    pickup: {
-      address: '1 Churchill Place, London E14 5HP',
-      name: 'Barclays HQ',
-      time: '07:00',
-    },
-    dropoff: {
-      address: 'Heathrow Airport, Terminal 5, London TW6 2GA',
-      name: 'LHR — Terminal 5',
-    },
-    distance: '24.1 mi',
-    estimatedDuration: '58 min',
-    fare: 190.00,
-    vehicleRequired: 'Luxury Saloon',
-  },
-  {
-    id: 'JOB-2026-0832',
-    status: 'completed',
-    priority: 'standard',
-    date: '2026-05-29',
-    scheduledTime: '12:30',
-    passenger: {
-      name: 'Mrs Sarah Collins',
-      phone: '+44 7700 900222',
-      company: 'Herbert Smith Freehills',
-    },
-    pickup: {
-      address: 'Exchange House, Primrose St, London EC2A 2EG',
-      name: 'Herbert Smith Freehills',
-      time: '12:30',
-    },
-    dropoff: {
-      address: 'The Ritz London, 150 Piccadilly, London W1J 9BR',
-      name: 'The Ritz',
-    },
-    distance: '4.8 mi',
-    estimatedDuration: '28 min',
-    fare: 85.00,
-    vehicleRequired: 'Luxury Saloon',
-  },
-  {
-    id: 'JOB-2026-0833',
-    status: 'completed',
-    priority: 'vip',
-    date: '2026-05-29',
-    scheduledTime: '17:45',
-    passenger: {
-      name: 'Lady Victoria Pemberton',
-      phone: '+44 7700 900333',
-      company: 'Pemberton Estates',
-    },
-    pickup: {
-      address: 'Gatwick Airport, South Terminal, Horley RH6 0NP',
-      name: 'LGW — South Terminal',
-      time: '17:45',
-    },
-    dropoff: {
-      address: '10 Belgrave Square, London SW1X 8PX',
-      name: 'Private Residence',
-    },
-    distance: '33.7 mi',
-    estimatedDuration: '1 hr 15 min',
-    fare: 245.00,
-    vehicleRequired: 'Luxury Saloon',
-  },
-]
+export const MOCK_JOBS: MockJob[] = []
 
 export const MOCK_EARNINGS: EarningEntry[] = [
   {
@@ -265,17 +136,6 @@ export const MOCK_EARNINGS: EarningEntry[] = [
     baseFare: 95.00,
     tip: 15.00,
     total: 110.00,
-    rating: 5,
-  },
-  {
-    jobId: 'JOB-2026-0815',
-    date: '2026-05-27',
-    passenger: 'Sir Robert Blackwood',
-    pickup: 'Private Residence, Kensington',
-    dropoff: 'LHR Terminal 5',
-    baseFare: 185.00,
-    tip: 40.00,
-    total: 225.00,
     rating: 5,
   },
 ]
