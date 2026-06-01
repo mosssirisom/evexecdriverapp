@@ -2,7 +2,6 @@
 
 import { useState, useTransition } from 'react'
 import { Eye, EyeOff, Loader2 } from 'lucide-react'
-import Image from 'next/image'
 import { login } from '@/app/actions/auth'
 
 export default function LoginPage() {
@@ -24,13 +23,13 @@ export default function LoginPage() {
     <div className="min-h-screen flex flex-col items-center justify-center px-6 bg-[#020813]">
       {/* Logo */}
       <div className="mb-8 text-center">
-        <Image
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
           src="/logo.png"
           alt="EV Exec"
           width={160}
           height={160}
           className="mx-auto"
-          priority
         />
         <p className="text-white/40 mt-2 tracking-widest uppercase text-xs">Driver Portal</p>
       </div>
