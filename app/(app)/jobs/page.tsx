@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { ChevronRight, Clock, Car } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { BookingStatusBadge } from '@/components/badges'
+import { formatDate, formatTime } from '@/lib/format'
 import type { Booking } from '@/lib/types'
 
 type Tab = 'upcoming' | 'active' | 'completed'
@@ -15,8 +16,8 @@ function BookingCard({ booking }: { booking: Booking }) {
       <div className="bg-[#0B1525] border border-white/8 rounded-2xl p-4 active:opacity-80 transition-opacity">
         <div className="flex items-start justify-between mb-3">
           <div className="flex items-center gap-2">
-            <span className="text-[#d5a538] font-semibold text-sm">{booking.travel_time ?? '—'}</span>
-            <span className="text-white/20 text-xs">{booking.travel_date ?? ''}</span>
+            <span className="text-[#d5a538] font-semibold text-sm">{formatTime(booking.travel_time)}</span>
+            <span className="text-white/20 text-xs">{formatDate(booking.travel_date)}</span>
           </div>
           <div className="flex items-center gap-2">
             <BookingStatusBadge status={booking.status} />

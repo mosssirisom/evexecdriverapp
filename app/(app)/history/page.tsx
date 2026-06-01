@@ -4,16 +4,8 @@ import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { ChevronLeft, MapPin, Loader2, ClipboardList } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { formatDate, formatTime } from '@/lib/format'
 import type { Booking } from '@/lib/types'
-
-function formatDate(dateStr: string | null) {
-  if (!dateStr) return '—'
-  return new Date(dateStr).toLocaleDateString('en-GB', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  })
-}
 
 export default function HistoryPage() {
   const router = useRouter()
@@ -87,7 +79,7 @@ export default function HistoryPage() {
                       <div>
                         <p className="text-white font-semibold text-sm">{job.customer_name}</p>
                         <p className="text-white/30 text-xs mt-0.5">
-                          {formatDate(job.travel_date)}{job.travel_time ? ` · ${job.travel_time}` : ''}
+                          {formatDate(job.travel_date)}{job.travel_time ? ` · ${formatTime(job.travel_time)}` : ''}
                         </p>
                       </div>
                       {job.quoted_price != null && (

@@ -19,6 +19,7 @@ import {
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { BookingStatusBadge } from '@/components/badges'
+import { formatDate, formatTime } from '@/lib/format'
 import type { Booking, BookingStatus } from '@/lib/types'
 
 type StatusStep = { from: BookingStatus; to: BookingStatus; label: string }
@@ -188,8 +189,8 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
               <div className="flex-1 min-w-0">
                 <p className="text-white/40 text-[10px] uppercase tracking-wider mb-0.5">
                   Pickup
-                  {booking.travel_time ? ` · ${booking.travel_time}` : ''}
-                  {booking.travel_date ? ` · ${booking.travel_date}` : ''}
+                  {booking.travel_time ? ` · ${formatTime(booking.travel_time)}` : ''}
+                  {booking.travel_date ? ` · ${formatDate(booking.travel_date)}` : ''}
                 </p>
                 <p className="text-white text-sm font-medium">{pickupAddress}</p>
                 {booking.flight_number && (

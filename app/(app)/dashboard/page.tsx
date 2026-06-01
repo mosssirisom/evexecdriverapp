@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Car, MapPin, Clock, ChevronRight, Bell, Briefcase, Star, AlertTriangle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { BookingStatusBadge } from '@/components/badges'
+import { formatTime } from '@/lib/format'
 import type { Booking, Driver } from '@/lib/types'
 
 export default function DashboardPage() {
@@ -198,7 +199,7 @@ export default function DashboardPage() {
             <Link key={booking.id} href={`/jobs/${booking.id}`}>
               <div className="bg-[#0B1525] border border-white/8 rounded-2xl p-4 active:opacity-80 transition-opacity">
                 <div className="flex items-start justify-between mb-2">
-                  <span className="text-[#d5a538] font-semibold text-sm">{booking.travel_time ?? '—'}</span>
+                  <span className="text-[#d5a538] font-semibold text-sm">{formatTime(booking.travel_time)}</span>
                   <div className="flex items-center gap-2">
                     <BookingStatusBadge status={booking.status} />
                     <ChevronRight size={14} className="text-white/30" />

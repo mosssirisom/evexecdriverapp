@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { ChevronRight, Car, Navigation2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { BookingStatusBadge } from '@/components/badges'
+import { formatTime } from '@/lib/format'
 import type { Booking } from '@/lib/types'
 
 function openMaps(address: string) {
@@ -88,7 +89,7 @@ export default function MyJobsPage() {
                   <div className="flex items-center justify-between mb-3">
                     <div>
                       <p className="text-white font-semibold text-sm">{booking.customer_name}</p>
-                      <p className="text-white/40 text-xs mt-0.5">{booking.travel_time ?? ''}</p>
+                      <p className="text-white/40 text-xs mt-0.5">{formatTime(booking.travel_time)}</p>
                     </div>
                     {booking.customer_phone && (
                       <a
