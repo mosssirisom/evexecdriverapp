@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { Car, Eye, EyeOff, Loader2 } from 'lucide-react'
+import { Eye, EyeOff, Loader2 } from 'lucide-react'
+import Image from 'next/image'
 import { login } from '@/app/actions/auth'
 
 export default function LoginPage() {
@@ -22,18 +23,16 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-6 bg-[#020813]">
       {/* Logo */}
-      <div className="mb-10 text-center">
-        <div
-          className="w-16 h-16 rounded-2xl mx-auto flex items-center justify-center mb-4 shadow-lg"
-          style={{
-            background: 'linear-gradient(135deg, #f1c56a, #d5a538 55%, #a97918)',
-            boxShadow: '0 8px 32px rgba(213,165,56,0.25)',
-          }}
-        >
-          <Car className="w-8 h-8 text-[#020813]" strokeWidth={2.5} />
-        </div>
-        <h1 className="text-3xl font-bold text-white tracking-tight">EV Exec</h1>
-        <p className="text-white/40 mt-1 tracking-widest uppercase text-xs">Driver Portal</p>
+      <div className="mb-8 text-center">
+        <Image
+          src="/logo.png"
+          alt="EV Exec"
+          width={160}
+          height={160}
+          className="mx-auto"
+          priority
+        />
+        <p className="text-white/40 mt-2 tracking-widest uppercase text-xs">Driver Portal</p>
       </div>
 
       {/* Card */}
