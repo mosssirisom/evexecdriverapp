@@ -12,13 +12,27 @@ import {
   Bell,
   HelpCircle,
   Loader2,
+  ClipboardList,
+  MapPin,
+  Star,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import type { Driver } from '@/lib/types'
+import type { Driver, Booking } from '@/lib/types'
+
+function formatDate(dateStr: string | null) {
+  if (!dateStr) return '—'
+  return new Date(dateStr).toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  })
+}
 
 export default function ProfilePage() {
   const [driver, setDriver] = useState<Driver | null>(null)
   const [email, setEmail] = useState<string | null>(null)
+  const [completedJobs, setCompletedJobs] = useState<Booking[]>([])
+  const [totalEarnings, setTotalEarnings] = useState(0)
   const [loading, setLoading] = useState(true)
 
   const supabase = createClient()
@@ -29,8 +43,24 @@ export default function ProfilePage() {
 
     setEmail(user.email ?? null)
 
-    const { data } = await supabase.from('drivers').select('*').eq('id', user.id).single()
-    if (data) setDriver(data)
+    const [driverRes, jobsRes] = await Promise.all([
+      supabase.from('drivers').select('*').eq('id', user.id).single(),
+      supabase
+        .from('bookings')
+        .select('*')
+        .eq('assigned_driver_id', user.id)
+        .eq('status', 'completed')
+        .order('travel_date', { ascending: false })
+        .order('travel_time', { ascending: false })
+        .limit(20),
+    ])
+
+    if (driverRes.data) setDriver(driverRes.data)
+    if (jobsRes.data) {
+      setCompletedJobs(jobsRes.data)
+      const total = jobsRes.data.reduce((sum, b) => sum + (b.quoted_price ?? 0), 0)
+      setTotalEarnings(total)
+    }
     setLoading(false)
   }, [supabase])
 
@@ -63,7 +93,7 @@ export default function ProfilePage() {
           </div>
           <div className="flex-1 min-w-0">
             <h2 className="text-white font-bold text-lg">{driver?.full_name ?? 'Driver'}</h2>
-            <p className="text-white/40 text-xs mt-0.5 truncate">
+            <p className="text-white/40 text-xs mt-0.5">
               {driver?.is_online ? '● Online' : '○ Offline'}
             </p>
           </div>
@@ -116,6 +146,73 @@ export default function ProfilePage() {
           <p className="text-white/60 text-xs font-semibold uppercase tracking-widest">Documents</p>
         </div>
         <p className="text-white/30 text-xs mt-2">Managed by EV Exec Operations</p>
+      </div>
+
+      {/* Completed Jobs */}
+      <div className="bg-[#0B1525] border border-white/8 rounded-2xl p-4 mb-4">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <ClipboardList size={14} className="text-[#d5a538]" />
+            <p className="text-white/60 text-xs font-semibold uppercase tracking-widest">Trip History</p>
+          </div>
+          <span className="text-white/30 text-xs">{completedJobs.length} jobs</span>
+        </div>
+
+        {/* Stats row */}
+        <div className="grid grid-cols-2 gap-3 mb-4">
+          <div className="bg-white/3 rounded-xl p-3">
+            <p className="text-white/30 text-[10px] uppercase tracking-wide">Total Trips</p>
+            <p className="text-white font-bold text-lg mt-0.5">{completedJobs.length}</p>
+          </div>
+          <div className="bg-white/3 rounded-xl p-3">
+            <p className="text-white/30 text-[10px] uppercase tracking-wide">Total Earned</p>
+            <p className="text-[#d5a538] font-bold text-lg mt-0.5">
+              £{totalEarnings.toFixed(2)}
+            </p>
+          </div>
+        </div>
+
+        {completedJobs.length === 0 ? (
+          <div className="py-6 text-center">
+            <Star size={24} className="mx-auto mb-2 text-white/15" />
+            <p className="text-white/30 text-xs">No completed trips yet</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {completedJobs.map((job) => {
+              const pickup = job.pickup_location ?? job.airport ?? '—'
+              const dropoff = job.dropoff_address ?? '—'
+              return (
+                <div
+                  key={job.id}
+                  className="bg-white/3 rounded-xl p-3"
+                >
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white text-xs font-semibold truncate">{job.customer_name}</p>
+                      <p className="text-white/30 text-[10px] mt-0.5">{formatDate(job.travel_date)}{job.travel_time ? ` · ${job.travel_time}` : ''}</p>
+                    </div>
+                    {job.quoted_price != null && (
+                      <span className="text-[#d5a538] font-bold text-sm flex-shrink-0">
+                        £{job.quoted_price.toFixed(2)}
+                      </span>
+                    )}
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-1.5 h-1.5 rounded-full bg-[#10b981] flex-shrink-0" />
+                      <p className="text-white/40 text-[10px] truncate">{pickup}</p>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <MapPin size={6} className="text-red-400 flex-shrink-0 ml-[1px]" />
+                      <p className="text-white/40 text-[10px] truncate">{dropoff}</p>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
       </div>
 
       {/* Settings */}
