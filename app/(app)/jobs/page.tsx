@@ -9,6 +9,7 @@ import { formatDate, formatTime } from '@/lib/format'
 import type { Booking } from '@/lib/types'
 
 type Tab = 'upcoming' | 'active' | 'completed'
+type DateFilter = 'all' | 'today' | 'tomorrow' | '7days'
 
 function BookingCard({ booking }: { booking: Booking }) {
   return (
@@ -62,6 +63,7 @@ function BookingCard({ booking }: { booking: Booking }) {
 
 export default function JobsPage() {
   const [tab, setTab] = useState<Tab>('upcoming')
+  const [dateFilter, setDateFilter] = useState<DateFilter>('all')
   const [bookings, setBookings] = useState<Booking[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -89,7 +91,21 @@ export default function JobsPage() {
   const active = bookings.filter((b) => ['en_route', 'arrived', 'active'].includes(b.status))
   const completed = bookings.filter((b) => ['completed', 'Completed', 'cancelled'].includes(b.status))
 
-  const currentList = tab === 'upcoming' ? upcoming : tab === 'active' ? active : completed
+  const applyDateFilter = (list: Booking[]) => {
+    const now = new Date()
+    const pad = (n: number) => String(n).padStart(2, '0')
+    const fmt = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+    const todayStr = fmt(now)
+    const tomorrowStr = fmt(new Date(now.getTime() + 86400000))
+    const in7Str = fmt(new Date(now.getTime() + 7 * 86400000))
+    if (dateFilter === 'today') return list.filter(b => b.travel_date === todayStr)
+    if (dateFilter === 'tomorrow') return list.filter(b => b.travel_date === tomorrowStr)
+    if (dateFilter === '7days') return list.filter(b => b.travel_date && b.travel_date >= todayStr && b.travel_date <= in7Str)
+    return list
+  }
+
+  const baseList = tab === 'upcoming' ? upcoming : tab === 'active' ? active : completed
+  const currentList = applyDateFilter(baseList)
 
   const today = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
 
@@ -98,6 +114,28 @@ export default function JobsPage() {
       <div className="mb-6">
         <h1 className="text-white font-bold text-xl">Board</h1>
         <p className="text-white/40 text-xs mt-1">{today}</p>
+      </div>
+
+      {/* Date filter pills */}
+      <div className="flex gap-2 mb-4 overflow-x-auto pb-1 no-scrollbar">
+        {([
+          { key: 'all' as DateFilter, label: 'All' },
+          { key: 'today' as DateFilter, label: 'Today' },
+          { key: 'tomorrow' as DateFilter, label: 'Tomorrow' },
+          { key: '7days' as DateFilter, label: '7 Days' },
+        ]).map(({ key, label }) => (
+          <button
+            key={key}
+            onClick={() => setDateFilter(key)}
+            className="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all"
+            style={dateFilter === key
+              ? { background: 'linear-gradient(135deg, #f1c56a, #d5a538 55%, #a97918)', color: '#020813', borderColor: 'transparent' }
+              : { background: 'transparent', color: 'rgba(255,255,255,0.4)', borderColor: 'rgba(255,255,255,0.1)' }
+            }
+          >
+            {label}
+          </button>
+        ))}
       </div>
 
       <div className="flex gap-1 bg-white/5 rounded-xl p-1 mb-5">
