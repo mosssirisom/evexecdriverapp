@@ -23,7 +23,7 @@ export default function HistoryPage() {
       .from('bookings')
       .select('*')
       .eq('assigned_driver_id', user.id)
-      .eq('status', 'completed')
+      .in('status', ['completed', 'Completed'])
       .order('travel_date', { ascending: false })
       .order('travel_time', { ascending: false })
 

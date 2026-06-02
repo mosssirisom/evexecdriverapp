@@ -2,12 +2,14 @@ export type BookingStatus =
   | 'pending'
   | 'accepted'
   | 'confirmed'
+  | 'Dispatched'
   | 'rejected'
   | 'cancelled'
   | 'en_route'
   | 'arrived'
   | 'active'
   | 'completed'
+  | 'Completed'
 
 export interface Booking {
   id: string

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
-import { Car, MapPin, Clock, ChevronRight, Bell, Briefcase, Star, AlertTriangle } from 'lucide-react'
+import { Car, ChevronRight, Bell, Briefcase, Star } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { BookingStatusBadge } from '@/components/badges'
 import { formatTime } from '@/lib/format'
@@ -11,7 +11,6 @@ import type { Booking, Driver } from '@/lib/types'
 export default function DashboardPage() {
   const [driver, setDriver] = useState<Driver | null>(null)
   const [bookings, setBookings] = useState<Booking[]>([])
-  const [isOnline, setIsOnline] = useState(false)
   const [loading, setLoading] = useState(true)
 
   const supabase = createClient()
@@ -26,14 +25,13 @@ export default function DashboardPage() {
         .from('bookings')
         .select('*')
         .eq('assigned_driver_id', user.id)
-        .in('status', ['accepted', 'confirmed', 'en_route', 'arrived', 'active'])
+        .in('status', ['accepted', 'confirmed', 'Dispatched', 'en_route', 'arrived', 'active'])
         .order('travel_date', { ascending: true })
         .order('travel_time', { ascending: true }),
     ])
 
     if (driverData) {
       setDriver(driverData)
-      setIsOnline(driverData.is_online)
     }
     if (bookingData) setBookings(bookingData)
     setLoading(false)
@@ -41,17 +39,10 @@ export default function DashboardPage() {
 
   useEffect(() => { loadData() }, [loadData])
 
-  const toggleOnline = async () => {
-    if (!driver) return
-    const newStatus = !isOnline
-    setIsOnline(newStatus)
-    await supabase.from('drivers').update({ is_online: newStatus }).eq('id', driver.id)
-  }
-
   const today = new Date().toISOString().split('T')[0]
   const todayBookings = bookings.filter((b) => b.travel_date === today)
   const activeBooking = bookings.find((b) => ['en_route', 'arrived', 'active'].includes(b.status))
-  const upcomingBookings = todayBookings.filter((b) => ['accepted', 'confirmed'].includes(b.status))
+  const upcomingBookings = todayBookings.filter((b) => ['accepted', 'confirmed', 'Dispatched'].includes(b.status))
   const completedToday = bookings.filter((b) => b.status === 'completed' && b.travel_date === today)
 
   const initials = driver?.full_name
@@ -96,46 +87,6 @@ export default function DashboardPage() {
             style={{ background: 'linear-gradient(135deg, #f1c56a, #d5a538 55%, #a97918)' }}
           >
             {initials}
-          </div>
-        </div>
-      </div>
-
-      {/* Online Toggle */}
-      <div
-        onClick={toggleOnline}
-        className="relative mb-5 rounded-2xl border cursor-pointer overflow-hidden transition-all duration-300 select-none"
-        style={{
-          background: isOnline
-            ? 'linear-gradient(135deg, rgba(16,185,129,0.15), rgba(16,185,129,0.05))'
-            : 'rgba(255,255,255,0.03)',
-          borderColor: isOnline ? 'rgba(16,185,129,0.3)' : 'rgba(255,255,255,0.08)',
-        }}
-      >
-        <div className="flex items-center justify-between p-5">
-          <div>
-            <p
-              className="text-xs uppercase tracking-widest font-semibold mb-1"
-              style={{ color: isOnline ? '#10b981' : 'rgba(255,255,255,0.3)' }}
-            >
-              {isOnline ? '● Online' : '○ Offline'}
-            </p>
-            <p className="text-white font-semibold text-base">
-              {isOnline ? 'Ready for jobs' : 'You are off duty'}
-            </p>
-            <p className="text-white/40 text-xs mt-0.5">
-              {isOnline ? 'Tap to go offline' : 'Tap to go online and receive jobs'}
-            </p>
-          </div>
-          <div
-            className="w-14 h-8 rounded-full flex items-center px-1 transition-all duration-300"
-            style={{
-              background: isOnline ? 'linear-gradient(135deg, #10b981, #059669)' : 'rgba(255,255,255,0.1)',
-            }}
-          >
-            <div
-              className="w-6 h-6 rounded-full bg-white shadow transition-transform duration-300"
-              style={{ transform: isOnline ? 'translateX(24px)' : 'translateX(0)' }}
-            />
           </div>
         </div>
       </div>

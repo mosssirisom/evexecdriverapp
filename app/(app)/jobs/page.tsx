@@ -75,7 +75,7 @@ export default function JobsPage() {
       .from('bookings')
       .select('*')
       .eq('assigned_driver_id', user.id)
-      .in('status', ['accepted', 'confirmed', 'en_route', 'arrived', 'active', 'completed', 'cancelled'])
+      .in('status', ['accepted', 'confirmed', 'Dispatched', 'en_route', 'arrived', 'active', 'completed', 'Completed', 'cancelled'])
       .order('travel_date', { ascending: false })
       .order('travel_time', { ascending: true })
 
@@ -85,9 +85,9 @@ export default function JobsPage() {
 
   useEffect(() => { loadBookings() }, [loadBookings])
 
-  const upcoming = bookings.filter((b) => ['accepted', 'confirmed'].includes(b.status))
+  const upcoming = bookings.filter((b) => ['accepted', 'confirmed', 'Dispatched'].includes(b.status))
   const active = bookings.filter((b) => ['en_route', 'arrived', 'active'].includes(b.status))
-  const completed = bookings.filter((b) => ['completed', 'cancelled'].includes(b.status))
+  const completed = bookings.filter((b) => ['completed', 'Completed', 'cancelled'].includes(b.status))
 
   const currentList = tab === 'upcoming' ? upcoming : tab === 'active' ? active : completed
 
