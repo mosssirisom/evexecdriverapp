@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { BookingStatusBadge } from '@/components/badges'
+import { JobMap } from '@/components/job-map'
 import { formatDate, formatTime } from '@/lib/format'
 import { OPS_PHONE } from '@/lib/config'
 import type { Booking, BookingStatus } from '@/lib/types'
@@ -267,6 +268,11 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
             )}
           </div>
         </div>
+
+        {/* Map */}
+        {pickupAddress !== '—' && dropoffAddress !== '—' && (
+          <JobMap pickup={pickupAddress} dropoff={dropoffAddress} />
+        )}
 
         {/* Return journey */}
         {booking.return_journey && (

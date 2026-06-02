@@ -129,6 +129,45 @@ export default function HistoryPage() {
             </div>
           </div>
 
+          {/* Weekly breakdown */}
+          {monthBookings.length > 0 && (() => {
+            const weeks: { label: string; trips: number; earn: number }[] = []
+            const daysInMon = new Date(year, month + 1, 0).getDate()
+            for (let w = 0; w < 5; w++) {
+              const startD = w * 7 + 1
+              if (startD > daysInMon) break
+              const endD = Math.min(startD + 6, daysInMon)
+              const wkBooks = monthBookings.filter(b => {
+                const d = b.travel_date ? parseInt(b.travel_date.split('-')[2]) : 0
+                return d >= startD && d <= endD
+              })
+              if (wkBooks.length === 0 && weeks.length === 0) return null
+              weeks.push({ label: `${startD}–${endD} ${MONTHS[month].slice(0,3)}`, trips: wkBooks.length, earn: wkBooks.reduce((s, b) => s + (b.quoted_price ?? 0), 0) })
+            }
+            const maxEarn = Math.max(...weeks.map(w => w.earn), 1)
+            return (
+              <div className="bg-[#0B1525] border border-white/8 rounded-2xl p-4 mb-4">
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-white/25 mb-3">Weekly Breakdown</p>
+                <div className="space-y-2">
+                  {weeks.map(w => (
+                    <div key={w.label} className="flex items-center gap-3">
+                      <span className="text-white/30 text-[10px] w-20 flex-shrink-0">{w.label}</span>
+                      <div className="flex-1 h-1.5 rounded-full bg-white/5 overflow-hidden">
+                        <div
+                          className="h-full rounded-full"
+                          style={{ width: `${(w.earn / maxEarn) * 100}%`, background: 'linear-gradient(90deg, #f1c56a, #d5a538)' }}
+                        />
+                      </div>
+                      <span className="text-[#d5a538] text-xs font-semibold w-12 text-right flex-shrink-0">
+                        {w.earn > 0 ? `£${w.earn.toFixed(0)}` : `${w.trips} trips`}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )
+          })()}
+
           {/* Export */}
           {monthBookings.length > 0 && (
             <button

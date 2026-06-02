@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
-import { ChevronLeft, ChevronRight, Car } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Car, Ban } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { formatTime } from '@/lib/format'
 import type { Booking } from '@/lib/types'
@@ -16,8 +16,10 @@ export default function CalendarPage() {
   const [year, setYear] = useState(today.getFullYear())
   const [month, setMonth] = useState(today.getMonth())
   const [bookings, setBookings] = useState<Booking[]>([])
+  const [unavailableDates, setUnavailableDates] = useState<Set<string>>(new Set())
   const [selectedDay, setSelectedDay] = useState<number | null>(today.getDate())
   const [loading, setLoading] = useState(true)
+  const [toggling, setToggling] = useState(false)
 
   const supabase = createClient()
 
@@ -30,15 +32,26 @@ export default function CalendarPage() {
     const lastDate = new Date(year, month + 1, 0).getDate()
     const lastDay = `${year}-${String(month + 1).padStart(2, '0')}-${String(lastDate).padStart(2, '0')}`
 
-    const { data } = await supabase
-      .from('bookings')
-      .select('*')
-      .eq('assigned_driver_id', user.id)
-      .gte('travel_date', firstDay)
-      .lte('travel_date', lastDay)
-      .order('travel_time', { ascending: true })
+    const [bookingsRes, unavailRes] = await Promise.all([
+      supabase
+        .from('bookings')
+        .select('*')
+        .eq('assigned_driver_id', user.id)
+        .gte('travel_date', firstDay)
+        .lte('travel_date', lastDay)
+        .order('travel_time', { ascending: true }),
+      supabase
+        .from('driver_unavailable_dates')
+        .select('date')
+        .eq('driver_id', user.id)
+        .gte('date', firstDay)
+        .lte('date', lastDay),
+    ])
 
-    if (data) setBookings(data)
+    if (bookingsRes.data) setBookings(bookingsRes.data)
+    if (unavailRes.data) {
+      setUnavailableDates(new Set(unavailRes.data.map((r) => r.date)))
+    }
     setLoading(false)
   }, [supabase, year, month])
 
@@ -54,6 +67,28 @@ export default function CalendarPage() {
     if (month === 11) { setMonth(0); setYear(y => y + 1) }
     else setMonth(m => m + 1)
     setSelectedDay(null)
+  }
+
+  const toggleAvailability = async (dateStr: string) => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user || toggling) return
+    setToggling(true)
+
+    const isUnavailable = unavailableDates.has(dateStr)
+    if (isUnavailable) {
+      await supabase
+        .from('driver_unavailable_dates')
+        .delete()
+        .eq('driver_id', user.id)
+        .eq('date', dateStr)
+      setUnavailableDates(prev => { const s = new Set(prev); s.delete(dateStr); return s })
+    } else {
+      await supabase
+        .from('driver_unavailable_dates')
+        .insert({ driver_id: user.id, date: dateStr })
+      setUnavailableDates(prev => new Set([...prev, dateStr]))
+    }
+    setToggling(false)
   }
 
   const daysInMonth = new Date(year, month + 1, 0).getDate()
@@ -75,6 +110,8 @@ export default function CalendarPage() {
     : null
 
   const selectedBookings = selectedDateStr ? (bookingsByDay[selectedDateStr] ?? []) : []
+  const selectedIsUnavailable = selectedDateStr ? unavailableDates.has(selectedDateStr) : false
+  const selectedIsPast = selectedDateStr ? selectedDateStr < todayStr : false
 
   const totalMonthJobs = bookings.length
   const totalMonthEarnings = bookings.reduce((s, b) => s + (b.quoted_price ?? 0), 0)
@@ -87,17 +124,11 @@ export default function CalendarPage() {
 
       {/* Month navigation */}
       <div className="flex items-center justify-between mb-4">
-        <button
-          onClick={prevMonth}
-          className="w-9 h-9 rounded-xl bg-white/5 flex items-center justify-center active:opacity-70"
-        >
+        <button onClick={prevMonth} className="w-9 h-9 rounded-xl bg-white/5 flex items-center justify-center active:opacity-70">
           <ChevronLeft size={18} className="text-white/60" />
         </button>
         <span className="text-white font-semibold text-base">{MONTHS[month]} {year}</span>
-        <button
-          onClick={nextMonth}
-          className="w-9 h-9 rounded-xl bg-white/5 flex items-center justify-center active:opacity-70"
-        >
+        <button onClick={nextMonth} className="w-9 h-9 rounded-xl bg-white/5 flex items-center justify-center active:opacity-70">
           <ChevronRight size={18} className="text-white/60" />
         </button>
       </div>
@@ -135,6 +166,7 @@ export default function CalendarPage() {
           const isToday = dateStr === todayStr
           const isSelected = selectedDay === day
           const hasJobs = dayBookings.length > 0
+          const isUnavailable = unavailableDates.has(dateStr)
 
           return (
             <button
@@ -144,6 +176,8 @@ export default function CalendarPage() {
               style={{
                 background: isSelected
                   ? 'linear-gradient(135deg, #f1c56a, #d5a538 55%, #a97918)'
+                  : isUnavailable
+                  ? 'rgba(239,68,68,0.12)'
                   : isToday
                   ? 'rgba(213,165,56,0.18)'
                   : hasJobs
@@ -152,7 +186,10 @@ export default function CalendarPage() {
               }}
             >
               <span className={`text-sm font-semibold leading-none ${
-                isSelected ? 'text-[#020813]' : isToday ? 'text-[#d5a538]' : 'text-white/70'
+                isSelected ? 'text-[#020813]'
+                : isUnavailable ? 'text-red-400/70'
+                : isToday ? 'text-[#d5a538]'
+                : 'text-white/70'
               }`}>
                 {day}
               </span>
@@ -166,6 +203,9 @@ export default function CalendarPage() {
                     />
                   ))}
                 </div>
+              )}
+              {isUnavailable && !hasJobs && !isSelected && (
+                <div className="w-1.5 h-0.5 rounded-full bg-red-400/50 mt-0.5" />
               )}
             </button>
           )
@@ -184,6 +224,22 @@ export default function CalendarPage() {
             </span>
           </div>
 
+          {/* Availability toggle — only for future/today days with no bookings */}
+          {!loading && !selectedIsPast && selectedBookings.length === 0 && (
+            <button
+              onClick={() => toggleAvailability(selectedDateStr)}
+              disabled={toggling}
+              className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold mb-3 border transition-opacity disabled:opacity-50 active:opacity-70 ${
+                selectedIsUnavailable
+                  ? 'border-red-500/30 text-red-400 bg-red-500/8'
+                  : 'border-white/10 text-white/40 bg-white/3'
+              }`}
+            >
+              <Ban size={14} />
+              {selectedIsUnavailable ? 'Mark as available' : 'Mark as unavailable'}
+            </button>
+          )}
+
           {loading ? (
             <div className="flex items-center justify-center py-8">
               <div className="w-6 h-6 rounded-full border-2 border-[#d5a538] border-t-transparent animate-spin" />
@@ -191,7 +247,9 @@ export default function CalendarPage() {
           ) : selectedBookings.length === 0 ? (
             <div className="bg-[#0B1525] border border-white/8 rounded-2xl p-8 text-center">
               <Car size={24} className="mx-auto mb-2 text-white/20" />
-              <p className="text-white/30 text-sm">No jobs this day</p>
+              <p className="text-white/30 text-sm">
+                {selectedIsUnavailable ? 'Marked as unavailable' : 'No jobs this day'}
+              </p>
             </div>
           ) : (
             <div className="space-y-3">

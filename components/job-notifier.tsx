@@ -2,7 +2,37 @@
 
 import { useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { VAPID_PUBLIC_KEY } from '@/lib/config'
 import { useToast } from './toast'
+
+function urlBase64ToUint8Array(base64String: string): Uint8Array {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
+  const rawData = atob(base64)
+  return Uint8Array.from([...rawData].map((c) => c.charCodeAt(0)))
+}
+
+async function registerPush(userId: string) {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return
+  try {
+    const reg = await navigator.serviceWorker.ready
+    const existing = await reg.pushManager.getSubscription()
+    const sub = existing ?? await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) as unknown as ArrayBuffer,
+    })
+    const json = sub.toJSON()
+    if (!json.endpoint || !json.keys?.p256dh || !json.keys?.auth) return
+
+    const supabase = createClient()
+    await supabase.from('push_subscriptions').upsert({
+      driver_id: userId,
+      endpoint: json.endpoint,
+      p256dh: json.keys.p256dh,
+      auth: json.keys.auth,
+    }, { onConflict: 'driver_id,endpoint', ignoreDuplicates: true })
+  } catch { /* permission denied or unsupported */ }
+}
 
 export function JobNotifier() {
   const supabase = createClient()
@@ -16,10 +46,14 @@ export function JobNotifier() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
-      // Ask for browser notification permission once
+      // Ask for browser notification permission once, then register push
       if (!askedRef.current && 'Notification' in window && Notification.permission === 'default') {
         askedRef.current = true
-        await Notification.requestPermission()
+        const perm = await Notification.requestPermission()
+        if (perm === 'granted') await registerPush(user.id)
+      } else if (!askedRef.current && Notification.permission === 'granted') {
+        askedRef.current = true
+        await registerPush(user.id)
       }
 
       channel = supabase
@@ -39,7 +73,6 @@ export function JobNotifier() {
                 body: `${b.customer_name} · ${pickup}`,
                 icon: '/logo.png',
                 tag: 'new-job',
-                renotify: true,
               })
             }
           }
