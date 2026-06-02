@@ -3,40 +3,35 @@
 import { useState, use, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  ArrowLeft,
-  Phone,
-  Navigation2,
-  Clock,
-  User,
-  FileText,
-  CheckCircle2,
-  AlertOctagon,
-  ChevronRight,
-  Loader2,
-  Users,
-  Luggage,
-  PlaneLanding,
+  ArrowLeft, Phone, Navigation2, User, FileText, CheckCircle2,
+  AlertOctagon, ChevronRight, Loader2, Users, Luggage, PlaneLanding, CreditCard,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { BookingStatusBadge } from '@/components/badges'
 import { formatDate, formatTime } from '@/lib/format'
+import { OPS_PHONE } from '@/lib/config'
 import type { Booking, BookingStatus } from '@/lib/types'
 
 type StatusStep = { from: BookingStatus; to: BookingStatus; label: string }
 
 const STATUS_FLOW: StatusStep[] = [
-  { from: 'accepted', to: 'en_route', label: 'Start — Head to Pickup' },
-  { from: 'confirmed', to: 'en_route', label: 'Start — Head to Pickup' },
-  { from: 'en_route', to: 'arrived', label: 'Arrived at Pickup' },
-  { from: 'arrived', to: 'active', label: 'Passenger On Board' },
-  { from: 'active', to: 'completed', label: 'Complete Job' },
+  { from: 'accepted',   to: 'en_route',  label: 'Start — Head to Pickup' },
+  { from: 'confirmed',  to: 'en_route',  label: 'Start — Head to Pickup' },
+  { from: 'Dispatched', to: 'en_route',  label: 'Start — Head to Pickup' },
+  { from: 'en_route',   to: 'arrived',   label: 'Arrived at Pickup' },
+  { from: 'arrived',    to: 'active',    label: 'Passenger On Board' },
+  { from: 'active',     to: 'completed', label: 'Complete Job' },
 ]
 
 const PROGRESS_STEPS: BookingStatus[] = ['en_route', 'arrived', 'active', 'completed']
+const STEP_LABELS: Record<string, string> = { en_route: 'En Route', arrived: 'Arrived', active: 'On Board' }
 
-function openMaps(address: string) {
-  const encoded = encodeURIComponent(address)
-  window.open(`https://maps.google.com/?q=${encoded}`, '_blank')
+function navigateTo(destination: string, from?: string) {
+  const dest = encodeURIComponent(destination)
+  const url = from
+    ? `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(from)}&destination=${dest}&travelmode=driving`
+    : `https://www.google.com/maps/dir/?api=1&destination=${dest}&travelmode=driving`
+  window.open(url, '_blank')
 }
 
 export default function JobDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -47,14 +42,28 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
   const [booking, setBooking] = useState<Booking | null>(null)
   const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState(false)
+  const [driverNote, setDriverNote] = useState('')
+  const [savingNote, setSavingNote] = useState(false)
+  const [noteSaved, setNoteSaved] = useState(false)
 
   const loadBooking = useCallback(async () => {
     const { data } = await supabase.from('bookings').select('*').eq('id', id).single()
-    if (data) setBooking(data)
+    if (data) { setBooking(data); setDriverNote(data.driver_notes ?? '') }
     setLoading(false)
   }, [id, supabase])
 
   useEffect(() => { loadBooking() }, [loadBooking])
+
+  // Live updates when operator edits the booking
+  useEffect(() => {
+    const channel = supabase
+      .channel(`booking-${id}`)
+      .on('postgres_changes', {
+        event: 'UPDATE', schema: 'public', table: 'bookings', filter: `id=eq.${id}`,
+      }, (payload) => { setBooking(payload.new as Booking) })
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [id, supabase])
 
   const handleStatusUpdate = async (nextStatus: BookingStatus) => {
     if (!booking || updating) return
@@ -63,10 +72,17 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
       .from('bookings')
       .update({ status: nextStatus, updated_at: new Date().toISOString() })
       .eq('id', booking.id)
-    if (!error) {
-      setBooking({ ...booking, status: nextStatus })
-    }
+    if (!error) setBooking({ ...booking, status: nextStatus })
     setUpdating(false)
+  }
+
+  const saveNote = async () => {
+    if (!booking) return
+    setSavingNote(true)
+    await supabase.from('bookings').update({ driver_notes: driverNote }).eq('id', booking.id)
+    setSavingNote(false)
+    setNoteSaved(true)
+    setTimeout(() => setNoteSaved(false), 2500)
   }
 
   if (loading) {
@@ -85,90 +101,84 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
     )
   }
 
+  const normalizedStatus = booking.status === 'Completed' ? 'completed' : booking.status
   const nextStep = STATUS_FLOW.find((s) => s.from === booking.status)
-  const isDone = booking.status === 'completed' || booking.status === 'cancelled' || booking.status === 'rejected'
-  const progressIndex = PROGRESS_STEPS.indexOf(booking.status)
-  const showProgress = ['en_route', 'arrived', 'active', 'completed'].includes(booking.status)
+  const isDone = ['completed', 'Completed', 'cancelled', 'rejected'].includes(booking.status)
+  const progressIndex = PROGRESS_STEPS.indexOf(normalizedStatus as BookingStatus)
+  const showProgress = ['en_route', 'arrived', 'active', 'completed', 'Completed'].includes(booking.status)
 
   const pickupAddress = booking.pickup_location ?? booking.airport ?? '—'
   const dropoffAddress = booking.dropoff_address ?? '—'
   const bookingRef = booking.id.slice(0, 8).toUpperCase()
+  const noteChanged = driverNote !== (booking.driver_notes ?? '')
+  const showNotes = booking.operator_note || !isDone || (isDone && booking.driver_notes)
 
   return (
-    <div className="min-h-screen bg-[#020813] pb-6">
+    <div className="min-h-screen bg-[#020813] pb-8">
       {/* Header */}
       <div className="px-4 pt-12 pb-4 flex items-center gap-3 border-b border-white/5">
         <button
           onClick={() => router.back()}
-          className="w-9 h-9 rounded-xl bg-white/5 flex items-center justify-center"
+          className="w-9 h-9 rounded-xl bg-white/5 flex items-center justify-center active:opacity-70"
         >
           <ArrowLeft size={18} className="text-white/70" />
         </button>
         <div className="flex-1">
           <h1 className="text-white font-semibold text-base">{bookingRef}</h1>
-          <div className="flex items-center gap-2 mt-0.5">
-            <BookingStatusBadge status={booking.status} />
-          </div>
+          <div className="mt-0.5"><BookingStatusBadge status={booking.status} /></div>
         </div>
       </div>
 
-      <div className="px-4 pt-4 space-y-4">
-        {/* Progress Steps */}
+      <div className="px-4 pt-4 space-y-3">
+
+        {/* Progress stepper */}
         {showProgress && (
           <div className="bg-[#0B1525] border border-white/8 rounded-2xl p-4">
             <div className="flex items-center justify-between relative">
               {PROGRESS_STEPS.slice(0, -1).map((step, i) => {
                 const done = i < progressIndex
                 const current = i === progressIndex
-                const stepLabels: Record<string, string> = {
-                  en_route: 'En Route',
-                  arrived: 'Arrived',
-                  active: 'On Board',
-                }
                 return (
                   <div key={step} className="flex flex-col items-center gap-1 relative z-10">
                     <div
-                      className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold"
+                      className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold"
                       style={{
-                        background:
-                          done || current
-                            ? 'linear-gradient(135deg, #f1c56a, #d5a538)'
-                            : 'rgba(255,255,255,0.1)',
-                        color: done || current ? '#020813' : 'rgba(255,255,255,0.3)',
+                        background: done || current ? 'linear-gradient(135deg, #f1c56a, #d5a538)' : 'rgba(255,255,255,0.08)',
+                        color: done || current ? '#020813' : 'rgba(255,255,255,0.25)',
                       }}
                     >
                       {done ? '✓' : i + 1}
                     </div>
-                    <span className="text-[8px] text-white/40 text-center" style={{ maxWidth: 52 }}>
-                      {stepLabels[step] ?? step}
+                    <span className="text-[9px] text-white/35 text-center" style={{ maxWidth: 56 }}>
+                      {STEP_LABELS[step]}
                     </span>
                   </div>
                 )
               })}
-              <div className="absolute top-3 left-3 right-3 h-px bg-white/10" />
+              <div className="absolute top-3.5 left-4 right-4 h-px bg-white/8" />
             </div>
           </div>
         )}
 
-        {/* Customer */}
+        {/* Passenger */}
         <div className="bg-[#0B1525] border border-white/8 rounded-2xl p-4">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-white/30 mb-3">Passenger</p>
-          <div className="flex items-center justify-between">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-white/25 mb-3">Passenger</p>
+          <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-white/8 flex items-center justify-center">
-                <User size={18} className="text-white/50" />
+              <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center flex-shrink-0">
+                <User size={18} className="text-white/35" />
               </div>
               <div>
-                <p className="text-white font-medium text-sm">{booking.customer_name}</p>
+                <p className="text-white font-semibold text-sm">{booking.customer_name}</p>
                 {booking.customer_email && (
-                  <p className="text-white/40 text-xs mt-0.5">{booking.customer_email}</p>
+                  <p className="text-white/30 text-xs mt-0.5 truncate max-w-[180px]">{booking.customer_email}</p>
                 )}
               </div>
             </div>
             {booking.customer_phone && (
               <a
                 href={`tel:${booking.customer_phone}`}
-                className="w-10 h-10 rounded-xl flex items-center justify-center border border-white/10 bg-white/5"
+                className="w-10 h-10 rounded-xl flex items-center justify-center border border-white/10 bg-white/5 flex-shrink-0 active:opacity-70"
               >
                 <Phone size={16} className="text-[#d5a538]" />
               </a>
@@ -178,33 +188,32 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
 
         {/* Route */}
         <div className="bg-[#0B1525] border border-white/8 rounded-2xl p-4">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-white/30 mb-3">Route</p>
-          <div className="space-y-3">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-white/25 mb-4">Route</p>
+          <div className="space-y-4">
+
             {/* Pickup */}
             <div className="flex items-start gap-3">
               <div className="flex flex-col items-center gap-1 flex-shrink-0 mt-0.5">
                 <div className="w-3 h-3 rounded-full bg-[#10b981]" />
-                <div className="w-px h-4 bg-white/10" />
+                <div className="w-px h-5 bg-white/10" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-white/40 text-[10px] uppercase tracking-wider mb-0.5">
-                  Pickup
-                  {booking.travel_time ? ` · ${formatTime(booking.travel_time)}` : ''}
-                  {booking.travel_date ? ` · ${formatDate(booking.travel_date)}` : ''}
+                <p className="text-white/30 text-[10px] uppercase tracking-wider mb-0.5">
+                  Pickup{booking.travel_time ? ` · ${formatTime(booking.travel_time)}` : ''}{booking.travel_date ? ` · ${formatDate(booking.travel_date)}` : ''}
                 </p>
-                <p className="text-white text-sm font-medium">{pickupAddress}</p>
+                <p className="text-white text-sm font-medium leading-snug">{pickupAddress}</p>
                 {booking.flight_number && (
-                  <p className="text-white/40 text-xs mt-0.5 flex items-center gap-1">
+                  <p className="text-white/30 text-xs mt-1 flex items-center gap-1">
                     <PlaneLanding size={10} /> Flight {booking.flight_number}
                   </p>
                 )}
-                <button
-                  onClick={() => openMaps(pickupAddress)}
-                  className="mt-2 text-[10px] text-[#d5a538] font-medium flex items-center gap-1"
-                >
-                  <Navigation2 size={10} /> Navigate
-                </button>
               </div>
+              <button
+                onClick={() => navigateTo(pickupAddress)}
+                className="flex items-center gap-1.5 text-[#d5a538] text-xs font-semibold flex-shrink-0 bg-[#d5a538]/10 px-3 py-2 rounded-xl active:opacity-70"
+              >
+                <Navigation2 size={12} /> Go
+              </button>
             </div>
 
             {/* Dropoff */}
@@ -213,28 +222,42 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
                 <div className="w-3 h-3 rounded-full bg-red-400" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-white/40 text-[10px] uppercase tracking-wider mb-0.5">Drop-off</p>
-                <p className="text-white text-sm font-medium">{dropoffAddress}</p>
-                <button
-                  onClick={() => openMaps(dropoffAddress)}
-                  className="mt-2 text-[10px] text-[#d5a538] font-medium flex items-center gap-1"
-                >
-                  <Navigation2 size={10} /> Navigate
-                </button>
+                <p className="text-white/30 text-[10px] uppercase tracking-wider mb-0.5">Drop-off</p>
+                <p className="text-white text-sm font-medium leading-snug">{dropoffAddress}</p>
               </div>
+              <button
+                onClick={() => navigateTo(dropoffAddress, pickupAddress)}
+                className="flex items-center gap-1.5 text-[#d5a538] text-xs font-semibold flex-shrink-0 bg-[#d5a538]/10 px-3 py-2 rounded-xl active:opacity-70"
+              >
+                <Navigation2 size={12} /> Go
+              </button>
             </div>
           </div>
 
-          {/* Meta */}
-          <div className="flex items-center gap-4 mt-4 pt-4 border-t border-white/5 flex-wrap">
+          {/* Meta row */}
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 mt-4 pt-3 border-t border-white/5">
             {booking.passengers > 0 && (
-              <span className="text-white/40 text-xs flex items-center gap-1">
-                <Users size={12} /> {booking.passengers} pax
+              <span className="text-white/35 text-xs flex items-center gap-1">
+                <Users size={11} /> {booking.passengers} pax
               </span>
             )}
             {booking.luggage && (
-              <span className="text-white/40 text-xs flex items-center gap-1">
-                <Luggage size={12} /> {booking.luggage}
+              <span className="text-white/35 text-xs flex items-center gap-1">
+                <Luggage size={11} /> {booking.luggage}
+              </span>
+            )}
+            {booking.payment_method && (
+              <span className="text-white/35 text-xs flex items-center gap-1">
+                <CreditCard size={11} /> {booking.payment_method}
+              </span>
+            )}
+            {booking.payment_status && (
+              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                booking.payment_status === 'paid'
+                  ? 'bg-green-500/15 text-green-400'
+                  : 'bg-amber-500/15 text-amber-400'
+              }`}>
+                {booking.payment_status}
               </span>
             )}
             {booking.quoted_price != null && (
@@ -245,30 +268,60 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
           </div>
         </div>
 
-        {/* Return journey indicator */}
+        {/* Return journey */}
         {booking.return_journey && (
           <div className="bg-[#0B1525] border border-white/8 rounded-xl px-4 py-3">
-            <p className="text-white/50 text-xs">↩ Return journey included</p>
+            <p className="text-white/40 text-xs">↩ Return journey included</p>
           </div>
         )}
 
         {/* Notes */}
-        {(booking.operator_note || booking.driver_notes) && (
+        {showNotes && (
           <div className="bg-[#0B1525] border border-white/8 rounded-2xl p-4">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-white/30 mb-2 flex items-center gap-1.5">
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-white/25 mb-3 flex items-center gap-1.5">
               <FileText size={11} /> Notes
             </p>
+
             {booking.operator_note && (
-              <p className="text-white/70 text-sm leading-relaxed">{booking.operator_note}</p>
+              <div className={!isDone ? 'mb-4' : ''}>
+                <p className="text-[10px] text-white/25 mb-1 uppercase tracking-wide">From operator</p>
+                <p className="text-white/70 text-sm leading-relaxed">{booking.operator_note}</p>
+              </div>
             )}
-            {booking.driver_notes && (
-              <p className="text-white/50 text-xs leading-relaxed mt-1">{booking.driver_notes}</p>
+
+            {!isDone && (
+              <div>
+                <p className="text-[10px] text-white/25 mb-1.5 uppercase tracking-wide">Your notes</p>
+                <textarea
+                  value={driverNote}
+                  onChange={(e) => setDriverNote(e.target.value)}
+                  placeholder="Add a note about this job…"
+                  rows={2}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white/80 text-sm placeholder-white/20 focus:outline-none focus:border-[#d5a538]/40 resize-none"
+                />
+                {noteChanged && (
+                  <button
+                    onClick={saveNote}
+                    disabled={savingNote}
+                    className="mt-2 w-full py-2 rounded-lg text-xs font-semibold text-[#d5a538] border border-[#d5a538]/30 bg-[#d5a538]/8 disabled:opacity-50"
+                  >
+                    {noteSaved ? '✓ Saved' : savingNote ? 'Saving…' : 'Save note'}
+                  </button>
+                )}
+              </div>
+            )}
+
+            {isDone && booking.driver_notes && (
+              <div>
+                <p className="text-[10px] text-white/25 mb-1 uppercase tracking-wide">Your notes</p>
+                <p className="text-white/50 text-sm leading-relaxed">{booking.driver_notes}</p>
+              </div>
             )}
           </div>
         )}
 
-        {/* Completed Banner */}
-        {booking.status === 'completed' && (
+        {/* Completed banner */}
+        {(booking.status === 'completed' || booking.status === 'Completed') && (
           <div className="bg-green-500/10 border border-green-500/25 rounded-2xl p-5 text-center">
             <CheckCircle2 size={28} className="mx-auto mb-2 text-green-400" />
             <p className="text-green-400 font-semibold">Job Completed</p>
@@ -278,29 +331,40 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
           </div>
         )}
 
-        {/* Action Button */}
+        {/* Primary action */}
         {nextStep && (
           <button
             onClick={() => handleStatusUpdate(nextStep.to)}
             disabled={updating}
-            className="w-full py-4 rounded-2xl font-bold text-[#020813] text-base flex items-center justify-center gap-2 shadow-lg disabled:opacity-60"
+            className="w-full py-4 rounded-2xl font-bold text-[#020813] text-base flex items-center justify-center gap-2 shadow-lg disabled:opacity-60 active:opacity-80"
             style={{ background: 'linear-gradient(135deg, #f1c56a, #d5a538 55%, #a97918)' }}
           >
-            {updating ? <Loader2 size={18} className="animate-spin" /> : null}
+            {updating
+              ? <Loader2 size={18} className="animate-spin" />
+              : <ChevronRight size={18} />
+            }
             {nextStep.label}
-            {!updating && <ChevronRight size={18} />}
           </button>
         )}
 
-        {/* SOS */}
-        {!isDone && (
+        {/* Dispatch + SOS */}
+        <div className={`grid gap-3 ${!isDone ? 'grid-cols-2' : 'grid-cols-1'}`}>
           <a
-            href="tel:999"
-            className="w-full py-3 rounded-xl font-semibold text-red-400 text-sm flex items-center justify-center gap-2 bg-red-500/10 border border-red-500/20"
+            href={`tel:${OPS_PHONE}`}
+            className="py-3 rounded-xl font-semibold text-[#d5a538] text-sm flex items-center justify-center gap-2 border border-[#d5a538]/25 bg-[#d5a538]/8 active:opacity-70"
           >
-            <AlertOctagon size={15} /> SOS
+            <Phone size={14} /> Call Dispatch
           </a>
-        )}
+          {!isDone && (
+            <a
+              href="tel:999"
+              className="py-3 rounded-xl font-semibold text-red-400 text-sm flex items-center justify-center gap-2 bg-red-500/10 border border-red-500/20 active:opacity-70"
+            >
+              <AlertOctagon size={14} /> SOS 999
+            </a>
+          )}
+        </div>
+
       </div>
     </div>
   )

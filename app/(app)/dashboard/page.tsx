@@ -39,6 +39,23 @@ export default function DashboardPage() {
 
   useEffect(() => { loadData() }, [loadData])
 
+  // Live updates when operator assigns or changes bookings
+  useEffect(() => {
+    let channel: ReturnType<typeof supabase.channel> | null = null
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return
+      channel = supabase
+        .channel('dashboard-live')
+        .on('postgres_changes', {
+          event: '*', schema: 'public', table: 'bookings',
+          filter: `assigned_driver_id=eq.${user.id}`,
+        }, () => loadData())
+        .subscribe()
+    })
+    return () => { if (channel) supabase.removeChannel(channel) }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const today = new Date().toISOString().split('T')[0]
   const todayBookings = bookings.filter((b) => b.travel_date === today)
   const activeBooking = bookings.find((b) => ['en_route', 'arrived', 'active'].includes(b.status))
