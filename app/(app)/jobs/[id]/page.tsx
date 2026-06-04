@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, use, useEffect, useCallback } from 'react'
+import { useState, use, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   ArrowLeft, Phone, Navigation2, User, FileText, CheckCircle2,
@@ -27,6 +27,95 @@ const STATUS_FLOW: StatusStep[] = [
 const PROGRESS_STEPS: BookingStatus[] = ['en_route', 'arrived', 'active', 'completed']
 const STEP_LABELS: Record<string, string> = { en_route: 'En Route', arrived: 'Arrived', active: 'On Board' }
 
+function SwipeToConfirm({ label, onConfirm, loading }: { label: string; onConfirm: () => void; loading: boolean }) {
+  const [dragX, setDragX] = useState(0)
+  const [dragging, setDragging] = useState(false)
+  const startXRef = useRef(0)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const THUMB = 52
+
+  const maxDrag = () => Math.max(0, (containerRef.current?.offsetWidth ?? 320) - THUMB - 8)
+
+  const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (loading) return
+    e.currentTarget.setPointerCapture(e.pointerId)
+    startXRef.current = e.clientX - dragX
+    setDragging(true)
+  }
+
+  const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!dragging) return
+    setDragX(Math.max(0, Math.min(maxDrag(), e.clientX - startXRef.current)))
+  }
+
+  const onPointerUp = () => {
+    if (!dragging) return
+    setDragging(false)
+    const max = maxDrag()
+    if (dragX >= max * 0.78) {
+      setDragX(max)
+      onConfirm()
+    } else {
+      setDragX(0)
+    }
+  }
+
+  useEffect(() => { if (!loading) setDragX(0) }, [loading])
+
+  const progress = maxDrag() > 0 ? dragX / maxDrag() : 0
+
+  return (
+    <div
+      ref={containerRef}
+      className="relative w-full h-16 rounded-2xl select-none overflow-hidden"
+      style={{ background: 'rgba(213,165,56,0.10)', border: '1px solid rgba(213,165,56,0.25)' }}
+    >
+      {/* Fill */}
+      <div
+        className="absolute inset-y-0 left-0 rounded-2xl"
+        style={{
+          width: `${Math.min(100, (dragX + THUMB + 4) / (containerRef.current?.offsetWidth ?? 320) * 100)}%`,
+          background: `linear-gradient(90deg, rgba(213,165,56,0.22) 0%, rgba(213,165,56,${0.06 + progress * 0.16}) 100%)`,
+          transition: dragging ? 'none' : 'width 0.2s ease',
+        }}
+      />
+      {/* Ghost chevrons */}
+      <div className="absolute inset-0 flex items-center justify-end pr-4 pointer-events-none gap-0.5">
+        {[0.55, 0.30, 0.12].map((op, i) => (
+          <ChevronRight key={i} size={13} style={{ color: `rgba(213,165,56,${op * (1 - progress * 0.9)})` }} />
+        ))}
+      </div>
+      {/* Label */}
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none pl-14">
+        <span className="text-sm font-bold" style={{ color: `rgba(255,255,255,${0.45 + progress * 0.4})` }}>
+          {label}
+        </span>
+      </div>
+      {/* Thumb */}
+      <div
+        className="absolute top-2 rounded-xl flex items-center justify-center touch-none cursor-grab active:cursor-grabbing"
+        style={{
+          left: `${dragX + 4}px`,
+          width: THUMB,
+          bottom: 8,
+          background: loading ? 'rgba(213,165,56,0.55)' : 'linear-gradient(135deg, #f1c56a, #d5a538 55%, #a97918)',
+          transition: dragging ? 'none' : 'left 0.2s ease',
+          boxShadow: '0 2px 10px rgba(213,165,56,0.35)',
+        }}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
+      >
+        {loading
+          ? <Loader2 size={18} className="animate-spin text-[#020813]" />
+          : <ChevronRight size={20} className="text-[#020813]" strokeWidth={2.5} />
+        }
+      </div>
+    </div>
+  )
+}
+
 function navigateTo(destination: string, from?: string) {
   const dest = encodeURIComponent(destination)
   const url = from
@@ -43,6 +132,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
   const [booking, setBooking] = useState<Booking | null>(null)
   const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState(false)
+  const [updateError, setUpdateError] = useState<string | null>(null)
   const [driverNote, setDriverNote] = useState('')
   const [savingNote, setSavingNote] = useState(false)
   const [noteSaved, setNoteSaved] = useState(false)
@@ -69,11 +159,16 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
   const handleStatusUpdate = async (nextStatus: BookingStatus) => {
     if (!booking || updating) return
     setUpdating(true)
+    setUpdateError(null)
     const { error } = await supabase
       .from('bookings')
       .update({ status: nextStatus, updated_at: new Date().toISOString() })
       .eq('id', booking.id)
-    if (!error) setBooking({ ...booking, status: nextStatus })
+    if (error) {
+      setUpdateError(error.message ?? 'Failed to update. Please try again.')
+    } else {
+      setBooking({ ...booking, status: nextStatus })
+    }
     setUpdating(false)
   }
 
@@ -339,18 +434,18 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
 
         {/* Primary action */}
         {nextStep && (
-          <button
-            onClick={() => handleStatusUpdate(nextStep.to)}
-            disabled={updating}
-            className="w-full py-4 rounded-2xl font-bold text-[#020813] text-base flex items-center justify-center gap-2 shadow-lg disabled:opacity-60 active:opacity-80"
-            style={{ background: 'linear-gradient(135deg, #f1c56a, #d5a538 55%, #a97918)' }}
-          >
-            {updating
-              ? <Loader2 size={18} className="animate-spin" />
-              : <ChevronRight size={18} />
-            }
-            {nextStep.label}
-          </button>
+          <SwipeToConfirm
+            label={nextStep.label}
+            onConfirm={() => handleStatusUpdate(nextStep.to)}
+            loading={updating}
+          />
+        )}
+
+        {/* Status update error */}
+        {updateError && (
+          <div className="bg-red-500/10 border border-red-500/25 rounded-xl px-4 py-3">
+            <p className="text-red-400 text-sm">{updateError}</p>
+          </div>
         )}
 
         {/* Dispatch + SOS */}
