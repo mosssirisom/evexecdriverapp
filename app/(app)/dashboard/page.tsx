@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
-import { Car, ChevronRight, Bell, Briefcase, Star } from 'lucide-react'
+import { Car, ChevronRight, Bell, Briefcase, Star, RefreshCw } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { BookingStatusBadge } from '@/components/badges'
 import { formatTime } from '@/lib/format'
@@ -12,6 +12,7 @@ export default function DashboardPage() {
   const [driver, setDriver] = useState<Driver | null>(null)
   const [bookings, setBookings] = useState<Booking[]>([])
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
 
   const supabase = createClient()
 
@@ -90,6 +91,13 @@ export default function DashboardPage() {
           <h1 className="text-white font-semibold text-lg mt-0.5">{driver?.full_name ?? 'Driver'}</h1>
         </div>
         <div className="flex items-center gap-3">
+          <button
+            onClick={async () => { setRefreshing(true); await loadData(); setRefreshing(false) }}
+            disabled={refreshing}
+            className="w-10 h-10 rounded-xl bg-white/5 border border-white/8 flex items-center justify-center active:opacity-70 disabled:opacity-50"
+          >
+            <RefreshCw size={16} className={`text-white/60 ${refreshing ? 'animate-spin' : ''}`} />
+          </button>
           <Link
             href="/notifications"
             className="relative w-10 h-10 rounded-xl bg-white/5 border border-white/8 flex items-center justify-center"
