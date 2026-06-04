@@ -328,11 +328,6 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
                   Pickup{booking.travel_time ? ` · ${formatTime(booking.travel_time)}` : ''}{booking.travel_date ? ` · ${formatDate(booking.travel_date)}` : ''}
                 </p>
                 <p className="text-white text-sm font-medium leading-snug">{pickupAddress}</p>
-                {booking.flight_number && (
-                  <p className="text-white/30 text-xs mt-1 flex items-center gap-1">
-                    <PlaneLanding size={10} /> Flight {booking.flight_number}
-                  </p>
-                )}
               </div>
               <button
                 onClick={() => navigateTo(pickupAddress)}
@@ -387,6 +382,37 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
             )}
           </div>
         </div>
+
+        {/* Flight tracker */}
+        {booking.flight_number && (
+          <a
+            href={`https://www.flightradar24.com/${booking.flight_number.replace(/\s+/g, '').toUpperCase()}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block bg-[#0B1525] border border-white/8 rounded-2xl p-4 active:opacity-80 transition-opacity"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center flex-shrink-0">
+                  <PlaneLanding size={18} className="text-blue-400" />
+                </div>
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-white/25 mb-0.5">Flight</p>
+                  <p className="text-white font-bold text-base tracking-wide">{booking.flight_number.replace(/\s+/g, '').toUpperCase()}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-blue-400 text-xs font-semibold">Track Live</span>
+                <ChevronRight size={14} className="text-blue-400/60" />
+              </div>
+            </div>
+            {booking.airport && (
+              <p className="text-white/30 text-xs mt-2.5 pt-2.5 border-t border-white/5 flex items-center gap-1.5">
+                <PlaneLanding size={10} /> {booking.airport}
+              </p>
+            )}
+          </a>
+        )}
 
         {/* Map */}
         {pickupAddress !== '—' && dropoffAddress !== '—' && (
