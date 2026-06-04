@@ -9,7 +9,11 @@ import type { Booking } from '@/lib/types'
 
 function openMaps(address: string) {
   const encoded = encodeURIComponent(address)
-  window.open(`https://maps.google.com/?q=${encoded}`, '_blank')
+  const isApple = /iPad|iPhone|iPod|Mac/.test(navigator.userAgent) && !(window as Window & { MSStream?: unknown }).MSStream
+  const url = isApple
+    ? `maps://?daddr=${encoded}`
+    : `https://www.google.com/maps/dir/?api=1&destination=${encoded}&travelmode=driving`
+  window.open(url, '_blank')
 }
 
 export default function MyJobsPage() {
