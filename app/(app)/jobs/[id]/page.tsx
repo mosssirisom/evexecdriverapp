@@ -4,7 +4,7 @@ import { useState, use, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   ArrowLeft, Phone, Navigation2, User, FileText, CheckCircle2,
-  AlertOctagon, ChevronRight, Loader2, Users, Luggage, PlaneLanding, CreditCard,
+  AlertOctagon, ChevronRight, Loader2, Users, Luggage, PlaneLanding, CreditCard, UserX,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { BookingStatusBadge } from '@/components/badges'
@@ -138,6 +138,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
   const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState(false)
   const [updateError, setUpdateError] = useState<string | null>(null)
+  const [noShowConfirm, setNoShowConfirm] = useState(false)
   const [driverNote, setDriverNote] = useState('')
   const [savingNote, setSavingNote] = useState(false)
   const [noteSaved, setNoteSaved] = useState(false)
@@ -177,6 +178,23 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
     setUpdating(false)
   }
 
+  const handleNoShow = async () => {
+    if (!booking || updating) return
+    setUpdating(true)
+    setUpdateError(null)
+    setNoShowConfirm(false)
+    const { error } = await supabase
+      .from('bookings')
+      .update({ status: 'No Show', updated_at: new Date().toISOString() })
+      .eq('id', booking.id)
+    if (error) {
+      setUpdateError(error.message ?? 'Failed to mark no show. Please try again.')
+    } else {
+      setBooking({ ...booking, status: 'No Show' })
+    }
+    setUpdating(false)
+  }
+
   const saveNote = async () => {
     if (!booking) return
     setSavingNote(true)
@@ -203,7 +221,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
   }
 
   const nextStep = STATUS_FLOW.find((s) => s.from === booking.status)
-  const isDone = ['completed', 'Completed', 'cancelled', 'Cancelled', 'rejected'].includes(booking.status)
+  const isDone = ['completed', 'Completed', 'cancelled', 'Cancelled', 'rejected', 'No Show'].includes(booking.status)
   const progressIndex = PROGRESS_STEPS.indexOf(booking.status as BookingStatus)
   const showProgress = ['En Route', 'Passenger On Board', 'Completed', 'en_route', 'arrived', 'Arrived', 'active', 'Active', 'completed'].includes(booking.status)
 
@@ -436,6 +454,14 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
           </div>
         )}
 
+        {/* No Show banner */}
+        {booking.status === 'No Show' && (
+          <div className="bg-amber-500/10 border border-amber-500/25 rounded-2xl p-5 text-center">
+            <UserX size={28} className="mx-auto mb-2 text-amber-400" />
+            <p className="text-amber-400 font-semibold">Passenger No Show</p>
+          </div>
+        )}
+
         {/* Primary action */}
         {nextStep && (
           <SwipeToConfirm
@@ -443,6 +469,34 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
             onConfirm={() => handleStatusUpdate(nextStep.to)}
             loading={updating}
           />
+        )}
+
+        {/* No Show button — shown when en route to pickup */}
+        {['En Route', 'en_route'].includes(booking.status) && (
+          noShowConfirm ? (
+            <div className="flex gap-2">
+              <button
+                onClick={() => setNoShowConfirm(false)}
+                className="flex-1 py-3 rounded-xl text-sm font-semibold text-white/40 border border-white/10 bg-white/5 active:opacity-70"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleNoShow}
+                disabled={updating}
+                className="flex-1 py-3 rounded-xl text-sm font-semibold text-amber-400 border border-amber-500/30 bg-amber-500/10 active:opacity-70 disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                <UserX size={14} /> Confirm No Show
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setNoShowConfirm(true)}
+              className="w-full py-3 rounded-xl text-sm font-semibold text-amber-400/70 border border-amber-500/20 bg-amber-500/6 active:opacity-70 flex items-center justify-center gap-2"
+            >
+              <UserX size={14} /> No Show
+            </button>
+          )
         )}
 
         {/* Status update error */}
