@@ -91,7 +91,7 @@ export default function DashboardPage() {
         </div>
         <div className="flex items-center gap-3">
           <Link
-            href="/jobs"
+            href="/notifications"
             className="relative w-10 h-10 rounded-xl bg-white/5 border border-white/8 flex items-center justify-center"
           >
             <Bell size={18} className="text-white/60" />
