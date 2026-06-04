@@ -244,7 +244,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
             )}
             {booking.luggage && (
               <span className="text-white/35 text-xs flex items-center gap-1">
-                <Luggage size={11} /> {booking.luggage.replace(/pieces?/i, 'bags')}
+                <Luggage size={11} /> {booking.luggage.replace(/pieces?/i, 'Bags')}
               </span>
             )}
             {booking.payment_method && (
