@@ -3,7 +3,7 @@
 import { useState, use, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  ArrowLeft, Phone, Navigation2, User, FileText, CheckCircle2,
+  ArrowLeft, Phone, MessageSquare, Navigation2, User, FileText, CheckCircle2,
   AlertOctagon, ChevronRight, Loader2, Users, Luggage, PlaneLanding, CreditCard, UserX,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -294,12 +294,20 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
               </div>
             </div>
             {booking.customer_phone && (
-              <a
-                href={`tel:${booking.customer_phone}`}
-                className="w-10 h-10 rounded-xl flex items-center justify-center border border-white/10 bg-white/5 flex-shrink-0 active:opacity-70"
-              >
-                <Phone size={16} className="text-[#d5a538]" />
-              </a>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <a
+                  href={`sms:${booking.customer_phone}`}
+                  className="w-10 h-10 rounded-xl flex items-center justify-center border border-white/10 bg-white/5 active:opacity-70"
+                >
+                  <MessageSquare size={16} className="text-white/50" />
+                </a>
+                <a
+                  href={`tel:${booking.customer_phone}`}
+                  className="w-10 h-10 rounded-xl flex items-center justify-center border border-white/10 bg-white/5 active:opacity-70"
+                >
+                  <Phone size={16} className="text-[#d5a538]" />
+                </a>
+              </div>
             )}
           </div>
         </div>
