@@ -183,7 +183,7 @@ export default function DashboardPage() {
                   </div>
                   <div className="flex items-start gap-2">
                     <div className="w-1.5 h-1.5 rounded-full bg-red-400 mt-1.5 flex-shrink-0" />
-                    <p className="text-white/50 text-xs leading-tight">{booking.dropoff_address ?? '—'}</p>
+                    <p className="text-white/50 text-xs leading-tight">{booking.dropoff_address ?? booking.airport ?? '—'}</p>
                   </div>
                 </div>
                 {booking.quoted_price && (

@@ -109,7 +109,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
   const showProgress = ['en_route', 'arrived', 'active', 'completed', 'Completed'].includes(booking.status)
 
   const pickupAddress = booking.pickup_location ?? booking.airport ?? '—'
-  const dropoffAddress = booking.dropoff_address ?? '—'
+  const dropoffAddress = booking.dropoff_address ?? booking.airport ?? '—'
   const bookingRef = booking.id.slice(0, 8).toUpperCase()
   const noteChanged = driverNote !== (booking.driver_notes ?? '')
   const showNotes = booking.operator_note || !isDone || (isDone && booking.driver_notes)
