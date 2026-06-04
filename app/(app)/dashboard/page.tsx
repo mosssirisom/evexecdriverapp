@@ -230,17 +230,6 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {driver?.vehicle_model && (
-        <div className="mt-4 bg-[#0B1525] border border-white/8 rounded-xl px-4 py-3 flex items-center gap-3">
-          <Car size={16} className="text-white/30 flex-shrink-0" />
-          <div>
-            <p className="text-white/60 text-xs">{driver.vehicle_model}</p>
-            {driver.vehicle_registration && (
-              <p className="text-white/30 text-[10px] font-mono mt-0.5">{driver.vehicle_registration}</p>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   )
 }
