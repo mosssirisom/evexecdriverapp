@@ -16,20 +16,21 @@ import type { Booking, BookingStatus } from '@/lib/types'
 type StatusStep = { from: BookingStatus; to: BookingStatus; label: string }
 
 const STATUS_FLOW: StatusStep[] = [
-  { from: 'accepted',   to: 'En Route', label: 'Start — Head to Pickup' },
-  { from: 'confirmed',  to: 'En Route', label: 'Start — Head to Pickup' },
-  { from: 'Dispatched', to: 'En Route', label: 'Start — Head to Pickup' },
-  { from: 'En Route',   to: 'Arrived',  label: 'Arrived at Pickup' },
-  { from: 'Arrived',    to: 'Active',   label: 'Passenger On Board' },
-  { from: 'Active',     to: 'Completed', label: 'Complete Job' },
-  // backward-compat for any rows still stored in snake_case
-  { from: 'en_route',  to: 'Arrived',   label: 'Arrived at Pickup' },
-  { from: 'arrived',   to: 'Active',    label: 'Passenger On Board' },
-  { from: 'active',    to: 'Completed', label: 'Complete Job' },
+  { from: 'accepted',           to: 'En Route',           label: 'Start — Head to Pickup' },
+  { from: 'confirmed',          to: 'En Route',           label: 'Start — Head to Pickup' },
+  { from: 'Dispatched',         to: 'En Route',           label: 'Start — Head to Pickup' },
+  { from: 'En Route',           to: 'Passenger On Board', label: 'Passenger On Board' },
+  { from: 'Passenger On Board', to: 'Completed',          label: 'Complete Job' },
+  // backward-compat for old snake_case rows
+  { from: 'en_route', to: 'Passenger On Board', label: 'Passenger On Board' },
+  { from: 'arrived',  to: 'Passenger On Board', label: 'Passenger On Board' },
+  { from: 'Arrived',  to: 'Passenger On Board', label: 'Passenger On Board' },
+  { from: 'active',   to: 'Completed',           label: 'Complete Job' },
+  { from: 'Active',   to: 'Completed',           label: 'Complete Job' },
 ]
 
-const PROGRESS_STEPS: BookingStatus[] = ['En Route', 'Arrived', 'Active', 'Completed']
-const STEP_LABELS: Record<string, string> = { 'En Route': 'En Route', 'Arrived': 'Arrived', 'Active': 'On Board' }
+const PROGRESS_STEPS: BookingStatus[] = ['En Route', 'Passenger On Board', 'Completed']
+const STEP_LABELS: Record<string, string> = { 'En Route': 'En Route', 'Passenger On Board': 'On Board' }
 
 function SwipeToConfirm({ label, onConfirm, loading }: { label: string; onConfirm: () => void; loading: boolean }) {
   const [dragX, setDragX] = useState(0)
@@ -204,7 +205,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
   const nextStep = STATUS_FLOW.find((s) => s.from === booking.status)
   const isDone = ['completed', 'Completed', 'cancelled', 'Cancelled', 'rejected'].includes(booking.status)
   const progressIndex = PROGRESS_STEPS.indexOf(booking.status as BookingStatus)
-  const showProgress = ['En Route', 'Arrived', 'Active', 'Completed', 'en_route', 'arrived', 'active', 'completed'].includes(booking.status)
+  const showProgress = ['En Route', 'Passenger On Board', 'Completed', 'en_route', 'arrived', 'Arrived', 'active', 'Active', 'completed'].includes(booking.status)
 
   const pickupAddress = booking.pickup_location ?? booking.airport ?? '—'
   const dropoffAddress = booking.dropoff_address ?? booking.airport ?? '—'

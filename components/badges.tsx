@@ -12,6 +12,7 @@ export function BookingStatusBadge({ status }: { status: BookingStatus }) {
     arrived: { label: 'Arrived', className: 'bg-cyan-500/15 text-cyan-400 border-cyan-500/25' },
     Active: { label: 'On Board', className: 'bg-green-500/15 text-green-400 border-green-500/25' },
     active: { label: 'On Board', className: 'bg-green-500/15 text-green-400 border-green-500/25' },
+    'Passenger On Board': { label: 'On Board', className: 'bg-green-500/15 text-green-400 border-green-500/25' },
     completed: { label: 'Completed', className: 'bg-white/8 text-white/40 border-white/10' },
     Completed: { label: 'Completed', className: 'bg-white/8 text-white/40 border-white/10' },
     rejected: { label: 'Rejected', className: 'bg-red-500/15 text-red-400 border-red-500/25' },

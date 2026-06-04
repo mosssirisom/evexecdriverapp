@@ -25,7 +25,7 @@ export default function DashboardPage() {
         .from('bookings')
         .select('*')
         .eq('assigned_driver_id', user.id)
-        .in('status', ['accepted', 'confirmed', 'Dispatched', 'En Route', 'en_route', 'Arrived', 'arrived', 'Active', 'active'])
+        .in('status', ['accepted', 'confirmed', 'Dispatched', 'En Route', 'en_route', 'Passenger On Board', 'Arrived', 'arrived', 'Active', 'active'])
         .order('travel_date', { ascending: true })
         .order('travel_time', { ascending: true }),
     ])
@@ -58,7 +58,7 @@ export default function DashboardPage() {
 
   const today = new Date().toISOString().split('T')[0]
   const todayBookings = bookings.filter((b) => b.travel_date === today)
-  const activeBooking = bookings.find((b) => ['En Route', 'en_route', 'Arrived', 'arrived', 'Active', 'active'].includes(b.status))
+  const activeBooking = bookings.find((b) => ['En Route', 'en_route', 'Passenger On Board', 'Arrived', 'arrived', 'Active', 'active'].includes(b.status))
   const upcomingBookings = todayBookings.filter((b) => ['accepted', 'confirmed', 'Dispatched'].includes(b.status))
   const completedToday = bookings.filter((b) => ['completed', 'Completed'].includes(b.status) && b.travel_date === today)
 

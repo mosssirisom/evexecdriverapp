@@ -77,7 +77,7 @@ export default function JobsPage() {
       .from('bookings')
       .select('*')
       .eq('assigned_driver_id', user.id)
-      .in('status', ['accepted', 'confirmed', 'Dispatched', 'En Route', 'en_route', 'Arrived', 'arrived', 'Active', 'active', 'completed', 'Completed', 'cancelled', 'Cancelled'])
+      .in('status', ['accepted', 'confirmed', 'Dispatched', 'En Route', 'en_route', 'Passenger On Board', 'Arrived', 'arrived', 'Active', 'active', 'completed', 'Completed', 'cancelled', 'Cancelled'])
       .order('travel_date', { ascending: false })
       .order('travel_time', { ascending: true })
 
@@ -88,7 +88,7 @@ export default function JobsPage() {
   useEffect(() => { loadBookings() }, [loadBookings])
 
   const upcoming = bookings.filter((b) => ['accepted', 'confirmed', 'Dispatched'].includes(b.status))
-  const active = bookings.filter((b) => ['En Route', 'en_route', 'Arrived', 'arrived', 'Active', 'active'].includes(b.status))
+  const active = bookings.filter((b) => ['En Route', 'en_route', 'Passenger On Board', 'Arrived', 'arrived', 'Active', 'active'].includes(b.status))
   const completed = bookings.filter((b) => ['completed', 'Completed', 'cancelled', 'Cancelled'].includes(b.status))
 
   const applyDateFilter = (list: Booking[]) => {

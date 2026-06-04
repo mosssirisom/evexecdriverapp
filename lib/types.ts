@@ -12,6 +12,7 @@ export type BookingStatus =
   | 'Arrived'
   | 'active'
   | 'Active'
+  | 'Passenger On Board'
   | 'completed'
   | 'Completed'
 
