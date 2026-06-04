@@ -16,16 +16,20 @@ import type { Booking, BookingStatus } from '@/lib/types'
 type StatusStep = { from: BookingStatus; to: BookingStatus; label: string }
 
 const STATUS_FLOW: StatusStep[] = [
-  { from: 'accepted',   to: 'en_route',  label: 'Start — Head to Pickup' },
-  { from: 'confirmed',  to: 'en_route',  label: 'Start — Head to Pickup' },
-  { from: 'Dispatched', to: 'en_route',  label: 'Start — Head to Pickup' },
-  { from: 'en_route',   to: 'arrived',   label: 'Arrived at Pickup' },
-  { from: 'arrived',    to: 'active',    label: 'Passenger On Board' },
-  { from: 'active',     to: 'completed', label: 'Complete Job' },
+  { from: 'accepted',   to: 'En Route', label: 'Start — Head to Pickup' },
+  { from: 'confirmed',  to: 'En Route', label: 'Start — Head to Pickup' },
+  { from: 'Dispatched', to: 'En Route', label: 'Start — Head to Pickup' },
+  { from: 'En Route',   to: 'Arrived',  label: 'Arrived at Pickup' },
+  { from: 'Arrived',    to: 'Active',   label: 'Passenger On Board' },
+  { from: 'Active',     to: 'Completed', label: 'Complete Job' },
+  // backward-compat for any rows still stored in snake_case
+  { from: 'en_route',  to: 'Arrived',   label: 'Arrived at Pickup' },
+  { from: 'arrived',   to: 'Active',    label: 'Passenger On Board' },
+  { from: 'active',    to: 'Completed', label: 'Complete Job' },
 ]
 
-const PROGRESS_STEPS: BookingStatus[] = ['en_route', 'arrived', 'active', 'completed']
-const STEP_LABELS: Record<string, string> = { en_route: 'En Route', arrived: 'Arrived', active: 'On Board' }
+const PROGRESS_STEPS: BookingStatus[] = ['En Route', 'Arrived', 'Active', 'Completed']
+const STEP_LABELS: Record<string, string> = { 'En Route': 'En Route', 'Arrived': 'Arrived', 'Active': 'On Board' }
 
 function SwipeToConfirm({ label, onConfirm, loading }: { label: string; onConfirm: () => void; loading: boolean }) {
   const [dragX, setDragX] = useState(0)
@@ -197,11 +201,10 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
     )
   }
 
-  const normalizedStatus = booking.status === 'Completed' ? 'completed' : booking.status
   const nextStep = STATUS_FLOW.find((s) => s.from === booking.status)
-  const isDone = ['completed', 'Completed', 'cancelled', 'rejected'].includes(booking.status)
-  const progressIndex = PROGRESS_STEPS.indexOf(normalizedStatus as BookingStatus)
-  const showProgress = ['en_route', 'arrived', 'active', 'completed', 'Completed'].includes(booking.status)
+  const isDone = ['completed', 'Completed', 'cancelled', 'Cancelled', 'rejected'].includes(booking.status)
+  const progressIndex = PROGRESS_STEPS.indexOf(booking.status as BookingStatus)
+  const showProgress = ['En Route', 'Arrived', 'Active', 'Completed', 'en_route', 'arrived', 'active', 'completed'].includes(booking.status)
 
   const pickupAddress = booking.pickup_location ?? booking.airport ?? '—'
   const dropoffAddress = booking.dropoff_address ?? booking.airport ?? '—'
@@ -422,7 +425,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
         )}
 
         {/* Completed banner */}
-        {(booking.status === 'completed' || booking.status === 'Completed') && (
+        {['completed', 'Completed'].includes(booking.status) && (
           <div className="bg-green-500/10 border border-green-500/25 rounded-2xl p-5 text-center">
             <CheckCircle2 size={28} className="mx-auto mb-2 text-green-400" />
             <p className="text-green-400 font-semibold">Job Completed</p>

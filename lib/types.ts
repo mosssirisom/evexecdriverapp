@@ -5,9 +5,13 @@ export type BookingStatus =
   | 'Dispatched'
   | 'rejected'
   | 'cancelled'
+  | 'Cancelled'
   | 'en_route'
+  | 'En Route'
   | 'arrived'
+  | 'Arrived'
   | 'active'
+  | 'Active'
   | 'completed'
   | 'Completed'
 
