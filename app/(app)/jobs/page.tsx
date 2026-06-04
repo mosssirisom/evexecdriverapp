@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
-import { ChevronRight, Clock, Car } from 'lucide-react'
+import { ChevronRight, Clock, Car, Users } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { BookingStatusBadge } from '@/components/badges'
 import { formatDate, formatTime } from '@/lib/format'
@@ -48,7 +48,7 @@ function BookingCard({ booking }: { booking: Booking }) {
           <div className="flex items-center gap-3 mt-3 pt-3 border-t border-white/5">
             {booking.passengers > 0 && (
               <span className="text-white/40 text-xs flex items-center gap-1">
-                <Clock size={11} /> {booking.passengers} pax
+                <Users size={11} /> {booking.passengers} Passengers
               </span>
             )}
             <span className="ml-auto text-[#d5a538] font-semibold text-sm">

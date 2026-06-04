@@ -239,12 +239,12 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 mt-4 pt-3 border-t border-white/5">
             {booking.passengers > 0 && (
               <span className="text-white/35 text-xs flex items-center gap-1">
-                <Users size={11} /> {booking.passengers} pax
+                <Users size={11} /> {booking.passengers} Passengers
               </span>
             )}
             {booking.luggage && (
               <span className="text-white/35 text-xs flex items-center gap-1">
-                <Luggage size={11} /> {booking.luggage}
+                <Luggage size={11} /> {booking.luggage.replace(/pieces?/i, 'bags')}
               </span>
             )}
             {booking.payment_method && (
