@@ -122,7 +122,7 @@ export default function JobsPage() {
   return (
     <div className="min-h-screen bg-[#020813] px-4 pt-12 pb-4">
       <div className="mb-6">
-        <h1 className="text-white font-bold text-xl">Board</h1>
+        <h1 className="text-white font-bold text-xl">Jobs</h1>
         <p className="text-white/40 text-xs mt-1">{today}</p>
       </div>
 
