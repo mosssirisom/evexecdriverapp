@@ -6,9 +6,9 @@ import { Home, ClipboardList, CalendarDays, Car, User } from 'lucide-react'
 
 const NAV_ITEMS = [
   { href: '/dashboard', label: 'Home', icon: Home },
+  { href: '/my-jobs', label: 'Active', icon: Car },
   { href: '/jobs', label: 'Board', icon: ClipboardList },
   { href: '/calendar', label: 'Calendar', icon: CalendarDays },
-  { href: '/my-jobs', label: 'Active', icon: Car },
   { href: '/profile', label: 'Me', icon: User },
 ]
 
