@@ -6,7 +6,6 @@ import {
   ArrowLeft,
   Phone,
   Navigation2,
-  Clock,
   User,
   FileText,
   CheckCircle2,
@@ -16,6 +15,7 @@ import {
   Users,
   Luggage,
   PlaneLanding,
+  MessageSquare,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { BookingStatusBadge } from '@/components/badges'
@@ -24,14 +24,17 @@ import type { Booking, BookingStatus } from '@/lib/types'
 type StatusStep = { from: BookingStatus; to: BookingStatus; label: string }
 
 const STATUS_FLOW: StatusStep[] = [
-  { from: 'accepted', to: 'en_route', label: 'Start — Head to Pickup' },
-  { from: 'confirmed', to: 'en_route', label: 'Start — Head to Pickup' },
-  { from: 'en_route', to: 'arrived', label: 'Arrived at Pickup' },
-  { from: 'arrived', to: 'active', label: 'Passenger On Board' },
-  { from: 'active', to: 'completed', label: 'Complete Job' },
+  { from: 'accepted',           to: 'En Route',           label: 'Start — Head to Pickup' },
+  { from: 'confirmed',          to: 'En Route',           label: 'Start — Head to Pickup' },
+  { from: 'Dispatched',         to: 'En Route',           label: 'Start — Head to Pickup' },
+  { from: 'En Route',           to: 'Passenger On Board', label: 'Passenger On Board' },
+  { from: 'Passenger On Board', to: 'Completed',          label: 'Complete Job' },
+  { from: 'en_route',           to: 'En Route',           label: 'Passenger On Board' },
+  { from: 'arrived',            to: 'Passenger On Board', label: 'Passenger On Board' },
+  { from: 'active',             to: 'Completed',          label: 'Complete Job' },
 ]
 
-const PROGRESS_STEPS: BookingStatus[] = ['en_route', 'arrived', 'active', 'completed']
+const ACTIVE_STATUSES: BookingStatus[] = ['Passenger On Board', 'active', 'Active']
 
 function openMaps(address: string) {
   const encoded = encodeURIComponent(address)
@@ -50,6 +53,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
   const [booking, setBooking] = useState<Booking | null>(null)
   const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState(false)
+  const [updateError, setUpdateError] = useState('')
 
   const loadBooking = useCallback(async () => {
     const { data } = await supabase.from('bookings').select('*').eq('id', id).single()
@@ -62,11 +66,14 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
   const handleStatusUpdate = async (nextStatus: BookingStatus) => {
     if (!booking || updating) return
     setUpdating(true)
+    setUpdateError('')
     const { error } = await supabase
       .from('bookings')
       .update({ status: nextStatus, updated_at: new Date().toISOString() })
       .eq('id', booking.id)
-    if (!error) {
+    if (error) {
+      setUpdateError(error.message)
+    } else {
       setBooking({ ...booking, status: nextStatus })
     }
     setUpdating(false)
@@ -89,13 +96,15 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
   }
 
   const nextStep = STATUS_FLOW.find((s) => s.from === booking.status)
-  const isDone = booking.status === 'completed' || booking.status === 'cancelled' || booking.status === 'rejected'
-  const progressIndex = PROGRESS_STEPS.indexOf(booking.status)
-  const showProgress = ['en_route', 'arrived', 'active', 'completed'].includes(booking.status)
+  const isDone = ['completed', 'Completed', 'cancelled', 'Cancelled', 'No Show', 'rejected'].includes(booking.status)
+  const isActive = ACTIVE_STATUSES.includes(booking.status)
 
   const pickupAddress = booking.pickup_location ?? booking.airport ?? '—'
   const dropoffAddress = booking.dropoff_address ?? '—'
   const bookingRef = booking.id.slice(0, 8).toUpperCase()
+
+  // Navigate to dropoff when passenger is on board, otherwise navigate to pickup
+  const navigateAddress = isActive ? dropoffAddress : pickupAddress
 
   return (
     <div className="min-h-screen bg-[#020813] pb-6">
@@ -116,44 +125,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
       </div>
 
       <div className="px-4 pt-4 space-y-4">
-        {/* Progress Steps */}
-        {showProgress && (
-          <div className="bg-[#0B1525] border border-white/8 rounded-2xl p-4">
-            <div className="flex items-center justify-between relative">
-              {PROGRESS_STEPS.slice(0, -1).map((step, i) => {
-                const done = i < progressIndex
-                const current = i === progressIndex
-                const stepLabels: Record<string, string> = {
-                  en_route: 'En Route',
-                  arrived: 'Arrived',
-                  active: 'On Board',
-                }
-                return (
-                  <div key={step} className="flex flex-col items-center gap-1 relative z-10">
-                    <div
-                      className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold"
-                      style={{
-                        background:
-                          done || current
-                            ? 'linear-gradient(135deg, #f1c56a, #d5a538)'
-                            : 'rgba(255,255,255,0.1)',
-                        color: done || current ? '#020813' : 'rgba(255,255,255,0.3)',
-                      }}
-                    >
-                      {done ? '✓' : i + 1}
-                    </div>
-                    <span className="text-[8px] text-white/40 text-center" style={{ maxWidth: 52 }}>
-                      {stepLabels[step] ?? step}
-                    </span>
-                  </div>
-                )
-              })}
-              <div className="absolute top-3 left-3 right-3 h-px bg-white/10" />
-            </div>
-          </div>
-        )}
-
-        {/* Customer */}
+        {/* Passenger */}
         <div className="bg-[#0B1525] border border-white/8 rounded-2xl p-4">
           <p className="text-[10px] font-semibold uppercase tracking-widest text-white/30 mb-3">Passenger</p>
           <div className="flex items-center justify-between">
@@ -169,12 +141,20 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
               </div>
             </div>
             {booking.customer_phone && (
-              <a
-                href={`tel:${booking.customer_phone}`}
-                className="w-10 h-10 rounded-xl flex items-center justify-center border border-white/10 bg-white/5"
-              >
-                <Phone size={16} className="text-[#d5a538]" />
-              </a>
+              <div className="flex items-center gap-2">
+                <a
+                  href={`sms:${booking.customer_phone}`}
+                  className="w-10 h-10 rounded-xl flex items-center justify-center border border-white/10 bg-white/5"
+                >
+                  <MessageSquare size={16} className="text-white/50" />
+                </a>
+                <a
+                  href={`tel:${booking.customer_phone}`}
+                  className="w-10 h-10 rounded-xl flex items-center justify-center border border-white/10 bg-white/5"
+                >
+                  <Phone size={16} className="text-[#d5a538]" />
+                </a>
+              </div>
             )}
           </div>
         </div>
@@ -197,16 +177,15 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
                 </p>
                 <p className="text-white text-sm font-medium">{pickupAddress}</p>
                 {booking.flight_number && (
-                  <p className="text-white/40 text-xs mt-0.5 flex items-center gap-1">
-                    <PlaneLanding size={10} /> Flight {booking.flight_number}
-                  </p>
+                  <a
+                    href={`https://www.flightradar24.com/${booking.flight_number.replace(/\s+/g, '').toUpperCase()}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-white/40 text-xs mt-0.5 flex items-center gap-1 hover:text-[#d5a538] transition-colors"
+                  >
+                    <PlaneLanding size={10} /> Flight {booking.flight_number} — Track Live →
+                  </a>
                 )}
-                <button
-                  onClick={() => openMaps(pickupAddress)}
-                  className="mt-2 text-[10px] text-[#d5a538] font-medium flex items-center gap-1"
-                >
-                  <Navigation2 size={10} /> Navigate
-                </button>
               </div>
             </div>
 
@@ -218,37 +197,38 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
               <div className="flex-1 min-w-0">
                 <p className="text-white/40 text-[10px] uppercase tracking-wider mb-0.5">Drop-off</p>
                 <p className="text-white text-sm font-medium">{dropoffAddress}</p>
-                <button
-                  onClick={() => openMaps(dropoffAddress)}
-                  className="mt-2 text-[10px] text-[#d5a538] font-medium flex items-center gap-1"
-                >
-                  <Navigation2 size={10} /> Navigate
-                </button>
               </div>
             </div>
           </div>
 
-          {/* Meta */}
-          <div className="flex items-center gap-4 mt-4 pt-4 border-t border-white/5 flex-wrap">
+          {/* Meta + single Navigate */}
+          <div className="flex items-center gap-3 mt-4 pt-4 border-t border-white/5 flex-wrap">
             {booking.passengers > 0 && (
-              <span className="text-white/40 text-xs flex items-center gap-1">
-                <Users size={12} /> {booking.passengers} pax
+              <span className="text-white/25 text-xs flex items-center gap-1">
+                <Users size={11} /> {booking.passengers}
               </span>
             )}
             {booking.luggage && (
-              <span className="text-white/40 text-xs flex items-center gap-1">
-                <Luggage size={12} /> {booking.luggage}
+              <span className="text-white/25 text-xs flex items-center gap-1">
+                <Luggage size={11} /> {booking.luggage}
               </span>
             )}
             {booking.quoted_price != null && (
-              <span className="ml-auto text-[#d5a538] font-bold text-base">
+              <span className="text-[#d5a538] font-bold text-base">
                 £{booking.quoted_price.toFixed(2)}
               </span>
             )}
+            <button
+              onClick={() => openMaps(navigateAddress)}
+              className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-[#020813]"
+              style={{ background: 'linear-gradient(135deg, #f1c56a, #d5a538 55%, #a97918)' }}
+            >
+              <Navigation2 size={13} /> Navigate
+            </button>
           </div>
         </div>
 
-        {/* Return journey indicator */}
+        {/* Return journey */}
         {booking.return_journey && (
           <div className="bg-[#0B1525] border border-white/8 rounded-xl px-4 py-3">
             <p className="text-white/50 text-xs">↩ Return journey included</p>
@@ -271,7 +251,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
         )}
 
         {/* Completed Banner */}
-        {booking.status === 'completed' && (
+        {['completed', 'Completed'].includes(booking.status) && (
           <div className="bg-green-500/10 border border-green-500/25 rounded-2xl p-5 text-center">
             <CheckCircle2 size={28} className="mx-auto mb-2 text-green-400" />
             <p className="text-green-400 font-semibold">Job Completed</p>
@@ -281,7 +261,14 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
           </div>
         )}
 
-        {/* Action Button */}
+        {/* Error */}
+        {updateError && (
+          <p className="text-red-400 text-xs bg-red-400/10 border border-red-400/20 rounded-lg px-3 py-2">
+            {updateError}
+          </p>
+        )}
+
+        {/* Primary action */}
         {nextStep && (
           <button
             onClick={() => handleStatusUpdate(nextStep.to)}

@@ -6,13 +6,16 @@ import { Home, ClipboardList, Car, User } from 'lucide-react'
 
 const NAV_ITEMS = [
   { href: '/dashboard', label: 'Home', icon: Home },
-  { href: '/jobs', label: 'Board', icon: ClipboardList },
+  { href: '/jobs', label: 'Jobs', icon: ClipboardList },
   { href: '/my-jobs', label: 'Active', icon: Car },
   { href: '/profile', label: 'Me', icon: User },
 ]
 
 export function BottomNav() {
   const pathname = usePathname()
+
+  // Hide nav on job detail pages to maximise driving screen space
+  if (/^\/jobs\/[^/]+/.test(pathname)) return null
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-[#0B1525] border-t border-white/8 z-50">
