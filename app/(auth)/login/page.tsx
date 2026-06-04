@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react'
 import { Eye, EyeOff, Loader2 } from 'lucide-react'
 import { login } from '@/app/actions/auth'
+import { LOGIN_EMAIL_PLACEHOLDER } from '@/lib/config'
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
@@ -47,7 +48,7 @@ export default function LoginPage() {
               type="email"
               name="email"
               required
-              placeholder="you@evexec.co.uk"
+              placeholder={LOGIN_EMAIL_PLACEHOLDER}
               className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/20 text-sm focus:outline-none focus:border-[#d5a538] focus:ring-1 focus:ring-[#d5a538] transition-colors"
             />
           </div>

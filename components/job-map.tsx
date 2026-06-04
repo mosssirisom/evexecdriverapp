@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { Clock, Route, Navigation2 } from 'lucide-react'
+import { CONTACT_EMAIL } from '@/lib/config'
 
 interface Props {
   pickup: string
@@ -14,7 +15,7 @@ async function geocode(address: string): Promise<LatLng | null> {
   try {
     const res = await fetch(
       `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1`,
-      { headers: { 'User-Agent': 'EVExecDriverApp/1.0 driver@evexec.co.uk' } }
+      { headers: { 'User-Agent': `EVExecDriverApp/1.0 ${CONTACT_EMAIL}` } }
     )
     const data = await res.json()
     if (data?.[0]) return [parseFloat(data[0].lat), parseFloat(data[0].lon)]

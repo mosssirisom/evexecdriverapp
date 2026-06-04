@@ -8,7 +8,7 @@ import {
   HelpCircle, Loader2, ClipboardList, MessageCircle,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { OPS_PHONE, OPS_WHATSAPP } from '@/lib/config'
+import { OPS_PHONE, OPS_WHATSAPP, SUPPORT_EMAIL } from '@/lib/config'
 import type { Driver } from '@/lib/types'
 
 export default function ProfilePage() {
@@ -174,7 +174,7 @@ export default function ProfilePage() {
         </a>
 
         <a
-          href="mailto:support@evexec.co.uk"
+          href={`mailto:${SUPPORT_EMAIL}`}
           className="w-full flex items-center justify-between px-4 py-3.5 active:bg-white/5"
         >
           <div className="flex items-center gap-3">
