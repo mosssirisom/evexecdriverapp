@@ -9,7 +9,7 @@ import {
 import { createClient } from '@/lib/supabase/client'
 import { BookingStatusBadge } from '@/components/badges'
 import { JobMap } from '@/components/job-map'
-import { formatDate, formatTime } from '@/lib/format'
+import { formatDate, formatTime, paymentInfo } from '@/lib/format'
 import { OPS_PHONE } from '@/lib/config'
 import type { Booking, BookingStatus } from '@/lib/types'
 
@@ -372,20 +372,14 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
                 <Luggage size={11} /> {booking.luggage.replace(/pieces?/i, 'Bags')}
               </span>
             )}
-            {booking.payment_method && (
-              <span className="text-white/35 text-xs flex items-center gap-1">
-                <CreditCard size={11} /> {booking.payment_method}
-              </span>
-            )}
-            {booking.payment_status && (
-              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-                booking.payment_status === 'paid'
-                  ? 'bg-green-500/15 text-green-400'
-                  : 'bg-amber-500/15 text-amber-400'
-              }`}>
-                {booking.payment_status}
-              </span>
-            )}
+            {(booking.payment_method || booking.payment_status) && (() => {
+              const p = paymentInfo(booking.payment_method, booking.payment_status)
+              return (
+                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full flex items-center gap-1 ${p.className}`}>
+                  <CreditCard size={10} /> {p.text}
+                </span>
+              )
+            })()}
             {booking.quoted_price != null && (
               <span className="ml-auto text-[#d5a538] font-bold text-base">
                 £{booking.quoted_price.toFixed(2)}

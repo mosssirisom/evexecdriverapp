@@ -2,10 +2,10 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
-import { ChevronRight, Clock, Car, Users } from 'lucide-react'
+import { ChevronRight, Car, Users } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { BookingStatusBadge } from '@/components/badges'
-import { formatDate, formatTime } from '@/lib/format'
+import { formatDate, formatTime, paymentInfo } from '@/lib/format'
 import type { Booking } from '@/lib/types'
 
 type Tab = 'upcoming' | 'active' | 'completed'
@@ -44,16 +44,26 @@ function BookingCard({ booking }: { booking: Booking }) {
           </div>
         </div>
 
-        {booking.quoted_price && (
-          <div className="flex items-center gap-3 mt-3 pt-3 border-t border-white/5">
+        {(booking.quoted_price || booking.payment_method || booking.payment_status) && (
+          <div className="flex items-center gap-2 mt-3 pt-3 border-t border-white/5">
             {booking.passengers > 0 && (
               <span className="text-white/40 text-xs flex items-center gap-1">
-                <Users size={11} /> {booking.passengers} Passengers
+                <Users size={11} /> {booking.passengers}
               </span>
             )}
-            <span className="ml-auto text-[#d5a538] font-semibold text-sm">
-              £{booking.quoted_price.toFixed(0)}
-            </span>
+            {(() => {
+              const p = paymentInfo(booking.payment_method, booking.payment_status)
+              return (
+                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${p.className}`}>
+                  {p.text}
+                </span>
+              )
+            })()}
+            {booking.quoted_price && (
+              <span className="ml-auto text-[#d5a538] font-semibold text-sm">
+                £{booking.quoted_price.toFixed(0)}
+              </span>
+            )}
           </div>
         )}
       </div>
