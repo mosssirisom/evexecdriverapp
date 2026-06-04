@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation'
 import {
   ArrowLeft,
   Phone,
-  Navigation2,
   User,
   FileText,
   CheckCircle2,
@@ -19,6 +18,7 @@ import {
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { BookingStatusBadge } from '@/components/badges'
+import { RouteMap } from '@/components/route-map'
 import type { Booking, BookingStatus } from '@/lib/types'
 
 type StatusStep = { from: BookingStatus; to: BookingStatus; label: string }
@@ -159,10 +159,12 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
           </div>
         </div>
 
-        {/* Route */}
-        <div className="bg-[#0B1525] border border-white/8 rounded-2xl p-4">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-white/30 mb-3">Route</p>
-          <div className="space-y-3">
+        {/* Route + Map — merged card */}
+        <div className="bg-[#0B1525] border border-white/8 rounded-2xl overflow-hidden">
+          {/* Addresses */}
+          <div className="p-4 space-y-3">
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-white/30">Route</p>
+
             {/* Pickup */}
             <div className="flex items-start gap-3">
               <div className="flex flex-col items-center gap-1 flex-shrink-0 mt-0.5">
@@ -171,9 +173,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-white/40 text-[10px] uppercase tracking-wider mb-0.5">
-                  Pickup
-                  {booking.travel_time ? ` · ${booking.travel_time}` : ''}
-                  {booking.travel_date ? ` · ${booking.travel_date}` : ''}
+                  Pickup{booking.travel_time ? ` · ${booking.travel_time}` : ''}{booking.travel_date ? ` · ${booking.travel_date}` : ''}
                 </p>
                 <p className="text-white text-sm font-medium">{pickupAddress}</p>
                 {booking.flight_number && (
@@ -189,7 +189,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
               </div>
             </div>
 
-            {/* Dropoff */}
+            {/* Drop-off */}
             <div className="flex items-start gap-3">
               <div className="flex-shrink-0 mt-0.5">
                 <div className="w-3 h-3 rounded-full bg-red-400" />
@@ -199,33 +199,37 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
                 <p className="text-white text-sm font-medium">{dropoffAddress}</p>
               </div>
             </div>
+
+            {/* Metadata */}
+            {(booking.passengers > 0 || booking.luggage || booking.quoted_price != null) && (
+              <div className="flex items-center gap-3 pt-2 flex-wrap">
+                {booking.passengers > 0 && (
+                  <span className="text-white/25 text-xs flex items-center gap-1">
+                    <Users size={11} /> {booking.passengers}
+                  </span>
+                )}
+                {booking.luggage && (
+                  <span className="text-white/25 text-xs flex items-center gap-1">
+                    <Luggage size={11} /> {booking.luggage}
+                  </span>
+                )}
+                {booking.quoted_price != null && (
+                  <span className="ml-auto text-[#d5a538] font-bold text-base">
+                    £{booking.quoted_price.toFixed(2)}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
 
-          {/* Meta + single Navigate */}
-          <div className="flex items-center gap-3 mt-4 pt-4 border-t border-white/5 flex-wrap">
-            {booking.passengers > 0 && (
-              <span className="text-white/25 text-xs flex items-center gap-1">
-                <Users size={11} /> {booking.passengers}
-              </span>
-            )}
-            {booking.luggage && (
-              <span className="text-white/25 text-xs flex items-center gap-1">
-                <Luggage size={11} /> {booking.luggage}
-              </span>
-            )}
-            {booking.quoted_price != null && (
-              <span className="text-[#d5a538] font-bold text-base">
-                £{booking.quoted_price.toFixed(2)}
-              </span>
-            )}
-            <button
-              onClick={() => openMaps(navigateAddress)}
-              className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-[#020813]"
-              style={{ background: 'linear-gradient(135deg, #f1c56a, #d5a538 55%, #a97918)' }}
-            >
-              <Navigation2 size={13} /> Navigate
-            </button>
-          </div>
+          {/* Inline map + ETA footer */}
+          {pickupAddress !== '—' && dropoffAddress !== '—' && (
+            <RouteMap
+              pickup={pickupAddress}
+              dropoff={dropoffAddress}
+              onNavigate={() => openMaps(navigateAddress)}
+            />
+          )}
         </div>
 
         {/* Return journey */}
