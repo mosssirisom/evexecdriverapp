@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
-import { PoundSterling, Star, Briefcase, Clock, TrendingUp } from 'lucide-react'
-import { MOCK_EARNINGS, WEEK_STATS } from '@/lib/mock-data'
+import { useEffect, useState, useCallback } from 'react'
+import { PoundSterling, Briefcase, TrendingUp, MapPin } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
+import type { Booking } from '@/lib/types'
 
 type Period = 'today' | 'week' | 'month'
 
@@ -12,20 +13,64 @@ const PERIOD_LABELS: Record<Period, string> = {
   month: 'This Month',
 }
 
-const PERIOD_DATA: Record<Period, { total: number; trips: number; hours: number; tips: number; base: number }> = {
-  today: { total: 185.00, trips: 1, hours: 4.5, tips: 0, base: 185.00 },
-  week: { total: 2840.00, trips: 18, hours: 42, tips: 310.00, base: 2530.00 },
-  month: { total: 10420.00, trips: 68, hours: 158, tips: 1140.00, base: 9280.00 },
+const COMPLETED_STATUSES = ['completed', 'Completed']
+
+function getDateRange(period: Period): { from: string; to: string } {
+  const now = new Date()
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const fmt = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+
+  if (period === 'today') {
+    const today = fmt(now)
+    return { from: today, to: today }
+  }
+  if (period === 'week') {
+    const start = new Date(now)
+    const day = now.getDay()
+    const diff = day === 0 ? -6 : 1 - day
+    start.setDate(now.getDate() + diff)
+    return { from: fmt(start), to: fmt(now) }
+  }
+  const start = new Date(now.getFullYear(), now.getMonth(), 1)
+  return { from: fmt(start), to: fmt(now) }
 }
 
 export default function EarningsPage() {
   const [period, setPeriod] = useState<Period>('week')
-  const data = PERIOD_DATA[period]
-  const todayEntries = MOCK_EARNINGS.filter((e) => e.date === '2026-05-29')
+  const [bookings, setBookings] = useState<Booking[]>([])
+  const [loading, setLoading] = useState(true)
+
+  const supabase = createClient()
+
+  const loadEarnings = useCallback(async () => {
+    setLoading(true)
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+
+    const { from, to } = getDateRange(period)
+
+    const { data } = await supabase
+      .from('bookings')
+      .select('*')
+      .eq('assigned_driver_id', user.id)
+      .in('status', COMPLETED_STATUSES)
+      .gte('travel_date', from)
+      .lte('travel_date', to)
+      .order('travel_date', { ascending: false })
+      .order('travel_time', { ascending: false })
+
+    setBookings(data ?? [])
+    setLoading(false)
+  }, [period, supabase])
+
+  useEffect(() => { loadEarnings() }, [loadEarnings])
+
+  const total = bookings.reduce((sum, b) => sum + (b.quoted_price ?? 0), 0)
+  const trips = bookings.length
+  const perJob = trips > 0 ? total / trips : 0
 
   return (
     <div className="min-h-screen bg-[#020813] px-4 pt-12 pb-4">
-      {/* Header */}
       <div className="mb-6">
         <h1 className="text-white font-bold text-xl">Earnings</h1>
         <p className="text-white/40 text-xs mt-1">Your payment summary</p>
@@ -47,116 +92,89 @@ export default function EarningsPage() {
         ))}
       </div>
 
-      {/* Total Earnings Card */}
-      <div
-        className="rounded-2xl p-5 mb-5"
-        style={{
-          background: 'linear-gradient(135deg, rgba(213,165,56,0.15), rgba(169,121,24,0.08))',
-          border: '1px solid rgba(213,165,56,0.25)',
-        }}
-      >
-        <p className="text-[10px] font-semibold uppercase tracking-widest text-[#d5a538]/70 mb-2">
-          {PERIOD_LABELS[period]} Earnings
-        </p>
-        <div className="flex items-end gap-1">
-          <PoundSterling size={24} className="text-[#d5a538] mb-1" />
-          <span className="text-white font-bold text-4xl">{data.total.toLocaleString('en-GB', { minimumFractionDigits: 2 })}</span>
+      {loading ? (
+        <div className="flex items-center justify-center py-20">
+          <div className="w-7 h-7 rounded-full border-2 border-[#d5a538] border-t-transparent animate-spin" />
         </div>
-
-        {/* Breakdown */}
-        <div className="flex gap-4 mt-4 pt-4 border-t border-[#d5a538]/15">
-          <div>
-            <p className="text-[#d5a538]/60 text-[10px] uppercase tracking-wide">Base Fares</p>
-            <p className="text-white font-semibold text-sm mt-0.5">£{data.base.toLocaleString('en-GB', { minimumFractionDigits: 2 })}</p>
-          </div>
-          <div>
-            <p className="text-[#d5a538]/60 text-[10px] uppercase tracking-wide">Tips</p>
-            <p className="text-white font-semibold text-sm mt-0.5">£{data.tips.toLocaleString('en-GB', { minimumFractionDigits: 2 })}</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Stats Row */}
-      <div className="grid grid-cols-3 gap-3 mb-6">
-        <div className="bg-[#0B1525] border border-white/8 rounded-xl p-3 text-center">
-          <Briefcase size={16} className="mx-auto mb-1 text-[#d5a538]" />
-          <p className="text-white font-bold text-lg">{data.trips}</p>
-          <p className="text-white/30 text-[10px] uppercase tracking-wide">Jobs</p>
-        </div>
-        <div className="bg-[#0B1525] border border-white/8 rounded-xl p-3 text-center">
-          <Clock size={16} className="mx-auto mb-1 text-[#d5a538]" />
-          <p className="text-white font-bold text-lg">{data.hours}h</p>
-          <p className="text-white/30 text-[10px] uppercase tracking-wide">Online</p>
-        </div>
-        <div className="bg-[#0B1525] border border-white/8 rounded-xl p-3 text-center">
-          <Star size={16} className="mx-auto mb-1 text-[#d5a538]" />
-          <p className="text-white font-bold text-lg">{WEEK_STATS.avgRating}</p>
-          <p className="text-white/30 text-[10px] uppercase tracking-wide">Rating</p>
-        </div>
-      </div>
-
-      {/* Per-job Average */}
-      <div className="bg-[#0B1525] border border-white/8 rounded-2xl p-4 mb-5">
-        <div className="flex items-center gap-2 mb-3">
-          <TrendingUp size={14} className="text-[#d5a538]" />
-          <p className="text-white/60 text-xs font-semibold uppercase tracking-widest">Averages</p>
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <p className="text-white/40 text-xs">Per job</p>
-            <p className="text-white font-semibold text-base mt-0.5">
-              £{(data.total / (data.trips || 1)).toFixed(2)}
+      ) : (
+        <>
+          {/* Total Earnings Card */}
+          <div
+            className="rounded-2xl p-5 mb-5"
+            style={{
+              background: 'linear-gradient(135deg, rgba(213,165,56,0.15), rgba(169,121,24,0.08))',
+              border: '1px solid rgba(213,165,56,0.25)',
+            }}
+          >
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-[#d5a538]/70 mb-2">
+              {PERIOD_LABELS[period]} Earnings
             </p>
-          </div>
-          <div>
-            <p className="text-white/40 text-xs">Per hour</p>
-            <p className="text-white font-semibold text-base mt-0.5">
-              £{(data.total / (data.hours || 1)).toFixed(2)}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Recent Trips */}
-      <div className="flex items-center justify-between mb-3">
-        <h2 className="text-white font-semibold text-sm">Recent Jobs</h2>
-      </div>
-
-      <div className="space-y-3">
-        {MOCK_EARNINGS.map((entry) => (
-          <div key={entry.jobId} className="bg-[#0B1525] border border-white/8 rounded-2xl p-4">
-            <div className="flex items-start justify-between mb-2">
-              <div>
-                <p className="text-white font-medium text-sm">{entry.passenger}</p>
-                <p className="text-white/30 text-xs mt-0.5">{entry.date}</p>
-              </div>
-              <div className="text-right">
-                <p className="text-[#d5a538] font-bold">£{entry.total.toFixed(2)}</p>
-                {entry.tip > 0 && (
-                  <p className="text-green-400 text-xs mt-0.5">+£{entry.tip.toFixed(2)} tip</p>
-                )}
-              </div>
+            <div className="flex items-end gap-1">
+              <PoundSterling size={24} className="text-[#d5a538] mb-1" />
+              <span className="text-white font-bold text-4xl">
+                {total.toLocaleString('en-GB', { minimumFractionDigits: 2 })}
+              </span>
             </div>
-            <div className="flex items-center gap-2 text-xs text-white/30">
-              <span>{entry.pickup}</span>
-              <span>→</span>
-              <span>{entry.dropoff}</span>
-            </div>
-            {entry.rating && (
-              <div className="flex items-center gap-0.5 mt-2">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <Star
-                    key={i}
-                    size={11}
-                    className={i < entry.rating! ? 'text-[#d5a538]' : 'text-white/15'}
-                    fill={i < entry.rating! ? '#d5a538' : 'none'}
-                  />
-                ))}
-              </div>
-            )}
           </div>
-        ))}
-      </div>
+
+          {/* Stats */}
+          <div className="grid grid-cols-2 gap-3 mb-6">
+            <div className="bg-[#0B1525] border border-white/8 rounded-xl p-3 text-center">
+              <Briefcase size={16} className="mx-auto mb-1 text-[#d5a538]" />
+              <p className="text-white font-bold text-lg">{trips}</p>
+              <p className="text-white/30 text-[10px] uppercase tracking-wide">Jobs</p>
+            </div>
+            <div className="bg-[#0B1525] border border-white/8 rounded-xl p-3 text-center">
+              <TrendingUp size={16} className="mx-auto mb-1 text-[#d5a538]" />
+              <p className="text-white font-bold text-lg">£{perJob.toFixed(0)}</p>
+              <p className="text-white/30 text-[10px] uppercase tracking-wide">Per Job avg</p>
+            </div>
+          </div>
+
+          {/* Jobs list */}
+          {bookings.length === 0 ? (
+            <div className="bg-[#0B1525] border border-white/8 rounded-2xl p-12 text-center">
+              <PoundSterling size={28} className="mx-auto mb-3 text-white/20" />
+              <p className="text-white/40 text-sm">
+                No completed jobs {period === 'today' ? 'today' : `this ${period}`}
+              </p>
+            </div>
+          ) : (
+            <>
+              <h2 className="text-white font-semibold text-sm mb-3">Completed Jobs</h2>
+              <div className="space-y-3">
+                {bookings.map((booking) => {
+                  const pickup = booking.pickup_location ?? booking.airport ?? '—'
+                  const dropoff = booking.dropoff_address ?? '—'
+                  return (
+                    <div key={booking.id} className="bg-[#0B1525] border border-white/8 rounded-2xl p-4">
+                      <div className="flex items-start justify-between mb-2">
+                        <div>
+                          <p className="text-white font-medium text-sm">{booking.customer_name}</p>
+                          <p className="text-white/30 text-xs mt-0.5">
+                            {booking.travel_date}
+                            {booking.travel_time ? ` · ${booking.travel_time}` : ''}
+                          </p>
+                        </div>
+                        {booking.quoted_price != null && (
+                          <p className="text-[#d5a538] font-bold">£{booking.quoted_price.toFixed(2)}</p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1.5 text-xs text-white/30 min-w-0">
+                        <div className="w-1.5 h-1.5 rounded-full bg-[#10b981] flex-shrink-0" />
+                        <span className="truncate">{pickup}</span>
+                        <span className="text-white/20 mx-0.5 flex-shrink-0">→</span>
+                        <MapPin size={10} className="text-red-400 flex-shrink-0" />
+                        <span className="truncate">{dropoff}</span>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </>
+          )}
+        </>
+      )}
     </div>
   )
 }

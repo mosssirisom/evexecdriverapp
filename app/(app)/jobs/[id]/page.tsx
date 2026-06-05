@@ -19,6 +19,7 @@ import {
 import { createClient } from '@/lib/supabase/client'
 import { BookingStatusBadge } from '@/components/badges'
 import { RouteMap } from '@/components/route-map'
+import { openMaps } from '@/lib/utils'
 import type { Booking, BookingStatus } from '@/lib/types'
 
 type StatusStep = { from: BookingStatus; to: BookingStatus; label: string }
@@ -36,14 +37,6 @@ const STATUS_FLOW: StatusStep[] = [
 
 const ACTIVE_STATUSES: BookingStatus[] = ['Passenger On Board', 'active', 'Active']
 
-function openMaps(address: string) {
-  const encoded = encodeURIComponent(address)
-  const isApple = /iPad|iPhone|iPod|Mac/.test(navigator.userAgent) && !(window as Window & { MSStream?: unknown }).MSStream
-  const url = isApple
-    ? `maps://?daddr=${encoded}`
-    : `https://www.google.com/maps/dir/?api=1&destination=${encoded}&travelmode=driving`
-  window.open(url, '_blank')
-}
 
 export default function JobDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)

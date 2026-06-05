@@ -5,16 +5,10 @@ import Link from 'next/link'
 import { ChevronRight, Car, Navigation2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { BookingStatusBadge } from '@/components/badges'
+import { openMaps } from '@/lib/utils'
 import type { Booking } from '@/lib/types'
 
-function openMaps(address: string) {
-  const encoded = encodeURIComponent(address)
-  const isApple = /iPad|iPhone|iPod|Mac/.test(navigator.userAgent) && !(window as Window & { MSStream?: unknown }).MSStream
-  const url = isApple
-    ? `maps://?daddr=${encoded}`
-    : `https://www.google.com/maps/dir/?api=1&destination=${encoded}&travelmode=driving`
-  window.open(url, '_blank')
-}
+const ACTIVE_STATUSES = ['en_route', 'arrived', 'active', 'Active', 'En Route', 'Passenger On Board']
 
 export default function MyJobsPage() {
   const [bookings, setBookings] = useState<Booking[]>([])
@@ -30,7 +24,7 @@ export default function MyJobsPage() {
       .from('bookings')
       .select('*')
       .eq('assigned_driver_id', user.id)
-      .in('status', ['en_route', 'arrived', 'active'])
+      .in('status', ACTIVE_STATUSES)
       .order('travel_date', { ascending: true })
       .order('travel_time', { ascending: true })
 
@@ -39,10 +33,28 @@ export default function MyJobsPage() {
   }, [supabase])
 
   useEffect(() => {
-    loadActiveJobs()
-    const interval = setInterval(loadActiveJobs, 30_000)
-    return () => clearInterval(interval)
-  }, [loadActiveJobs])
+    let channel: ReturnType<typeof supabase.channel> | null = null
+
+    async function setup() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      await loadActiveJobs()
+
+      channel = supabase
+        .channel('my-active-jobs')
+        .on('postgres_changes', {
+          event: '*',
+          schema: 'public',
+          table: 'bookings',
+          filter: `assigned_driver_id=eq.${user.id}`,
+        }, () => loadActiveJobs())
+        .subscribe()
+    }
+
+    setup()
+    return () => { if (channel) supabase.removeChannel(channel) }
+  }, [loadActiveJobs, supabase])
 
   return (
     <div className="min-h-screen bg-[#020813] px-4 pt-12 pb-4">
@@ -68,12 +80,11 @@ export default function MyJobsPage() {
             const dropoffAddress = booking.dropoff_address ?? '—'
             return (
               <div key={booking.id} className="bg-[#0B1525] border border-white/8 rounded-2xl overflow-hidden">
-                {/* Status bar */}
                 <div
                   className="px-4 py-2.5 flex items-center justify-between"
                   style={{
                     background:
-                      booking.status === 'active'
+                      booking.status === 'active' || booking.status === 'Active'
                         ? 'linear-gradient(135deg, rgba(16,185,129,0.15), rgba(16,185,129,0.05))'
                         : booking.status === 'arrived'
                         ? 'linear-gradient(135deg, rgba(6,182,212,0.15), rgba(6,182,212,0.05))'
@@ -110,10 +121,7 @@ export default function MyJobsPage() {
                       <div className="flex-1 min-w-0">
                         <p className="text-white/50 text-xs leading-tight truncate">{pickupAddress}</p>
                       </div>
-                      <button
-                        onClick={() => openMaps(pickupAddress)}
-                        className="text-[#d5a538] flex-shrink-0"
-                      >
+                      <button onClick={() => openMaps(pickupAddress)} className="text-[#d5a538] flex-shrink-0">
                         <Navigation2 size={14} />
                       </button>
                     </div>
@@ -122,10 +130,7 @@ export default function MyJobsPage() {
                       <div className="flex-1 min-w-0">
                         <p className="text-white/50 text-xs leading-tight truncate">{dropoffAddress}</p>
                       </div>
-                      <button
-                        onClick={() => openMaps(dropoffAddress)}
-                        className="text-[#d5a538] flex-shrink-0"
-                      >
+                      <button onClick={() => openMaps(dropoffAddress)} className="text-[#d5a538] flex-shrink-0">
                         <Navigation2 size={14} />
                       </button>
                     </div>
