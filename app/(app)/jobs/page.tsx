@@ -2,12 +2,14 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
-import { ChevronRight, Clock, Car } from 'lucide-react'
+import { ChevronRight, Car, Users } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { BookingStatusBadge } from '@/components/badges'
+import { formatDate, formatTime, paymentInfo } from '@/lib/format'
 import type { Booking } from '@/lib/types'
 
 type Tab = 'upcoming' | 'active' | 'completed'
+type DateFilter = 'all' | 'today' | 'tomorrow' | '7days'
 
 function BookingCard({ booking }: { booking: Booking }) {
   return (
@@ -15,8 +17,8 @@ function BookingCard({ booking }: { booking: Booking }) {
       <div className="bg-[#0B1525] border border-white/8 rounded-2xl p-4 active:opacity-80 transition-opacity">
         <div className="flex items-start justify-between mb-3">
           <div className="flex items-center gap-2">
-            <span className="text-[#d5a538] font-semibold text-sm">{booking.travel_time ?? '—'}</span>
-            <span className="text-white/20 text-xs">{booking.travel_date ?? ''}</span>
+            <span className="text-[#d5a538] font-semibold text-sm">{formatTime(booking.travel_time)}</span>
+            <span className="text-white/20 text-xs">{formatDate(booking.travel_date)}</span>
           </div>
           <div className="flex items-center gap-2">
             <BookingStatusBadge status={booking.status} />
@@ -38,20 +40,30 @@ function BookingCard({ booking }: { booking: Booking }) {
           </div>
           <div className="flex items-start gap-2">
             <div className="w-1.5 h-1.5 rounded-full bg-red-400 mt-1.5 flex-shrink-0" />
-            <p className="text-white/50 text-xs leading-tight">{booking.dropoff_address ?? '—'}</p>
+            <p className="text-white/50 text-xs leading-tight">{booking.dropoff_address ?? booking.airport ?? '—'}</p>
           </div>
         </div>
 
-        {booking.quoted_price && (
-          <div className="flex items-center gap-3 mt-3 pt-3 border-t border-white/5">
+        {(booking.quoted_price || booking.payment_method || booking.payment_status) && (
+          <div className="flex items-center gap-2 mt-3 pt-3 border-t border-white/5">
             {booking.passengers > 0 && (
               <span className="text-white/40 text-xs flex items-center gap-1">
-                <Clock size={11} /> {booking.passengers} pax
+                <Users size={11} /> {booking.passengers}
               </span>
             )}
-            <span className="ml-auto text-[#d5a538] font-semibold text-sm">
-              £{booking.quoted_price.toFixed(0)}
-            </span>
+            {(() => {
+              const p = paymentInfo(booking.payment_method, booking.payment_status)
+              return (
+                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${p.className}`}>
+                  {p.text}
+                </span>
+              )
+            })()}
+            {booking.quoted_price && (
+              <span className="ml-auto text-[#d5a538] font-semibold text-sm">
+                £{booking.quoted_price.toFixed(0)}
+              </span>
+            )}
           </div>
         )}
       </div>
@@ -61,6 +73,7 @@ function BookingCard({ booking }: { booking: Booking }) {
 
 export default function JobsPage() {
   const [tab, setTab] = useState<Tab>('upcoming')
+  const [dateFilter, setDateFilter] = useState<DateFilter>('all')
   const [bookings, setBookings] = useState<Booking[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -74,7 +87,7 @@ export default function JobsPage() {
       .from('bookings')
       .select('*')
       .eq('assigned_driver_id', user.id)
-      .in('status', ['accepted', 'confirmed', 'en_route', 'arrived', 'active', 'completed', 'cancelled'])
+      .in('status', ['accepted', 'confirmed', 'Dispatched', 'En Route', 'en_route', 'Passenger On Board', 'Arrived', 'arrived', 'Active', 'active', 'No Show', 'completed', 'Completed', 'cancelled', 'Cancelled'])
       .order('travel_date', { ascending: false })
       .order('travel_time', { ascending: true })
 
@@ -84,19 +97,55 @@ export default function JobsPage() {
 
   useEffect(() => { loadBookings() }, [loadBookings])
 
-  const upcoming = bookings.filter((b) => ['accepted', 'confirmed'].includes(b.status))
-  const active = bookings.filter((b) => ['en_route', 'arrived', 'active'].includes(b.status))
-  const completed = bookings.filter((b) => ['completed', 'cancelled'].includes(b.status))
+  const upcoming = bookings.filter((b) => ['accepted', 'confirmed', 'Dispatched'].includes(b.status))
+  const active = bookings.filter((b) => ['En Route', 'en_route', 'Passenger On Board', 'Arrived', 'arrived', 'Active', 'active'].includes(b.status))
+  const completed = bookings.filter((b) => ['completed', 'Completed', 'cancelled', 'Cancelled', 'No Show'].includes(b.status))
 
-  const currentList = tab === 'upcoming' ? upcoming : tab === 'active' ? active : completed
+  const applyDateFilter = (list: Booking[]) => {
+    const now = new Date()
+    const pad = (n: number) => String(n).padStart(2, '0')
+    const fmt = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+    const todayStr = fmt(now)
+    const tomorrowStr = fmt(new Date(now.getTime() + 86400000))
+    const in7Str = fmt(new Date(now.getTime() + 7 * 86400000))
+    if (dateFilter === 'today') return list.filter(b => b.travel_date === todayStr)
+    if (dateFilter === 'tomorrow') return list.filter(b => b.travel_date === tomorrowStr)
+    if (dateFilter === '7days') return list.filter(b => b.travel_date && b.travel_date >= todayStr && b.travel_date <= in7Str)
+    return list
+  }
+
+  const baseList = tab === 'upcoming' ? upcoming : tab === 'active' ? active : completed
+  const currentList = applyDateFilter(baseList)
 
   const today = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
 
   return (
     <div className="min-h-screen bg-[#020813] px-4 pt-12 pb-4">
       <div className="mb-6">
-        <h1 className="text-white font-bold text-xl">Board</h1>
+        <h1 className="text-white font-bold text-xl">Jobs</h1>
         <p className="text-white/40 text-xs mt-1">{today}</p>
+      </div>
+
+      {/* Date filter pills */}
+      <div className="flex gap-2 mb-4 overflow-x-auto pb-1 no-scrollbar">
+        {([
+          { key: 'all' as DateFilter, label: 'All' },
+          { key: 'today' as DateFilter, label: 'Today' },
+          { key: 'tomorrow' as DateFilter, label: 'Tomorrow' },
+          { key: '7days' as DateFilter, label: '7 Days' },
+        ]).map(({ key, label }) => (
+          <button
+            key={key}
+            onClick={() => setDateFilter(key)}
+            className="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all"
+            style={dateFilter === key
+              ? { background: 'linear-gradient(135deg, #f1c56a, #d5a538 55%, #a97918)', color: '#020813', borderColor: 'transparent' }
+              : { background: 'transparent', color: 'rgba(255,255,255,0.4)', borderColor: 'rgba(255,255,255,0.1)' }
+            }
+          >
+            {label}
+          </button>
+        ))}
       </div>
 
       <div className="flex gap-1 bg-white/5 rounded-xl p-1 mb-5">

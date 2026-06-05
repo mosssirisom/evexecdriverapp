@@ -10,7 +10,7 @@ export async function login(formData: FormData) {
 
   const { error } = await supabase.auth.signInWithPassword({ email, password })
   if (error) return { error: error.message }
-  redirect('/dashboard')
+  return { success: true }
 }
 
 export async function logout() {

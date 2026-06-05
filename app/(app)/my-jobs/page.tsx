@@ -1,25 +1,27 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import Link from 'next/link'
-import { ChevronRight, Car, Navigation2 } from 'lucide-react'
+import { ChevronRight, Car, Navigation2, Phone } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { BookingStatusBadge } from '@/components/badges'
-import { openMaps } from '@/lib/utils'
+import { formatTime } from '@/lib/format'
 import type { Booking } from '@/lib/types'
 
-const ACTIVE_STATUSES = ['en_route', 'arrived', 'active', 'Active', 'En Route', 'Passenger On Board']
+function navigateTo(destination: string) {
+  const dest = encodeURIComponent(destination)
+  window.open(`https://www.google.com/maps/dir/?api=1&destination=${dest}&travelmode=driving`, '_blank')
+}
 
 export default function MyJobsPage() {
   const [bookings, setBookings] = useState<Booking[]>([])
   const [loading, setLoading] = useState(true)
-
   const supabase = createClient()
+  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
 
   const loadActiveJobs = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-
     const { data } = await supabase
       .from('bookings')
       .select('*')
@@ -27,34 +29,29 @@ export default function MyJobsPage() {
       .in('status', ACTIVE_STATUSES)
       .order('travel_date', { ascending: true })
       .order('travel_time', { ascending: true })
-
     if (data) setBookings(data)
     setLoading(false)
   }, [supabase])
 
   useEffect(() => {
-    let channel: ReturnType<typeof supabase.channel> | null = null
+    loadActiveJobs()
 
-    async function setup() {
-      const { data: { user } } = await supabase.auth.getUser()
+    supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) return
-
-      await loadActiveJobs()
-
-      channel = supabase
+      channelRef.current = supabase
         .channel('my-active-jobs')
         .on('postgres_changes', {
-          event: '*',
-          schema: 'public',
-          table: 'bookings',
+          event: '*', schema: 'public', table: 'bookings',
           filter: `assigned_driver_id=eq.${user.id}`,
         }, () => loadActiveJobs())
         .subscribe()
-    }
+    })
 
-    setup()
-    return () => { if (channel) supabase.removeChannel(channel) }
-  }, [loadActiveJobs, supabase])
+    return () => {
+      if (channelRef.current) supabase.removeChannel(channelRef.current)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   return (
     <div className="min-h-screen bg-[#020813] px-4 pt-12 pb-4">
@@ -71,7 +68,7 @@ export default function MyJobsPage() {
         <div className="bg-[#0B1525] border border-white/8 rounded-2xl p-12 text-center">
           <Car size={32} className="mx-auto mb-3 text-white/20" />
           <p className="text-white/40 text-sm">No active jobs right now</p>
-          <p className="text-white/20 text-xs mt-1">Jobs will appear here once you start them</p>
+          <p className="text-white/20 text-xs mt-1">Jobs appear here once you start them</p>
         </div>
       ) : (
         <div className="space-y-4">
@@ -103,25 +100,25 @@ export default function MyJobsPage() {
                   <div className="flex items-center justify-between mb-3">
                     <div>
                       <p className="text-white font-semibold text-sm">{booking.customer_name}</p>
-                      <p className="text-white/40 text-xs mt-0.5">{booking.travel_time ?? ''}</p>
+                      <p className="text-white/40 text-xs mt-0.5">{formatTime(booking.travel_time)}</p>
                     </div>
                     {booking.customer_phone && (
                       <a
                         href={`tel:${booking.customer_phone}`}
-                        className="w-9 h-9 rounded-xl flex items-center justify-center border border-white/10 bg-white/5"
+                        className="w-9 h-9 rounded-xl flex items-center justify-center border border-white/10 bg-white/5 active:opacity-70"
                       >
-                        <span className="text-[#d5a538] text-xs font-bold">CALL</span>
+                        <Phone size={15} className="text-[#d5a538]" />
                       </a>
                     )}
                   </div>
 
-                  <div className="space-y-2 mb-3">
+                  <div className="space-y-2 mb-4">
                     <div className="flex items-start gap-2">
                       <div className="w-1.5 h-1.5 rounded-full bg-[#10b981] mt-1.5 flex-shrink-0" />
                       <div className="flex-1 min-w-0">
                         <p className="text-white/50 text-xs leading-tight truncate">{pickupAddress}</p>
                       </div>
-                      <button onClick={() => openMaps(pickupAddress)} className="text-[#d5a538] flex-shrink-0">
+                      <button onClick={() => navigateTo(pickupAddress)} className="text-[#d5a538] flex-shrink-0 active:opacity-70">
                         <Navigation2 size={14} />
                       </button>
                     </div>
@@ -130,7 +127,7 @@ export default function MyJobsPage() {
                       <div className="flex-1 min-w-0">
                         <p className="text-white/50 text-xs leading-tight truncate">{dropoffAddress}</p>
                       </div>
-                      <button onClick={() => openMaps(dropoffAddress)} className="text-[#d5a538] flex-shrink-0">
+                      <button onClick={() => navigateTo(dropoffAddress)} className="text-[#d5a538] flex-shrink-0 active:opacity-70">
                         <Navigation2 size={14} />
                       </button>
                     </div>
@@ -138,7 +135,7 @@ export default function MyJobsPage() {
 
                   <Link href={`/jobs/${booking.id}`}>
                     <button
-                      className="w-full py-2.5 rounded-xl font-semibold text-[#020813] text-sm flex items-center justify-center gap-1.5"
+                      className="w-full py-2.5 rounded-xl font-semibold text-[#020813] text-sm flex items-center justify-center gap-1.5 active:opacity-80"
                       style={{ background: 'linear-gradient(135deg, #f1c56a, #d5a538 55%, #a97918)' }}
                     >
                       Update Status <ChevronRight size={14} />

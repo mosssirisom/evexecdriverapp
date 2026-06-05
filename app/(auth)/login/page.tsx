@@ -1,11 +1,13 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { Eye, EyeOff, Loader2 } from 'lucide-react'
-import Image from 'next/image'
 import { login } from '@/app/actions/auth'
+import { LOGIN_EMAIL_PLACEHOLDER } from '@/lib/config'
 
 export default function LoginPage() {
+  const router = useRouter()
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [isPending, startTransition] = useTransition()
@@ -16,7 +18,12 @@ export default function LoginPage() {
     const formData = new FormData(e.currentTarget)
     startTransition(async () => {
       const result = await login(formData)
-      if (result?.error) setError(result.error)
+      if (result?.error) {
+        setError(result.error)
+      } else {
+        router.push('/dashboard')
+        router.refresh()
+      }
     })
   }
 
@@ -24,13 +31,13 @@ export default function LoginPage() {
     <div className="min-h-screen flex flex-col items-center justify-center px-6 bg-[#020813]">
       {/* Logo */}
       <div className="mb-8 text-center">
-        <Image
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
           src="/logo.png"
           alt="EV Exec"
           width={160}
           height={160}
           className="mx-auto"
-          priority
         />
         <p className="text-white/40 mt-2 tracking-widest uppercase text-xs">Driver Portal</p>
       </div>
@@ -48,7 +55,7 @@ export default function LoginPage() {
               type="email"
               name="email"
               required
-              placeholder="you@evexec.co.uk"
+              placeholder={LOGIN_EMAIL_PLACEHOLDER}
               className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/20 text-sm focus:outline-none focus:border-[#d5a538] focus:ring-1 focus:ring-[#d5a538] transition-colors"
             />
           </div>

@@ -1,3 +1,5 @@
+@import 'leaflet/dist/leaflet.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -25,4 +27,13 @@ body {
 /* Safe area padding for iOS home bar */
 .pb-safe {
   padding-bottom: env(safe-area-inset-bottom, 16px);
+}
+
+/* Toast slide-in animation */
+@keyframes toast-enter {
+  from { opacity: 0; transform: translateY(-10px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0)    scale(1); }
+}
+.toast-enter {
+  animation: toast-enter 0.2s ease-out;
 }
