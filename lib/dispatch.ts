@@ -99,3 +99,22 @@ export async function updateDriverJobStatus(jobRef: string, status: DriverJobSta
   if (error) throw new Error(error.message)
   return data?.[0] ? shapeDriverJob(data[0]) : null
 }
+
+export function subscribeToAssignedDriverJobs(driverId: string, onChange: () => void) {
+  if (!driverSupabase || !driverId) return () => {}
+
+  const channel = driverSupabase
+    .channel(`driver-jobs-${driverId}`)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, (payload) => {
+      const next = payload.new as Record<string, any> | null
+      const old = payload.old as Record<string, any> | null
+      const matchesNext = next?.driver_id === driverId || next?.assigned_driver_id === driverId
+      const matchesOld = old?.driver_id === driverId || old?.assigned_driver_id === driverId
+      if (matchesNext || matchesOld) onChange()
+    })
+    .subscribe()
+
+  return () => {
+    driverSupabase.removeChannel(channel)
+  }
+}
