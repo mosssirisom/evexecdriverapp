@@ -4,6 +4,8 @@ import { shapeDriverJob, type DriverJobStatus } from '@/lib/dispatch'
 
 const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || ''
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+const smsWebhookUrl = process.env.SMS_WEBHOOK_URL || ''
+const dispatcherWebhookUrl = process.env.DISPATCHER_WEBHOOK_URL || ''
 
 const allowedStatuses = new Set<DriverJobStatus | string>([
   'Dispatched',
@@ -22,6 +24,50 @@ function serverSupabase() {
 
 function text(value: unknown) {
   return typeof value === 'string' ? value.trim() : ''
+}
+
+function customerMessage(status: string, booking: Record<string, any>) {
+  const ref = booking.ref ? ` Ref: ${booking.ref}.` : ''
+  if (status === 'En Route') return `EV Exec update: your driver is now on the way.${ref}`
+  if (status === 'Driver Arrived') return `EV Exec update: your driver has arrived and is outside.${ref}`
+  if (status === 'Passenger On Board') return `EV Exec update: passenger is now on board.${ref}`
+  if (status === 'Completed') return `Thank you for travelling with EV Exec. We hope you had a smooth journey.${ref}`
+  return null
+}
+
+async function postWebhook(url: string, payload: Record<string, any>) {
+  if (!url) return { skipped: true }
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+  if (!res.ok) throw new Error(`Webhook returned ${res.status}`)
+  return { ok: true }
+}
+
+async function notifyStatusChange(status: string, booking: Record<string, any>) {
+  const customerPhone = text(booking.customer_phone)
+  const message = customerMessage(status, booking)
+
+  await Promise.allSettled([
+    message && customerPhone
+      ? postWebhook(smsWebhookUrl, {
+          to: customerPhone,
+          message,
+          bookingRef: booking.ref,
+          status,
+          customerName: booking.customer_name || null,
+        })
+      : Promise.resolve({ skipped: true }),
+    postWebhook(dispatcherWebhookUrl, {
+      bookingRef: booking.ref,
+      status,
+      customerName: booking.customer_name || null,
+      customerPhone: customerPhone || null,
+      updatedAt: new Date().toISOString(),
+    }),
+  ])
 }
 
 export async function PATCH(
@@ -55,6 +101,10 @@ export async function PATCH(
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
+
+  await notifyStatusChange(status, data).catch((err) => {
+    console.warn('[EV Exec] Status notification failed:', err.message)
+  })
 
   return NextResponse.json({ ok: true, job: shapeDriverJob(data) })
 }
