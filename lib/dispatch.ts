@@ -1,5 +1,3 @@
-import { createClient } from '@supabase/supabase-js'
-
 export type DriverJobStatus =
   | 'Dispatched'
   | 'Driver Started'
@@ -25,15 +23,6 @@ export type DriverJob = {
   paymentStatus: string | null
   notes: string | null
 }
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-
-export const driverDispatchConfigured = Boolean(supabaseUrl && supabaseAnonKey)
-
-export const driverSupabase = driverDispatchConfigured
-  ? createClient(supabaseUrl, supabaseAnonKey)
-  : null
 
 function buildPickupTime(row: Record<string, any>) {
   if (row.pickup_time) return row.pickup_time
@@ -71,50 +60,24 @@ export function shapeDriverJob(row: Record<string, any>): DriverJob {
 }
 
 export async function fetchAssignedDriverJobs(driverId: string): Promise<DriverJob[]> {
-  if (!driverSupabase || !driverId) return []
+  if (!driverId) return []
 
-  const { data, error } = await driverSupabase
-    .from('bookings')
-    .select('*')
-    .or(`driver_id.eq.${driverId},assigned_driver_id.eq.${driverId}`)
-    .not('status', 'eq', 'Completed')
-    .not('status', 'eq', 'Cancelled')
-    .order('created_at', { ascending: false })
-
-  if (error) throw new Error(error.message)
-  return (data || []).map(shapeDriverJob)
+  const res = await fetch(`/api/jobs?driverId=${encodeURIComponent(driverId)}`)
+  if (!res.ok) throw new Error(`Failed to load assigned jobs: ${res.status}`)
+  const data = await res.json()
+  return data.jobs || []
 }
 
 export async function updateDriverJobStatus(jobRef: string, status: DriverJobStatus) {
-  if (!driverSupabase) throw new Error('Supabase is not configured')
   if (!jobRef) throw new Error('Missing job reference')
 
-  const { data, error } = await driverSupabase
-    .from('bookings')
-    .update({ status, updated_at: new Date().toISOString() })
-    .eq('ref', jobRef)
-    .select('*')
-    .limit(1)
+  const res = await fetch(`/api/jobs?ref=${encodeURIComponent(jobRef)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status }),
+  })
 
-  if (error) throw new Error(error.message)
-  return data?.[0] ? shapeDriverJob(data[0]) : null
-}
-
-export function subscribeToAssignedDriverJobs(driverId: string, onChange: () => void) {
-  if (!driverSupabase || !driverId) return () => {}
-
-  const channel = driverSupabase
-    .channel(`driver-jobs-${driverId}`)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, (payload) => {
-      const next = payload.new as Record<string, any> | null
-      const old = payload.old as Record<string, any> | null
-      const matchesNext = next?.driver_id === driverId || next?.assigned_driver_id === driverId
-      const matchesOld = old?.driver_id === driverId || old?.assigned_driver_id === driverId
-      if (matchesNext || matchesOld) onChange()
-    })
-    .subscribe()
-
-  return () => {
-    driverSupabase.removeChannel(channel)
-  }
+  if (!res.ok) throw new Error(`Failed to update job status: ${res.status}`)
+  const data = await res.json()
+  return data.job || null
 }
