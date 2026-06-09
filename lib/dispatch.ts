@@ -1,3 +1,5 @@
+import { createClient } from '@supabase/supabase-js'
+
 export type DriverJobStatus =
   | 'Dispatched'
   | 'Driver Started'
@@ -23,6 +25,15 @@ export type DriverJob = {
   paymentStatus: string | null
   notes: string | null
 }
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+
+export const driverDispatchConfigured = Boolean(supabaseUrl && supabaseAnonKey)
+
+export const driverSupabase = driverDispatchConfigured
+  ? createClient(supabaseUrl, supabaseAnonKey)
+  : null
 
 function buildPickupTime(row: Record<string, any>) {
   if (row.pickup_time) return row.pickup_time
@@ -57,4 +68,34 @@ export function shapeDriverJob(row: Record<string, any>): DriverJob {
     paymentStatus: row.payment_status || null,
     notes: row.notes || null,
   }
+}
+
+export async function fetchAssignedDriverJobs(driverId: string): Promise<DriverJob[]> {
+  if (!driverSupabase || !driverId) return []
+
+  const { data, error } = await driverSupabase
+    .from('bookings')
+    .select('*')
+    .or(`driver_id.eq.${driverId},assigned_driver_id.eq.${driverId}`)
+    .not('status', 'eq', 'Completed')
+    .not('status', 'eq', 'Cancelled')
+    .order('created_at', { ascending: false })
+
+  if (error) throw new Error(error.message)
+  return (data || []).map(shapeDriverJob)
+}
+
+export async function updateDriverJobStatus(jobRef: string, status: DriverJobStatus) {
+  if (!driverSupabase) throw new Error('Supabase is not configured')
+  if (!jobRef) throw new Error('Missing job reference')
+
+  const { data, error } = await driverSupabase
+    .from('bookings')
+    .update({ status, updated_at: new Date().toISOString() })
+    .eq('ref', jobRef)
+    .select('*')
+    .limit(1)
+
+  if (error) throw new Error(error.message)
+  return data?.[0] ? shapeDriverJob(data[0]) : null
 }
