@@ -32,6 +32,33 @@ function splitRoute(route: string) {
   }
 }
 
+export async function GET(req: NextRequest) {
+  const supabase = serverSupabase()
+  if (!supabase) {
+    return NextResponse.json({ error: 'Driver app Supabase server env vars missing' }, { status: 500 })
+  }
+
+  const url = new URL(req.url)
+  const driverId = text(url.searchParams.get('driverId'))
+  if (!driverId) {
+    return NextResponse.json({ error: 'Missing driverId' }, { status: 400 })
+  }
+
+  const { data, error } = await supabase
+    .from('bookings')
+    .select('*')
+    .or(`driver_id.eq.${driverId},assigned_driver_id.eq.${driverId}`)
+    .not('status', 'eq', 'Completed')
+    .not('status', 'eq', 'Cancelled')
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+
+  return NextResponse.json({ ok: true, jobs: (data || []).map(shapeDriverJob) })
+}
+
 export async function POST(req: NextRequest) {
   const supabase = serverSupabase()
   if (!supabase) {
