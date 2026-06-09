@@ -7,7 +7,12 @@ import { createClient } from '@/lib/supabase/client'
 import { getDriverByEmail } from '@/lib/getDriver'
 import { BookingStatusBadge } from '@/components/badges'
 import { formatTime } from '@/lib/format'
-import type { Booking } from '@/lib/types'
+import type { Booking, BookingStatus } from '@/lib/types'
+
+const ACTIVE_STATUSES: BookingStatus[] = [
+  'accepted', 'confirmed', 'Dispatched', 'En Route', 'Passenger On Board',
+  'en_route', 'arrived', 'Arrived', 'active', 'Active',
+]
 
 function navigateTo(destination: string) {
   const dest = encodeURIComponent(destination)

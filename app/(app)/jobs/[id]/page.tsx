@@ -162,6 +162,17 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
     return () => { supabase.removeChannel(channel) }
   }, [id, supabase])
 
+  const fireCustomerNotification = (bookingId: string, status: string) => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) return
+      fetch('https://evexec.co.uk/api/booking/notify-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ bookingId, status }),
+      }).catch(() => {})
+    })
+  }
+
   const handleStatusUpdate = async (nextStatus: BookingStatus) => {
     if (!booking || updating) return
     setUpdating(true)
@@ -174,6 +185,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
       setUpdateError(error.message ?? 'Failed to update. Please try again.')
     } else {
       setBooking({ ...booking, status: nextStatus })
+      fireCustomerNotification(booking.id, nextStatus)
     }
     setUpdating(false)
   }
@@ -191,6 +203,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
       setUpdateError(error.message ?? 'Failed to mark no show. Please try again.')
     } else {
       setBooking({ ...booking, status: 'No Show' })
+      fireCustomerNotification(booking.id, 'No Show')
     }
     setUpdating(false)
   }
@@ -232,6 +245,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
   const showNotes = booking.operator_note || !isDone || (isDone && booking.driver_notes)
 
   // Navigate to dropoff when passenger is on board, otherwise navigate to pickup
+  const isActive = ['Passenger On Board', 'active', 'Active'].includes(booking.status)
   const navigateAddress = isActive ? dropoffAddress : pickupAddress
 
   return (
