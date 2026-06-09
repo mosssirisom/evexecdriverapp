@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import { ChevronRight, Car, Navigation2, Phone } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { getDriverByEmail } from '@/lib/getDriver'
 import { BookingStatusBadge } from '@/components/badges'
 import { formatTime } from '@/lib/format'
 import type { Booking } from '@/lib/types'
@@ -19,31 +20,38 @@ export default function MyJobsPage() {
   const supabase = createClient()
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
 
-  const loadActiveJobs = useCallback(async () => {
+  const loadActiveJobs = useCallback(async (driverUUID?: string) => {
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
+    if (!user?.email) return null
+
+    let id = driverUUID
+    if (!id) {
+      const d = await getDriverByEmail(supabase, user.email)
+      if (!d) return null
+      id = d.id
+    }
+
     const { data } = await supabase
       .from('bookings')
       .select('*')
-      .eq('assigned_driver_id', user.id)
+      .eq('assigned_driver_id', id)
       .in('status', ACTIVE_STATUSES)
       .order('travel_date', { ascending: true })
       .order('travel_time', { ascending: true })
     if (data) setBookings(data)
     setLoading(false)
+    return id
   }, [supabase])
 
   useEffect(() => {
-    loadActiveJobs()
-
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user) return
+    loadActiveJobs().then((id) => {
+      if (!id) return
       channelRef.current = supabase
         .channel('my-active-jobs')
         .on('postgres_changes', {
           event: '*', schema: 'public', table: 'bookings',
-          filter: `assigned_driver_id=eq.${user.id}`,
-        }, () => loadActiveJobs())
+          filter: `assigned_driver_id=eq.${id}`,
+        }, () => loadActiveJobs(id))
         .subscribe()
     })
 

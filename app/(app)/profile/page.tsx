@@ -8,6 +8,7 @@ import {
   HelpCircle, Loader2, ClipboardList, MessageCircle,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { getDriverByEmail } from '@/lib/getDriver'
 import { OPS_PHONE, OPS_WHATSAPP, SUPPORT_EMAIL } from '@/lib/config'
 import type { Driver } from '@/lib/types'
 
@@ -22,27 +23,28 @@ export default function ProfilePage() {
 
   const loadProfile = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-    setEmail(user.email ?? null)
+    if (!user?.email) return
+    setEmail(user.email)
 
-    const [driverRes, tripsRes] = await Promise.all([
-      supabase.from('drivers').select('*').eq('id', user.id).single(),
-      supabase
+    const driverData = await getDriverByEmail(supabase, user.email)
+    if (driverData) {
+      setDriver(driverData as unknown as Driver)
+
+      const { count } = await supabase
         .from('bookings')
         .select('id', { count: 'exact', head: true })
-        .eq('assigned_driver_id', user.id)
-        .in('status', ['completed', 'Completed']),
-    ])
+        .eq('assigned_driver_id', driverData.id)
+        .in('status', ['completed', 'Completed'])
 
-    if (driverRes.data) setDriver(driverRes.data)
-    setTripCount(tripsRes.count ?? 0)
+      setTripCount(count ?? 0)
+    }
     setLoading(false)
   }, [supabase])
 
   useEffect(() => { loadProfile() }, [loadProfile])
 
-  const initials = driver?.full_name
-    ? driver.full_name.split(' ').map((n) => n[0]).join('').slice(0, 2)
+  const initials = driver?.name
+    ? driver.name.split(' ').map((n) => n[0]).join('').slice(0, 2)
     : '?'
 
   if (loading) {
@@ -67,7 +69,7 @@ export default function ProfilePage() {
             {initials}
           </div>
           <div className="flex-1 min-w-0">
-            <h2 className="text-white font-bold text-lg">{driver?.full_name ?? 'Driver'}</h2>
+            <h2 className="text-white font-bold text-lg">{driver?.name ?? 'Driver'}</h2>
             <p className="text-white/40 text-xs mt-0.5">
               {tripCount > 0 ? `${tripCount} trips completed` : 'No trips yet'}
             </p>
@@ -90,23 +92,23 @@ export default function ProfilePage() {
       </div>
 
       {/* Vehicle */}
-      {(driver?.vehicle_model || driver?.vehicle_registration) && (
+      {(driver?.vehicle || driver?.plate) && (
         <div className="bg-[#0B1525] border border-white/8 rounded-2xl p-4 mb-4">
           <div className="flex items-center gap-2 mb-3">
             <Car size={14} className="text-[#d5a538]" />
             <p className="text-white/50 text-xs font-semibold uppercase tracking-widest">Vehicle</p>
           </div>
           <div className="grid grid-cols-2 gap-y-3">
-            {driver.vehicle_model && (
+            {driver.vehicle && (
               <div>
                 <p className="text-white/25 text-[10px] uppercase tracking-wide">Model</p>
-                <p className="text-white text-sm font-medium mt-0.5">{driver.vehicle_model}</p>
+                <p className="text-white text-sm font-medium mt-0.5">{driver.vehicle}</p>
               </div>
             )}
-            {driver.vehicle_registration && (
+            {driver.plate && (
               <div>
                 <p className="text-white/25 text-[10px] uppercase tracking-wide">Registration</p>
-                <p className="text-white text-sm font-medium mt-0.5 font-mono">{driver.vehicle_registration}</p>
+                <p className="text-white text-sm font-medium mt-0.5 font-mono">{driver.plate}</p>
               </div>
             )}
           </div>

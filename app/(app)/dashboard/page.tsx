@@ -4,12 +4,14 @@ import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
 import { Car, ChevronRight, Bell, Briefcase, Star, RefreshCw } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { getDriverByEmail } from '@/lib/getDriver'
 import { BookingStatusBadge } from '@/components/badges'
 import { formatTime } from '@/lib/format'
 import type { Booking, Driver } from '@/lib/types'
 
 export default function DashboardPage() {
   const [driver, setDriver] = useState<Driver | null>(null)
+  const [driverId, setDriverId] = useState<string | null>(null)
   const [bookings, setBookings] = useState<Booking[]>([])
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -18,44 +20,40 @@ export default function DashboardPage() {
 
   const loadData = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
+    if (!user?.email) return
 
-    const [{ data: driverData }, { data: bookingData }] = await Promise.all([
-      supabase.from('drivers').select('*').eq('id', user.id).single(),
-      supabase
+    const driverData = await getDriverByEmail(supabase, user.email)
+    if (driverData) {
+      setDriver(driverData as unknown as Driver)
+      setDriverId(driverData.id)
+
+      const { data: bookingData } = await supabase
         .from('bookings')
         .select('*')
-        .eq('assigned_driver_id', user.id)
+        .eq('assigned_driver_id', driverData.id)
         .in('status', ['accepted', 'confirmed', 'Dispatched', 'En Route', 'en_route', 'Passenger On Board', 'Arrived', 'arrived', 'Active', 'active'])
         .order('travel_date', { ascending: true })
-        .order('travel_time', { ascending: true }),
-    ])
+        .order('travel_time', { ascending: true })
 
-    if (driverData) {
-      setDriver(driverData)
+      if (bookingData) setBookings(bookingData)
     }
-    if (bookingData) setBookings(bookingData)
     setLoading(false)
   }, [supabase])
 
   useEffect(() => { loadData() }, [loadData])
 
-  // Live updates when operator assigns or changes bookings
+  // Live updates — only subscribe once we know the driver's UUID
   useEffect(() => {
-    let channel: ReturnType<typeof supabase.channel> | null = null
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user) return
-      channel = supabase
-        .channel('dashboard-live')
-        .on('postgres_changes', {
-          event: '*', schema: 'public', table: 'bookings',
-          filter: `assigned_driver_id=eq.${user.id}`,
-        }, () => loadData())
-        .subscribe()
-    })
-    return () => { if (channel) supabase.removeChannel(channel) }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+    if (!driverId) return
+    const channel = supabase
+      .channel('dashboard-live')
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'bookings',
+        filter: `assigned_driver_id=eq.${driverId}`,
+      }, () => loadData())
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [driverId, supabase, loadData])
 
   const today = new Date().toISOString().split('T')[0]
   const todayBookings = bookings.filter((b) => b.travel_date === today)
@@ -63,7 +61,7 @@ export default function DashboardPage() {
   const upcomingBookings = todayBookings.filter((b) => ['accepted', 'confirmed', 'Dispatched'].includes(b.status))
   const completedToday = bookings.filter((b) => ['completed', 'Completed'].includes(b.status) && b.travel_date === today)
 
-  const initials = driver?.full_name
+  const initials = driver?.name
     ? driver.full_name.split(' ').map((n) => n[0]).join('').slice(0, 2)
     : '?'
 
@@ -88,7 +86,7 @@ export default function DashboardPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <p className="text-white/40 text-xs uppercase tracking-widest">{greeting()}</p>
-          <h1 className="text-white font-semibold text-lg mt-0.5">{driver?.full_name ?? 'Driver'}</h1>
+          <h1 className="text-white font-semibold text-lg mt-0.5">{driver?.name ?? 'Driver'}</h1>
         </div>
         <div className="flex items-center gap-3">
           <button

@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { ChevronLeft, ChevronRight, MapPin, Loader2, ClipboardList, Download } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { getDriverByEmail } from '@/lib/getDriver'
 import { formatDate, formatTime } from '@/lib/format'
 import type { Booking } from '@/lib/types'
 
@@ -23,12 +24,15 @@ export default function HistoryPage() {
   const load = useCallback(async () => {
     setLoading(true)
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
+    if (!user?.email) return
+
+    const driver = await getDriverByEmail(supabase, user.email)
+    if (!driver) return
 
     const { data } = await supabase
       .from('bookings')
       .select('*')
-      .eq('assigned_driver_id', user.id)
+      .eq('assigned_driver_id', driver.id)
       .in('status', ['completed', 'Completed'])
       .order('travel_date', { ascending: false })
       .order('travel_time', { ascending: false })

@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
 import { ChevronRight, Car, Users } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { getDriverByEmail } from '@/lib/getDriver'
 import { BookingStatusBadge } from '@/components/badges'
 import { formatDate, formatTime, paymentInfo } from '@/lib/format'
 import type { Booking } from '@/lib/types'
@@ -81,12 +82,15 @@ export default function JobsPage() {
 
   const loadBookings = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
+    if (!user?.email) return
+
+    const driver = await getDriverByEmail(supabase, user.email)
+    if (!driver) return
 
     const { data } = await supabase
       .from('bookings')
       .select('*')
-      .eq('assigned_driver_id', user.id)
+      .eq('assigned_driver_id', driver.id)
       .in('status', ['accepted', 'confirmed', 'Dispatched', 'En Route', 'en_route', 'Passenger On Board', 'Arrived', 'arrived', 'Active', 'active', 'No Show', 'completed', 'Completed', 'cancelled', 'Cancelled'])
       .order('travel_date', { ascending: false })
       .order('travel_time', { ascending: true })

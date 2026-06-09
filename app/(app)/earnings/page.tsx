@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { PoundSterling, Briefcase, TrendingUp, MapPin } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { getDriverByEmail } from '@/lib/getDriver'
 import type { Booking } from '@/lib/types'
 
 type Period = 'today' | 'week' | 'month'
@@ -45,14 +46,17 @@ export default function EarningsPage() {
   const loadEarnings = useCallback(async () => {
     setLoading(true)
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
+    if (!user?.email) return
+
+    const driver = await getDriverByEmail(supabase, user.email)
+    if (!driver) return
 
     const { from, to } = getDateRange(period)
 
     const { data } = await supabase
       .from('bookings')
       .select('*')
-      .eq('assigned_driver_id', user.id)
+      .eq('assigned_driver_id', driver.id)
       .in('status', COMPLETED_STATUSES)
       .gte('travel_date', from)
       .lte('travel_date', to)

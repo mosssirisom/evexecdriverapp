@@ -46,10 +46,12 @@ export interface Booking {
 
 export interface Driver {
   id: string
-  full_name: string
+  name: string
+  email: string | null
   phone: string | null
-  vehicle_registration: string | null
-  vehicle_model: string | null
+  vehicle: string | null
+  plate: string | null
+  status: string | null
   is_online: boolean
-  avatar_url: string | null
+  rating: number | null
 }
