@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Car, MapPin, Clock, ChevronRight, Bell, Briefcase, Star, AlertTriangle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { BookingStatusBadge } from '@/components/badges'
+import { AttestationBanner } from '@/components/attestation-banner'
 import type { Booking, Driver } from '@/lib/types'
 
 export default function DashboardPage() {
@@ -98,6 +99,9 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* Driver Attestation Loop — urgent confirmation banner */}
+      <AttestationBanner />
 
       {/* Online Toggle */}
       <div

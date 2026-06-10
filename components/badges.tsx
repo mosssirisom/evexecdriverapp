@@ -18,6 +18,7 @@ export function BookingStatusBadge({ status }: { status: BookingStatus }) {
     cancelled:            { label: 'Cancelled',  className: 'bg-red-500/15 text-red-400 border-red-500/25' },
     Cancelled:            { label: 'Cancelled',  className: 'bg-red-500/15 text-red-400 border-red-500/25' },
     'No Show':            { label: 'No Show',    className: 'bg-orange-500/15 text-orange-400 border-orange-500/25' },
+    CRITICAL_UNALLOCATED: { label: 'Needs Driver', className: 'bg-red-600/20 text-red-300 border-red-600/40' },
   }
   const c = config[status]
   if (!c) return null
