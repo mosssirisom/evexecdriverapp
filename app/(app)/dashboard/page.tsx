@@ -2,17 +2,18 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
-import { Car, MapPin, Clock, ChevronRight, Bell, Briefcase, Star, AlertTriangle } from 'lucide-react'
+import { Car, ChevronRight, Bell, Briefcase, Star, RefreshCw } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { BookingStatusBadge } from '@/components/badges'
 import { AttestationBanner } from '@/components/attestation-banner'
+import { formatTime } from '@/lib/format'
 import type { Booking, Driver } from '@/lib/types'
 
 export default function DashboardPage() {
   const [driver, setDriver] = useState<Driver | null>(null)
   const [bookings, setBookings] = useState<Booking[]>([])
-  const [isOnline, setIsOnline] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
 
   const supabase = createClient()
 
@@ -26,14 +27,13 @@ export default function DashboardPage() {
         .from('bookings')
         .select('*')
         .eq('assigned_driver_id', user.id)
-        .in('status', ['accepted', 'confirmed', 'en_route', 'arrived', 'active'])
+        .in('status', ['accepted', 'confirmed', 'Dispatched', 'En Route', 'en_route', 'Passenger On Board', 'Arrived', 'arrived', 'Active', 'active'])
         .order('travel_date', { ascending: true })
         .order('travel_time', { ascending: true }),
     ])
 
     if (driverData) {
       setDriver(driverData)
-      setIsOnline(driverData.is_online)
     }
     if (bookingData) setBookings(bookingData)
     setLoading(false)
@@ -41,18 +41,28 @@ export default function DashboardPage() {
 
   useEffect(() => { loadData() }, [loadData])
 
-  const toggleOnline = async () => {
-    if (!driver) return
-    const newStatus = !isOnline
-    setIsOnline(newStatus)
-    await supabase.from('drivers').update({ is_online: newStatus }).eq('id', driver.id)
-  }
+  // Live updates when operator assigns or changes bookings
+  useEffect(() => {
+    let channel: ReturnType<typeof supabase.channel> | null = null
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return
+      channel = supabase
+        .channel('dashboard-live')
+        .on('postgres_changes', {
+          event: '*', schema: 'public', table: 'bookings',
+          filter: `assigned_driver_id=eq.${user.id}`,
+        }, () => loadData())
+        .subscribe()
+    })
+    return () => { if (channel) supabase.removeChannel(channel) }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const today = new Date().toISOString().split('T')[0]
   const todayBookings = bookings.filter((b) => b.travel_date === today)
-  const activeBooking = bookings.find((b) => ['en_route', 'arrived', 'active'].includes(b.status))
-  const upcomingBookings = todayBookings.filter((b) => ['accepted', 'confirmed'].includes(b.status))
-  const completedToday = bookings.filter((b) => b.status === 'completed' && b.travel_date === today)
+  const activeBooking = bookings.find((b) => ['En Route', 'en_route', 'Passenger On Board', 'Arrived', 'arrived', 'Active', 'active'].includes(b.status))
+  const upcomingBookings = todayBookings.filter((b) => ['accepted', 'confirmed', 'Dispatched'].includes(b.status))
+  const completedToday = bookings.filter((b) => ['completed', 'Completed'].includes(b.status) && b.travel_date === today)
 
   const initials = driver?.full_name
     ? driver.full_name.split(' ').map((n) => n[0]).join('').slice(0, 2)
@@ -82,8 +92,15 @@ export default function DashboardPage() {
           <h1 className="text-white font-semibold text-lg mt-0.5">{driver?.full_name ?? 'Driver'}</h1>
         </div>
         <div className="flex items-center gap-3">
+          <button
+            onClick={async () => { setRefreshing(true); await loadData(); setRefreshing(false) }}
+            disabled={refreshing}
+            className="w-10 h-10 rounded-xl bg-white/5 border border-white/8 flex items-center justify-center active:opacity-70 disabled:opacity-50"
+          >
+            <RefreshCw size={16} className={`text-white/60 ${refreshing ? 'animate-spin' : ''}`} />
+          </button>
           <Link
-            href="/jobs"
+            href="/notifications"
             className="relative w-10 h-10 rounded-xl bg-white/5 border border-white/8 flex items-center justify-center"
           >
             <Bell size={18} className="text-white/60" />
@@ -102,46 +119,6 @@ export default function DashboardPage() {
 
       {/* Driver Attestation Loop — urgent confirmation banner */}
       <AttestationBanner />
-
-      {/* Online Toggle */}
-      <div
-        onClick={toggleOnline}
-        className="relative mb-5 rounded-2xl border cursor-pointer overflow-hidden transition-all duration-300 select-none"
-        style={{
-          background: isOnline
-            ? 'linear-gradient(135deg, rgba(16,185,129,0.15), rgba(16,185,129,0.05))'
-            : 'rgba(255,255,255,0.03)',
-          borderColor: isOnline ? 'rgba(16,185,129,0.3)' : 'rgba(255,255,255,0.08)',
-        }}
-      >
-        <div className="flex items-center justify-between p-5">
-          <div>
-            <p
-              className="text-xs uppercase tracking-widest font-semibold mb-1"
-              style={{ color: isOnline ? '#10b981' : 'rgba(255,255,255,0.3)' }}
-            >
-              {isOnline ? '● Online' : '○ Offline'}
-            </p>
-            <p className="text-white font-semibold text-base">
-              {isOnline ? 'Ready for jobs' : 'You are off duty'}
-            </p>
-            <p className="text-white/40 text-xs mt-0.5">
-              {isOnline ? 'Tap to go offline' : 'Tap to go online and receive jobs'}
-            </p>
-          </div>
-          <div
-            className="w-14 h-8 rounded-full flex items-center px-1 transition-all duration-300"
-            style={{
-              background: isOnline ? 'linear-gradient(135deg, #10b981, #059669)' : 'rgba(255,255,255,0.1)',
-            }}
-          >
-            <div
-              className="w-6 h-6 rounded-full bg-white shadow transition-transform duration-300"
-              style={{ transform: isOnline ? 'translateX(24px)' : 'translateX(0)' }}
-            />
-          </div>
-        </div>
-      </div>
 
       {/* Active Job Banner */}
       {activeBooking && (
@@ -202,7 +179,7 @@ export default function DashboardPage() {
             <Link key={booking.id} href={`/jobs/${booking.id}`}>
               <div className="bg-[#0B1525] border border-white/8 rounded-2xl p-4 active:opacity-80 transition-opacity">
                 <div className="flex items-start justify-between mb-2">
-                  <span className="text-[#d5a538] font-semibold text-sm">{booking.travel_time ?? '—'}</span>
+                  <span className="text-[#d5a538] font-semibold text-sm">{formatTime(booking.travel_time)}</span>
                   <div className="flex items-center gap-2">
                     <BookingStatusBadge status={booking.status} />
                     <ChevronRight size={14} className="text-white/30" />
@@ -218,7 +195,7 @@ export default function DashboardPage() {
                   </div>
                   <div className="flex items-start gap-2">
                     <div className="w-1.5 h-1.5 rounded-full bg-red-400 mt-1.5 flex-shrink-0" />
-                    <p className="text-white/50 text-xs leading-tight">{booking.dropoff_address ?? '—'}</p>
+                    <p className="text-white/50 text-xs leading-tight">{booking.dropoff_address ?? booking.airport ?? '—'}</p>
                   </div>
                 </div>
                 {booking.quoted_price && (

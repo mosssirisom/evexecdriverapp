@@ -1,0 +1,18 @@
+{
+  "name": "EV Exec Driver",
+  "short_name": "EV Exec",
+  "description": "Driver portal for EV Exec chauffeur services",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#020813",
+  "theme_color": "#020813",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
