@@ -2,11 +2,12 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, ClipboardList, CalendarDays, User } from 'lucide-react'
+import { Home, ClipboardList, Car, CalendarDays, User } from 'lucide-react'
 
 const NAV_ITEMS = [
   { href: '/dashboard', label: 'Home', icon: Home },
   { href: '/jobs', label: 'Jobs', icon: ClipboardList },
+  { href: '/my-jobs', label: 'Active', icon: Car },
   { href: '/calendar', label: 'Calendar', icon: CalendarDays },
   { href: '/profile', label: 'Me', icon: User },
 ]
@@ -26,7 +27,7 @@ export function BottomNav() {
             <Link
               key={href}
               href={href}
-              className={`flex flex-col items-center gap-1 py-3 px-5 transition-colors ${
+              className={`flex flex-col items-center gap-1 py-3 px-3 transition-colors ${
                 active ? 'text-[#d5a538]' : 'text-white/30 hover:text-white/60'
               }`}
             >
