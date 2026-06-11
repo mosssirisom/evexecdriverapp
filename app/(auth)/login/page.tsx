@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { Eye, EyeOff, Loader2 } from 'lucide-react'
 import { login } from '@/app/actions/auth'
 import { LOGIN_EMAIL_PLACEHOLDER } from '@/lib/config'
@@ -80,6 +81,11 @@ export default function LoginPage() {
               >
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
+            </div>
+            <div className="text-right mt-2">
+              <Link href="/forgot-password" className="text-[#d5a538] text-xs font-medium">
+                Forgot password?
+              </Link>
             </div>
           </div>
 
