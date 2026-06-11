@@ -5,7 +5,6 @@ import Link from 'next/link'
 import { Car, ChevronRight, Bell, Briefcase, Star, RefreshCw } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { BookingStatusBadge } from '@/components/badges'
-import { AttestationBanner } from '@/components/attestation-banner'
 import { formatTime } from '@/lib/format'
 import type { Booking, Driver } from '@/lib/types'
 
@@ -116,9 +115,6 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
-
-      {/* Driver Attestation Loop — urgent confirmation banner */}
-      <AttestationBanner />
 
       {/* Active Job Banner */}
       {activeBooking && (

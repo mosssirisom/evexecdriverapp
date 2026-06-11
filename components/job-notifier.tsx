@@ -29,7 +29,7 @@ async function registerPush(userId: string) {
       driver_id: userId,
       endpoint: json.endpoint,
       p256dh: json.keys.p256dh,
-      auth: json.keys.auth,
+      auth_key: json.keys.auth,
     }, { onConflict: 'driver_id,endpoint', ignoreDuplicates: true })
   } catch { /* permission denied or unsupported */ }
 }
