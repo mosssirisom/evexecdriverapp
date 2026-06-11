@@ -13,8 +13,11 @@ PWA**. It has:
   route behind Supabase auth, and `app/page.tsx` only redirects to
   `/login` or `/dashboard`.
 - No Anthropic/Claude SDK, no Stripe SDK, in `package.json`.
-- One consolidated API route, `app/api/jobs/route.ts`, used only to read/update
-  jobs already assigned to the signed-in driver.
+- No custom API routes — every page reads/writes `bookings`/`drivers`/etc.
+  directly via the Supabase browser client, scoped by RLS to
+  `auth.uid()` / `assigned_driver_id`. (An unauthenticated, service-role
+  `app/api/jobs/route.ts` + `lib/dispatch.ts` existed but had no callers and
+  was removed as a security risk.)
 - Its own Supabase Edge Function, `supabase/functions/attestation-engine`,
   which sends **outbound-only** Twilio SMS/WhatsApp/voice to nudge a driver to
   confirm a pickup, escalate, and reallocate to the next driver if they don't
@@ -92,7 +95,8 @@ follow-up → draft booking → operator review → Dissy booking/pricing/dispat
 
 **This repo needs no changes for Booking Brain.** It only ever sees
 `bookings` rows in `yoltkmhtxwluqxxpewbl` after an operator has approved and
-assigned a driver, via its own `app/api/jobs/route.ts`.
+assigned a driver, read directly via the Supabase client under RLS
+(`assigned_driver_id = auth.uid()`).
 
 ## 4. Risks / duplicates to avoid
 
