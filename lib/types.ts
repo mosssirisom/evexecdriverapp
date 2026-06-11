@@ -18,15 +18,6 @@ export type BookingStatus =
   | 'Completed'
   | 'CRITICAL_UNALLOCATED'
 
-/** Zero-Failure Driver Attestation Loop state. See supabase/functions/attestation-engine. */
-export type AttestationStatus =
-  | 'not_required'
-  | 'awaiting_first_attestation'
-  | 'awaiting_second_attestation'
-  | 'confirmed'
-  | 'reallocating'
-  | 'critical_unallocated'
-
 export interface Booking {
   id: string
   created_at: string
@@ -53,21 +44,6 @@ export interface Booking {
   assigned_driver_id: string | null
   driver_notes: string | null
   pickup_time: string | null
-  pickup_lat: number | null
-  pickup_lng: number | null
-  attestation_status: AttestationStatus
-  check_time: string | null
-  drive_duration_minutes: number
-  attestation_buffer_minutes: number
-  attestation_first_gate_minutes: number
-  attestation_second_gate_minutes: number
-  attestation_first_deadline: string | null
-  attestation_second_deadline: string | null
-  first_attestation_sent_at: string | null
-  second_attestation_sent_at: string | null
-  driver_confirmed_at: string | null
-  reallocation_count: number
-  excluded_driver_ids: string[]
 }
 
 export interface Driver {
@@ -78,9 +54,4 @@ export interface Driver {
   vehicle_model: string | null
   is_online: boolean
   avatar_url: string | null
-  suspended_at: string | null
-  suspended_reason: string | null
-  current_lat: number | null
-  current_lng: number | null
-  location_updated_at: string | null
 }
