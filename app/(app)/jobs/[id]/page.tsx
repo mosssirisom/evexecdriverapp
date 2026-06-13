@@ -162,6 +162,17 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
     return () => { supabase.removeChannel(channel) }
   }, [id, supabase])
 
+  const fireCustomerNotification = (bookingId: string, status: string) => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) return
+      fetch('https://evexec.co.uk/api/booking/notify-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ bookingId, status }),
+      }).catch(() => {})
+    })
+  }
+
   const handleStatusUpdate = async (nextStatus: BookingStatus) => {
     if (!booking || updating) return
     setUpdating(true)
@@ -174,6 +185,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
       setUpdateError(error.message ?? 'Failed to update. Please try again.')
     } else {
       setBooking({ ...booking, status: nextStatus })
+      fireCustomerNotification(booking.id, nextStatus)
     }
     setUpdating(false)
   }
@@ -195,6 +207,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
     } else {
       setBooking({ ...booking, status: 'Cancelled', driver_notes: noShowNote })
       setDriverNote(noShowNote)
+      fireCustomerNotification(booking.id, 'No Show')
     }
     setUpdating(false)
   }
