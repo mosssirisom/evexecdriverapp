@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { logout } from '@/app/actions/auth'
 import {
   Car, Shield, ChevronRight, Phone, Mail, LogOut, Bell,
-  HelpCircle, Loader2, ClipboardList, MessageCircle,
+  HelpCircle, Loader2, ClipboardList, MessageCircle, PoundSterling,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { OPS_PHONE, OPS_WHATSAPP, SUPPORT_EMAIL } from '@/lib/config'
@@ -163,6 +163,17 @@ export default function ProfilePage() {
 
       {/* Menu rows */}
       <div className="bg-[#0B1525] border border-white/8 rounded-2xl overflow-hidden mb-4">
+        <button
+          onClick={() => router.push('/earnings')}
+          className="w-full flex items-center justify-between px-4 py-3.5 border-b border-white/5 active:bg-white/5"
+        >
+          <div className="flex items-center gap-3">
+            <PoundSterling size={16} className="text-white/35" />
+            <span className="text-white/80 text-sm">Earnings</span>
+          </div>
+          <ChevronRight size={15} className="text-white/20" />
+        </button>
+
         <button
           onClick={() => router.push('/earnings?view=report')}
           className="w-full flex items-center justify-between px-4 py-3.5 border-b border-white/5 active:bg-white/5"
