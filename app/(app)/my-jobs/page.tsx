@@ -4,15 +4,11 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import { ChevronRight, Car, Navigation2, Phone } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { getDriverByEmail } from '@/lib/getDriver'
 import { BookingStatusBadge } from '@/components/badges'
 import { formatTime } from '@/lib/format'
 import type { Booking, BookingStatus } from '@/lib/types'
 
-const ACTIVE_STATUSES: BookingStatus[] = [
-  'accepted', 'confirmed', 'Dispatched', 'En Route', 'Passenger On Board',
-  'en_route', 'arrived', 'Arrived', 'active', 'Active',
-]
+const ACTIVE_STATUSES: BookingStatus[] = ['En Route', 'en_route', 'Arrived', 'arrived', 'Passenger On Board', 'Active', 'active']
 
 function navigateTo(destination: string) {
   const dest = encodeURIComponent(destination)
@@ -25,38 +21,32 @@ export default function MyJobsPage() {
   const supabase = createClient()
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
 
-  const loadActiveJobs = useCallback(async (driverUUID?: string) => {
+  const loadActiveJobs = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user?.email) return null
-
-    let id = driverUUID
-    if (!id) {
-      const d = await getDriverByEmail(supabase, user.email)
-      if (!d) return null
-      id = d.id
-    }
+    if (!user) return
 
     const { data } = await supabase
       .from('bookings')
       .select('*')
-      .eq('assigned_driver_id', id)
+      .eq('assigned_driver_id', user.id)
       .in('status', ACTIVE_STATUSES)
       .order('travel_date', { ascending: true })
       .order('travel_time', { ascending: true })
     if (data) setBookings(data)
     setLoading(false)
-    return id
   }, [supabase])
 
   useEffect(() => {
-    loadActiveJobs().then((id) => {
-      if (!id) return
+    loadActiveJobs()
+
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return
       channelRef.current = supabase
         .channel('my-active-jobs')
         .on('postgres_changes', {
           event: '*', schema: 'public', table: 'bookings',
-          filter: `assigned_driver_id=eq.${id}`,
-        }, () => loadActiveJobs(id))
+          filter: `assigned_driver_id=eq.${user.id}`,
+        }, () => loadActiveJobs())
         .subscribe()
     })
 

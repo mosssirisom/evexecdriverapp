@@ -8,7 +8,6 @@ import {
   HelpCircle, Loader2, ClipboardList, MessageCircle,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { getDriverByEmail } from '@/lib/getDriver'
 import { OPS_PHONE, OPS_WHATSAPP, SUPPORT_EMAIL } from '@/lib/config'
 import type { Driver } from '@/lib/types'
 
@@ -18,33 +17,43 @@ export default function ProfilePage() {
   const [email, setEmail] = useState<string | null>(null)
   const [tripCount, setTripCount] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [togglingOnline, setTogglingOnline] = useState(false)
 
   const supabase = createClient()
 
   const loadProfile = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user?.email) return
-    setEmail(user.email)
+    if (!user) return
+    setEmail(user.email ?? null)
 
-    const driverData = await getDriverByEmail(supabase, user.email)
-    if (driverData) {
-      setDriver(driverData as unknown as Driver)
-
-      const { count } = await supabase
+    const [driverRes, tripsRes] = await Promise.all([
+      supabase.from('drivers').select('*').eq('id', user.id).single(),
+      supabase
         .from('bookings')
         .select('id', { count: 'exact', head: true })
-        .eq('assigned_driver_id', driverData.id)
-        .in('status', ['completed', 'Completed'])
+        .eq('assigned_driver_id', user.id)
+        .in('status', ['completed', 'Completed']),
+    ])
 
-      setTripCount(count ?? 0)
-    }
+    if (driverRes.data) setDriver(driverRes.data)
+    setTripCount(tripsRes.count ?? 0)
     setLoading(false)
   }, [supabase])
 
   useEffect(() => { loadProfile() }, [loadProfile])
 
-  const initials = driver?.name
-    ? driver.name.split(' ').map((n) => n[0]).join('').slice(0, 2)
+  const toggleOnline = async () => {
+    if (!driver || togglingOnline) return
+    const next = !driver.is_online
+    setTogglingOnline(true)
+    setDriver({ ...driver, is_online: next })
+    const { error } = await supabase.from('drivers').update({ is_online: next }).eq('id', driver.id)
+    if (error) setDriver({ ...driver, is_online: !next })
+    setTogglingOnline(false)
+  }
+
+  const initials = driver?.full_name
+    ? driver.full_name.split(' ').map((n) => n[0]).join('').slice(0, 2)
     : '?'
 
   if (loading) {
@@ -69,7 +78,7 @@ export default function ProfilePage() {
             {initials}
           </div>
           <div className="flex-1 min-w-0">
-            <h2 className="text-white font-bold text-lg">{driver?.name ?? 'Driver'}</h2>
+            <h2 className="text-white font-bold text-lg">{driver?.full_name ?? 'Driver'}</h2>
             <p className="text-white/40 text-xs mt-0.5">
               {tripCount > 0 ? `${tripCount} trips completed` : 'No trips yet'}
             </p>
@@ -89,26 +98,54 @@ export default function ProfilePage() {
             </div>
           )}
         </div>
+
+        <div className="mt-4 pt-4 border-t border-white/5 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className={`w-2 h-2 rounded-full ${driver?.is_online ? 'bg-green-400' : 'bg-white/20'}`} />
+            <div>
+              <p className="text-white text-sm font-medium">{driver?.is_online ? 'Online' : 'Offline'}</p>
+              <p className="text-white/30 text-[11px]">
+                {driver?.is_online ? 'Visible for new job assignments' : 'Not receiving new jobs'}
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={!!driver?.is_online}
+            onClick={toggleOnline}
+            disabled={togglingOnline || !driver}
+            className={`relative w-11 h-6 rounded-full transition-colors disabled:opacity-50 ${
+              driver?.is_online ? 'bg-[#d5a538]' : 'bg-white/10'
+            }`}
+          >
+            <span
+              className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform ${
+                driver?.is_online ? 'translate-x-5' : 'translate-x-0'
+              }`}
+            />
+          </button>
+        </div>
       </div>
 
       {/* Vehicle */}
-      {(driver?.vehicle || driver?.plate) && (
+      {(driver?.vehicle_model || driver?.vehicle_registration) && (
         <div className="bg-[#0B1525] border border-white/8 rounded-2xl p-4 mb-4">
           <div className="flex items-center gap-2 mb-3">
             <Car size={14} className="text-[#d5a538]" />
             <p className="text-white/50 text-xs font-semibold uppercase tracking-widest">Vehicle</p>
           </div>
           <div className="grid grid-cols-2 gap-y-3">
-            {driver.vehicle && (
+            {driver.vehicle_model && (
               <div>
                 <p className="text-white/25 text-[10px] uppercase tracking-wide">Model</p>
-                <p className="text-white text-sm font-medium mt-0.5">{driver.vehicle}</p>
+                <p className="text-white text-sm font-medium mt-0.5">{driver.vehicle_model}</p>
               </div>
             )}
-            {driver.plate && (
+            {driver.vehicle_registration && (
               <div>
                 <p className="text-white/25 text-[10px] uppercase tracking-wide">Registration</p>
-                <p className="text-white text-sm font-medium mt-0.5 font-mono">{driver.plate}</p>
+                <p className="text-white text-sm font-medium mt-0.5 font-mono">{driver.vehicle_registration}</p>
               </div>
             )}
           </div>
@@ -127,7 +164,7 @@ export default function ProfilePage() {
       {/* Menu rows */}
       <div className="bg-[#0B1525] border border-white/8 rounded-2xl overflow-hidden mb-4">
         <button
-          onClick={() => router.push('/history')}
+          onClick={() => router.push('/earnings?view=report')}
           className="w-full flex items-center justify-between px-4 py-3.5 border-b border-white/5 active:bg-white/5"
         >
           <div className="flex items-center gap-3">

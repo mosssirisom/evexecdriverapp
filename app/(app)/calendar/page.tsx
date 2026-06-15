@@ -4,7 +4,6 @@ import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
 import { ChevronLeft, ChevronRight, Car, Ban } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { getDriverByEmail } from '@/lib/getDriver'
 import { formatTime } from '@/lib/format'
 import type { Booking } from '@/lib/types'
 
@@ -27,10 +26,7 @@ export default function CalendarPage() {
   const load = useCallback(async () => {
     setLoading(true)
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user?.email) return
-
-    const driver = await getDriverByEmail(supabase, user.email)
-    if (!driver) return
+    if (!user) return
 
     const firstDay = `${year}-${String(month + 1).padStart(2, '0')}-01`
     const lastDate = new Date(year, month + 1, 0).getDate()
@@ -40,14 +36,14 @@ export default function CalendarPage() {
       supabase
         .from('bookings')
         .select('*')
-        .eq('assigned_driver_id', driver.id)
+        .eq('assigned_driver_id', user.id)
         .gte('travel_date', firstDay)
         .lte('travel_date', lastDay)
         .order('travel_time', { ascending: true }),
       supabase
         .from('driver_unavailable_dates')
         .select('date')
-        .eq('driver_id', driver.id)
+        .eq('driver_id', user.id)
         .gte('date', firstDay)
         .lte('date', lastDay),
     ])
@@ -75,24 +71,21 @@ export default function CalendarPage() {
 
   const toggleAvailability = async (dateStr: string) => {
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user?.email || toggling) return
+    if (!user || toggling) return
     setToggling(true)
-
-    const driver = await getDriverByEmail(supabase, user.email)
-    if (!driver) { setToggling(false); return }
 
     const isUnavailable = unavailableDates.has(dateStr)
     if (isUnavailable) {
       await supabase
         .from('driver_unavailable_dates')
         .delete()
-        .eq('driver_id', driver.id)
+        .eq('driver_id', user.id)
         .eq('date', dateStr)
       setUnavailableDates(prev => { const s = new Set(prev); s.delete(dateStr); return s })
     } else {
       await supabase
         .from('driver_unavailable_dates')
-        .insert({ driver_id: driver.id, date: dateStr })
+        .insert({ driver_id: user.id, date: dateStr })
       setUnavailableDates(prev => new Set([...prev, dateStr]))
     }
     setToggling(false)

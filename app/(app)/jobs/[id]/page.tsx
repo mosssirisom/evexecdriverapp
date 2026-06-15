@@ -195,14 +195,18 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
     setUpdating(true)
     setUpdateError(null)
     setNoShowConfirm(false)
+    const noShowNote = [driverNote.trim(), '[No Show] Passenger was not at the pickup location.']
+      .filter(Boolean)
+      .join('\n\n')
     const { error } = await supabase
       .from('bookings')
-      .update({ status: 'No Show', updated_at: new Date().toISOString() })
+      .update({ status: 'Cancelled', driver_notes: noShowNote, updated_at: new Date().toISOString() })
       .eq('id', booking.id)
     if (error) {
       setUpdateError(error.message ?? 'Failed to mark no show. Please try again.')
     } else {
-      setBooking({ ...booking, status: 'No Show' })
+      setBooking({ ...booking, status: 'Cancelled', driver_notes: noShowNote })
+      setDriverNote(noShowNote)
       fireCustomerNotification(booking.id, 'No Show')
     }
     setUpdating(false)
@@ -234,9 +238,11 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
   }
 
   const nextStep = STATUS_FLOW.find((s) => s.from === booking.status)
-  const isDone = ['completed', 'Completed', 'cancelled', 'Cancelled', 'rejected', 'No Show'].includes(booking.status)
+  const isDone = ['completed', 'Completed', 'cancelled', 'Cancelled', 'rejected'].includes(booking.status)
+  const isNoShow = booking.status === 'Cancelled' && (booking.driver_notes ?? '').includes('[No Show]')
   const progressIndex = PROGRESS_STEPS.indexOf(booking.status as BookingStatus)
   const showProgress = ['En Route', 'Passenger On Board', 'Completed', 'en_route', 'arrived', 'Arrived', 'active', 'Active', 'completed'].includes(booking.status)
+  const isActive = ['Passenger On Board', 'active', 'Active'].includes(booking.status)
 
   const pickupAddress = booking.pickup_location ?? booking.airport ?? '—'
   const dropoffAddress = booking.dropoff_address ?? booking.airport ?? '—'
@@ -245,7 +251,6 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
   const showNotes = booking.operator_note || !isDone || (isDone && booking.driver_notes)
 
   // Navigate to dropoff when passenger is on board, otherwise navigate to pickup
-  const isActive = ['Passenger On Board', 'active', 'Active'].includes(booking.status)
   const navigateAddress = isActive ? dropoffAddress : pickupAddress
 
   return (
@@ -521,7 +526,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
         )}
 
         {/* No Show banner */}
-        {booking.status === 'No Show' && (
+        {isNoShow && (
           <div className="bg-amber-500/10 border border-amber-500/25 rounded-2xl p-5 text-center">
             <UserX size={28} className="mx-auto mb-2 text-amber-400" />
             <p className="text-amber-400 font-semibold">Passenger No Show</p>

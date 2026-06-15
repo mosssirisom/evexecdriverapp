@@ -16,6 +16,7 @@ export type BookingStatus =
   | 'No Show'
   | 'completed'
   | 'Completed'
+  | 'CRITICAL_UNALLOCATED'
 
 export interface Booking {
   id: string
@@ -42,16 +43,15 @@ export interface Booking {
   payment_status: string
   assigned_driver_id: string | null
   driver_notes: string | null
+  pickup_time: string | null
 }
 
 export interface Driver {
   id: string
-  name: string
-  email: string | null
+  full_name: string
   phone: string | null
-  vehicle: string | null
-  plate: string | null
-  status: string | null
+  vehicle_registration: string | null
+  vehicle_model: string | null
   is_online: boolean
-  rating: number | null
+  avatar_url: string | null
 }
