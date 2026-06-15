@@ -11,6 +11,16 @@ import type { Booking } from '@/lib/types'
 type Tab = 'upcoming' | 'active' | 'completed'
 type DateFilter = 'all' | 'today' | 'tomorrow' | '7days'
 
+function bookingDateTimeValue(booking: Booking) {
+  const date = booking.travel_date || '9999-12-31'
+  const time = booking.travel_time || '23:59:59'
+  return new Date(`${date}T${time}`).getTime()
+}
+
+function sortNearestFirst(list: Booking[]) {
+  return [...list].sort((a, b) => bookingDateTimeValue(a) - bookingDateTimeValue(b))
+}
+
 function BookingCard({ booking }: { booking: Booking }) {
   return (
     <Link href={`/jobs/${booking.id}`}>
@@ -88,18 +98,18 @@ export default function JobsPage() {
       .select('*')
       .eq('assigned_driver_id', user.id)
       .in('status', ['accepted', 'confirmed', 'Dispatched', 'En Route', 'en_route', 'Passenger On Board', 'Arrived', 'arrived', 'Active', 'active', 'No Show', 'completed', 'Completed', 'cancelled', 'Cancelled'])
-      .order('travel_date', { ascending: false })
+      .order('travel_date', { ascending: true })
       .order('travel_time', { ascending: true })
 
-    if (data) setBookings(data)
+    if (data) setBookings(sortNearestFirst(data))
     setLoading(false)
   }, [supabase])
 
   useEffect(() => { loadBookings() }, [loadBookings])
 
-  const upcoming = bookings.filter((b) => ['accepted', 'confirmed', 'Dispatched'].includes(b.status))
-  const active = bookings.filter((b) => ['En Route', 'en_route', 'Passenger On Board', 'Arrived', 'arrived', 'Active', 'active'].includes(b.status))
-  const completed = bookings.filter((b) => ['completed', 'Completed', 'cancelled', 'Cancelled', 'No Show'].includes(b.status))
+  const upcoming = sortNearestFirst(bookings.filter((b) => ['accepted', 'confirmed', 'Dispatched'].includes(b.status)))
+  const active = sortNearestFirst(bookings.filter((b) => ['En Route', 'en_route', 'Passenger On Board', 'Arrived', 'arrived', 'Active', 'active'].includes(b.status)))
+  const completed = sortNearestFirst(bookings.filter((b) => ['completed', 'Completed', 'cancelled', 'Cancelled', 'No Show'].includes(b.status)))
 
   const applyDateFilter = (list: Booking[]) => {
     const now = new Date()
@@ -115,7 +125,7 @@ export default function JobsPage() {
   }
 
   const baseList = tab === 'upcoming' ? upcoming : tab === 'active' ? active : completed
-  const currentList = applyDateFilter(baseList)
+  const currentList = sortNearestFirst(applyDateFilter(baseList))
 
   const today = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
 
@@ -126,7 +136,6 @@ export default function JobsPage() {
         <p className="text-white/40 text-xs mt-1">{today}</p>
       </div>
 
-      {/* Date filter pills */}
       <div className="flex gap-2 mb-4 overflow-x-auto pb-1 no-scrollbar">
         {([
           { key: 'all' as DateFilter, label: 'All' },
