@@ -18,20 +18,20 @@ export function BottomNav() {
   if (/^\/jobs\/[^/]+/.test(pathname)) return null
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-[#0B1525] border-t border-white/8 z-50">
-      <div className="flex items-center justify-around pb-safe">
+    <nav className="fixed bottom-4 left-3 right-3 bg-[#0B1525] border border-white/10 rounded-[28px] shadow-2xl shadow-black/40 z-50">
+      <div className="flex h-[78px] items-center justify-around px-2">
         {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
           const active = pathname === href || (href !== '/dashboard' && pathname.startsWith(href))
           return (
             <Link
               key={href}
               href={href}
-              className={`flex flex-col items-center gap-1 py-3 px-1.5 transition-colors ${
-                active ? 'text-[#d5a538]' : 'text-white/30 hover:text-white/60'
+              className={`flex min-h-[62px] min-w-[64px] flex-col items-center justify-center gap-1.5 rounded-2xl px-2 transition-colors ${
+                active ? 'text-[#d5a538]' : 'text-white/35 hover:text-white/65'
               }`}
             >
-              <Icon size={20} strokeWidth={active ? 2.5 : 1.8} />
-              <span className="text-[9px] font-medium tracking-wide">{label}</span>
+              <Icon size={24} strokeWidth={active ? 2.5 : 1.9} />
+              <span className="text-[10.5px] font-medium tracking-wide">{label}</span>
             </Link>
           )
         })}
