@@ -46,7 +46,7 @@ export default function NotificationsPage() {
   useEffect(() => { loadActivity() }, [loadActivity])
 
   return (
-    <div className="min-h-screen bg-[#020813] px-4 pt-12 pb-6">
+    <div className="min-h-screen bg-[#060C1A] px-4 pt-12 pb-6">
       <div className="flex items-center gap-3 mb-6">
         <button onClick={() => router.back()} className="text-white/40 active:text-white/70">
           <ChevronLeft size={22} />

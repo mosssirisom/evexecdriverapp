@@ -117,7 +117,7 @@ export default function CalendarPage() {
   const totalMonthEarnings = bookings.reduce((s, b) => s + (b.quoted_price ?? 0), 0)
 
   return (
-    <div className="min-h-screen bg-[#020813] px-4 pt-12 pb-4">
+    <div className="min-h-screen bg-[#060C1A] px-4 pt-12 pb-4">
       <div className="mb-5">
         <h1 className="text-white font-bold text-xl">Calendar</h1>
       </div>

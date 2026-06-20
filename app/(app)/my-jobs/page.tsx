@@ -57,7 +57,7 @@ export default function MyJobsPage() {
   }, [])
 
   return (
-    <div className="min-h-screen bg-[#020813] px-4 pt-12 pb-4">
+    <div className="min-h-screen bg-[#060C1A] px-4 pt-12 pb-4">
       <div className="mb-6">
         <h1 className="text-white font-bold text-xl">Active</h1>
         <p className="text-white/40 text-xs mt-1">Jobs currently in progress</p>

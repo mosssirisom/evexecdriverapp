@@ -29,7 +29,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-6 bg-[#020813]">
+    <div className="min-h-screen flex flex-col items-center justify-center px-6 bg-[#060C1A]">
       {/* Logo */}
       <div className="mb-8 text-center">
         {/* eslint-disable-next-line @next/next/no-img-element */}

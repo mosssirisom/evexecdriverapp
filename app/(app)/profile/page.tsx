@@ -58,14 +58,14 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#020813] flex items-center justify-center">
+      <div className="min-h-screen bg-[#060C1A] flex items-center justify-center">
         <Loader2 className="animate-spin text-[#d5a538]" size={28} />
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-[#020813] px-4 pt-12 pb-4">
+    <div className="min-h-screen bg-[#060C1A] px-4 pt-12 pb-4">
       <h1 className="text-white font-bold text-xl mb-6">Profile</h1>
 
       {/* Driver card */}

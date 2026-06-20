@@ -76,14 +76,14 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#020813] flex items-center justify-center">
+      <div className="min-h-screen bg-[#060C1A] flex items-center justify-center">
         <div className="w-8 h-8 rounded-full border-2 border-[#d5a538] border-t-transparent animate-spin" />
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-[#020813] px-4 pt-12 pb-4">
+    <div className="min-h-screen bg-[#060C1A] px-4 pt-12 pb-4">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>

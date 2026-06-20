@@ -124,7 +124,7 @@ function EarningsContent() {
   }
 
   return (
-    <div className="min-h-screen bg-[#020813] px-4 pt-12 pb-4">
+    <div className="min-h-screen bg-[#060C1A] px-4 pt-12 pb-4">
       <div className="mb-6">
         <h1 className="text-white font-bold text-xl">Earnings</h1>
         <p className="text-white/40 text-xs mt-1">Your payment summary</p>
@@ -381,7 +381,7 @@ function EarningsContent() {
 export default function EarningsPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-[#020813] flex items-center justify-center">
+      <div className="min-h-screen bg-[#060C1A] flex items-center justify-center">
         <div className="w-7 h-7 rounded-full border-2 border-[#d5a538] border-t-transparent animate-spin" />
       </div>
     }>

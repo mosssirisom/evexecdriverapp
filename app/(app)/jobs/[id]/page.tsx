@@ -223,7 +223,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#020813] flex items-center justify-center">
+      <div className="min-h-screen bg-[#060C1A] flex items-center justify-center">
         <div className="w-8 h-8 rounded-full border-2 border-[#d5a538] border-t-transparent animate-spin" />
       </div>
     )
@@ -231,7 +231,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
 
   if (!booking) {
     return (
-      <div className="min-h-screen bg-[#020813] flex items-center justify-center">
+      <div className="min-h-screen bg-[#060C1A] flex items-center justify-center">
         <p className="text-white/40">Booking not found</p>
       </div>
     )
@@ -254,7 +254,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
   const navigateAddress = isActive ? dropoffAddress : pickupAddress
 
   return (
-    <div className="min-h-screen bg-[#020813] pb-8">
+    <div className="min-h-screen bg-[#060C1A] pb-8">
       {/* Header */}
       <div className="px-4 pt-12 pb-4 flex items-center gap-3 border-b border-white/5">
         <button
