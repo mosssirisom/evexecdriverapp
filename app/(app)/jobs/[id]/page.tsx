@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import {
   ArrowLeft, Phone, MessageSquare, Navigation2, User, FileText, CheckCircle2,
   AlertOctagon, ChevronRight, Loader2, Users, Luggage, PlaneLanding, CreditCard,
-  UserX, X, Plus, Car, MapPin, Clock,
+  UserX, X, Plus, Car, MapPin,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { BookingStatusBadge } from '@/components/badges'
@@ -45,6 +45,36 @@ const STEP_LABELS: Record<string, string> = {
   'Arrived':            'Arrived',
   'Passenger On Board': 'On Board',
   'Completed':          'Done',
+}
+
+// ─── Wait grace period ────────────────────────────────────────────────────────
+
+function getGraceMinutes(journeyType: string | null, flightNumber: string | null, override: number | null): number {
+  if (override != null) return override
+  if (flightNumber || (journeyType ?? '').toLowerCase().includes('airport')) return 60
+  if ((journeyType ?? '').toLowerCase().includes('hotel')) return 30
+  if ((journeyType ?? '').toLowerCase().includes('station') || (journeyType ?? '').toLowerCase().includes('train')) return 20
+  return 15
+}
+
+// ─── Passenger preferences ────────────────────────────────────────────────────
+
+const PREF_LABELS: Record<string, string> = {
+  quiet_ride:          'Quiet ride',
+  no_music:            'No music',
+  music_on:            'Music on',
+  cool_temperature:    'Cool A/C',
+  warm_temperature:    'Warm',
+  water_provided:      'Water',
+  help_with_luggage:   'Luggage help',
+  wheelchair:          'Wheelchair',
+  child_seat:          'Child seat',
+  meet_and_greet:      'Meet & greet',
+  name_board:          'Name board',
+}
+
+function formatPref(pref: string): string {
+  return PREF_LABELS[pref] ?? pref.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
 }
 
 // ─── Expense types ────────────────────────────────────────────────────────────
@@ -164,7 +194,7 @@ function SwipeToConfirm({
 
 // ─── Wait timer ───────────────────────────────────────────────────────────────
 
-function WaitTimer({ since }: { since: string | null }) {
+function WaitTimer({ since, graceMinutes }: { since: string | null; graceMinutes: number }) {
   const [elapsed, setElapsed] = useState(0)
   useEffect(() => {
     if (!since) return
@@ -173,12 +203,35 @@ function WaitTimer({ since }: { since: string | null }) {
     const id = setInterval(update, 1000)
     return () => clearInterval(id)
   }, [since])
-  const m = Math.floor(elapsed / 60)
-  const s = elapsed % 60
+
+  const elapsedMin = Math.floor(elapsed / 60)
+  const elapsedSec = elapsed % 60
+  const graceRemaining = graceMinutes * 60 - elapsed
+  const overtime = graceRemaining < 0
+  const overMinutes = Math.floor(Math.abs(graceRemaining) / 60)
+  const overSeconds = Math.abs(graceRemaining) % 60
+
   return (
-    <span className="text-[#d5a538] font-mono font-bold text-sm">
-      {String(m).padStart(2, '0')}:{String(s).padStart(2, '0')}
-    </span>
+    <div className="flex items-center gap-3">
+      <div>
+        <p className="text-[9px] font-semibold uppercase tracking-widest text-white/25 mb-0.5">Waiting</p>
+        <span className="text-[#d5a538] font-mono font-bold text-sm">
+          {String(elapsedMin).padStart(2, '0')}:{String(elapsedSec).padStart(2, '0')}
+        </span>
+      </div>
+      <div className="w-px h-7 bg-white/10" />
+      <div>
+        <p className="text-[9px] font-semibold uppercase tracking-widest text-white/25 mb-0.5">
+          {overtime ? 'Overtime' : 'Free wait'}
+        </p>
+        <span
+          className="font-mono font-bold text-sm"
+          style={{ color: overtime ? '#f87171' : 'rgba(255,255,255,0.5)' }}
+        >
+          {overtime ? '+' : ''}{String(overMinutes).padStart(2, '0')}:{String(overSeconds).padStart(2, '0')}
+        </span>
+      </div>
+    </div>
   )
 }
 
@@ -513,6 +566,8 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
   const noteChanged = driverNote !== (booking.driver_notes ?? '')
   const showNotes = booking.operator_note || !isDone || (isDone && booking.driver_notes)
   const showNoShow = (isEnRoute || isArrived) && !isDone
+  const graceMinutes = getGraceMinutes(booking.journey_type, booking.flight_number, booking.wait_time_minutes)
+  const prefs = booking.passenger_preferences ?? []
 
   return (
     <>
@@ -563,11 +618,8 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
                     )}
                     {isArrived && (
                       <>
-                        <p className="text-[10px] font-semibold uppercase tracking-widest text-white/30 mb-0.5">Arrived — Waiting</p>
-                        <div className="flex items-center gap-2">
-                          <Clock size={12} className="text-[#d5a538]" />
-                          <WaitTimer since={booking.arrived_at} />
-                        </div>
+                        <p className="text-[10px] font-semibold uppercase tracking-widest text-white/30 mb-1">Arrived — Waiting</p>
+                        <WaitTimer since={booking.arrived_at} graceMinutes={graceMinutes} />
                       </>
                     )}
                     {isPob && (
@@ -746,6 +798,24 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
               )}
             </div>
           </div>
+
+          {/* ── Passenger preferences ────────────────────────────────────── */}
+          {prefs.length > 0 && (
+            <div className="bg-[#0B1525] border border-white/8 rounded-2xl px-4 py-3.5">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-white/25 mb-2.5">Passenger Preferences</p>
+              <div className="flex flex-wrap gap-2">
+                {prefs.map((pref) => (
+                  <span
+                    key={pref}
+                    className="text-xs font-medium px-2.5 py-1 rounded-full"
+                    style={{ background: 'rgba(213,165,56,0.1)', color: 'rgba(213,165,56,0.85)', border: '1px solid rgba(213,165,56,0.2)' }}
+                  >
+                    {formatPref(pref)}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* ── Route ────────────────────────────────────────────────────── */}
           <div className="bg-[#0B1525] border border-white/8 rounded-2xl p-4">

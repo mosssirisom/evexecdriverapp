@@ -52,6 +52,9 @@ export interface Booking {
   completed_at: string | null
   actual_distance_miles: number | null
   actual_duration_minutes: number | null
+  // Phase 2
+  passenger_preferences: string[] | null
+  wait_time_minutes: number | null
 }
 
 export interface BookingExpense {
