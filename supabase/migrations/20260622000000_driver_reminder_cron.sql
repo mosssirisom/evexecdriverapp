@@ -1,0 +1,40 @@
+-- Driver Reminder Cron Job
+--
+-- Schedules the `send-driver-reminders` Edge Function to run every minute,
+-- sending SMS alerts to drivers 24 h and 1 h before their pickup_time.
+--
+-- PREREQUISITES (already done for attestation-engine; skip if already present):
+--   create extension if not exists pg_cron with schema extensions;
+--   create extension if not exists pg_net  with schema extensions;
+--   select vault.create_secret('<service-role-key>', 'attestation_engine_service_key');
+--
+-- RUN IN SUPABASE SQL EDITOR (one-time manual step — pg_cron jobs are not
+-- idempotent via Supabase migrations):
+--
+-- select cron.schedule(
+--   'driver-reminder-sweep',
+--   '* * * * *',
+--   $$
+--   select net.http_post(
+--     url     := 'https://yoltkmhtxwluqxxpewbl.supabase.co/functions/v1/send-driver-reminders',
+--     headers := jsonb_build_object(
+--       'Content-Type',  'application/json',
+--       'Authorization', 'Bearer ' || (
+--         select decrypted_secret
+--         from   vault.decrypted_secrets
+--         where  name = 'attestation_engine_service_key'
+--       )
+--     ),
+--     body := '{}'::jsonb
+--   );
+--   $$
+-- );
+--
+-- DEPLOY THE EDGE FUNCTION FIRST:
+--   supabase functions deploy send-driver-reminders --project-ref yoltkmhtxwluqxxpewbl
+--
+-- VERIFY cron is registered:
+--   select jobname, schedule, active from cron.job;
+--
+-- UNSCHEDULE (if needed):
+--   select cron.unschedule('driver-reminder-sweep');

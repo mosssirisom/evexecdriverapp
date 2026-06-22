@@ -22,6 +22,8 @@ export type NotificationType =
   | 'attestation_second_urgent'
   | 'attestation_reallocated'
   | 'operator_panic'
+  | 'driver_reminder_24h'
+  | 'driver_reminder_1h'
 
 export type NotificationChannel = 'push' | 'sms' | 'whatsapp' | 'voice'
 
