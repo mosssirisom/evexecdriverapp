@@ -624,6 +624,47 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
     if (pobIntervalRef.current) clearInterval(pobIntervalRef.current)
   }, [])
 
+  // ── GPS tracking (En Route + Arrived) ────────────────────────────────────────
+  const gpsWatchRef = useRef<number | null>(null)
+  const gpsLastPushRef = useRef<number>(0)
+
+  useEffect(() => {
+    const statusNeedsGps = booking && ['En Route', 'en_route', 'Arrived', 'arrived'].includes(booking.status)
+    const driverId = booking?.assigned_driver_id
+
+    if (!statusNeedsGps || !driverId || typeof navigator === 'undefined' || !navigator.geolocation) {
+      if (gpsWatchRef.current != null) {
+        navigator.geolocation.clearWatch(gpsWatchRef.current)
+        gpsWatchRef.current = null
+      }
+      return
+    }
+
+    if (gpsWatchRef.current != null) return // already watching
+
+    gpsWatchRef.current = navigator.geolocation.watchPosition(
+      async (pos) => {
+        const now = Date.now()
+        if (now - gpsLastPushRef.current < 30_000) return
+        gpsLastPushRef.current = now
+        await supabase.from('drivers').update({
+          current_lat: pos.coords.latitude,
+          current_lng: pos.coords.longitude,
+          location_updated_at: new Date().toISOString(),
+        }).eq('id', driverId)
+      },
+      (err) => console.warn('[GPS]', err.message),
+      { enableHighAccuracy: true, maximumAge: 15_000, timeout: 10_000 },
+    )
+
+    return () => {
+      if (gpsWatchRef.current != null) {
+        navigator.geolocation.clearWatch(gpsWatchRef.current)
+        gpsWatchRef.current = null
+      }
+    }
+  }, [booking?.status, booking?.assigned_driver_id, supabase])
+
   const fireCustomerNotification = (bookingId: string, status: string) => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!session) return
@@ -631,6 +672,18 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
         body: JSON.stringify({ bookingId, status }),
+      }).catch(() => {})
+    })
+  }
+
+  const fireArrivedSms = (bookingId: string) => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`
+      fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/notify-passenger-arrived`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ bookingId }),
       }).catch(() => {})
     })
   }
@@ -668,6 +721,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
       const updated = { ...booking, status: nextStatus, ...(tsField ? { [tsField]: now } : {}) } as Booking
       setBooking(updated)
       fireCustomerNotification(booking.id, nextStatus)
+      if (nextStatus === 'Arrived') fireArrivedSms(booking.id)
 
       if (nextStatus === 'Passenger On Board' && triggerUndo) {
         setPobCountdown(5)
@@ -1067,12 +1121,29 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
                   <p className="text-white/30 text-[10px] uppercase tracking-wider mb-0.5">Drop-off</p>
                   <p className="text-white text-sm font-medium leading-snug">{dropoffAddress}</p>
                 </div>
-                <button
-                  onClick={() => openMaps(dropoffAddress, pickupAddress)}
-                  className="flex items-center gap-1.5 text-[#d5a538] text-xs font-semibold flex-shrink-0 bg-[#d5a538]/10 px-3 py-2 rounded-xl active:opacity-70"
-                >
-                  <Navigation2 size={12} /> Go
-                </button>
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  {isPob && dropoffAddress !== '—' && (
+                    <button
+                      onClick={() =>
+                        window.open(
+                          `https://www.google.com/maps/search/EV+charging+station+near+${encodeURIComponent(dropoffAddress)}`,
+                          '_blank',
+                        )
+                      }
+                      className="flex items-center gap-1 text-green-400 text-[10px] font-semibold bg-green-400/10 border border-green-400/20 px-2 py-2 rounded-xl active:opacity-70"
+                      title="Find EV charger near dropoff"
+                    >
+                      <Car size={10} />
+                      <span>⚡</span>
+                    </button>
+                  )}
+                  <button
+                    onClick={() => openMaps(dropoffAddress, pickupAddress)}
+                    className="flex items-center gap-1.5 text-[#d5a538] text-xs font-semibold bg-[#d5a538]/10 px-3 py-2 rounded-xl active:opacity-70"
+                  >
+                    <Navigation2 size={12} /> Go
+                  </button>
+                </div>
               </div>
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 pt-3 border-t border-white/5">
                 {booking.passengers > 0 && (

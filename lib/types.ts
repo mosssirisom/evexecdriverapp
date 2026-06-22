@@ -61,6 +61,9 @@ export interface Booking {
   // Phase 4
   corporate_email: string | null
   receipt_sent_at: string | null
+  // Phase 5
+  attestation_status: string | null
+  driver_confirmed_at: string | null
 }
 
 export interface BookingExpense {
@@ -80,4 +83,9 @@ export interface Driver {
   vehicle_model: string | null
   is_online: boolean
   avatar_url: string | null
+  rating: number | null
+  battery_percent: number | null
+  current_lat: number | null
+  current_lng: number | null
+  location_updated_at: string | null
 }

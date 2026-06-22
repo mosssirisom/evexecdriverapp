@@ -2,15 +2,19 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
-import { Car, ChevronRight, Bell, Briefcase, Star, RefreshCw } from 'lucide-react'
+import { Car, ChevronRight, Bell, Briefcase, Star, RefreshCw, Battery, CheckCircle2, Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { BookingStatusBadge } from '@/components/badges'
 import { formatTime } from '@/lib/format'
 import type { Booking, Driver } from '@/lib/types'
 
+type AttestBooking = Pick<Booking, 'id' | 'ref' | 'customer_name' | 'travel_date' | 'travel_time' | 'pickup_location' | 'airport' | 'attestation_status'>
+
 export default function DashboardPage() {
   const [driver, setDriver] = useState<Driver | null>(null)
   const [bookings, setBookings] = useState<Booking[]>([])
+  const [attestationBookings, setAttestationBookings] = useState<AttestBooking[]>([])
+  const [confirmingJobId, setConfirmingJobId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
 
@@ -20,7 +24,7 @@ export default function DashboardPage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
 
-    const [{ data: driverData }, { data: bookingData }] = await Promise.all([
+    const [{ data: driverData }, { data: bookingData }, { data: attestData }] = await Promise.all([
       supabase.from('drivers').select('*').eq('id', user.id).single(),
       supabase
         .from('bookings')
@@ -29,12 +33,17 @@ export default function DashboardPage() {
         .in('status', ['accepted', 'confirmed', 'Dispatched', 'En Route', 'en_route', 'Passenger On Board', 'Arrived', 'arrived', 'Active', 'active'])
         .order('travel_date', { ascending: true })
         .order('travel_time', { ascending: true }),
+      supabase
+        .from('bookings')
+        .select('id, ref, customer_name, travel_date, travel_time, pickup_location, airport, attestation_status')
+        .eq('assigned_driver_id', user.id)
+        .in('attestation_status', ['awaiting_first_attestation', 'awaiting_second_attestation'])
+        .is('driver_confirmed_at', null),
     ])
 
-    if (driverData) {
-      setDriver(driverData)
-    }
+    if (driverData) setDriver(driverData)
     if (bookingData) setBookings(bookingData)
+    if (attestData) setAttestationBookings(attestData as AttestBooking[])
     setLoading(false)
   }, [supabase])
 
@@ -66,6 +75,25 @@ export default function DashboardPage() {
   const initials = driver?.full_name
     ? driver.full_name.split(' ').map((n) => n[0]).join('').slice(0, 2)
     : '?'
+
+  const confirmJob = async (bookingId: string) => {
+    setConfirmingJobId(bookingId)
+    await supabase.from('bookings').update({
+      driver_confirmed_at: new Date().toISOString(),
+      attestation_status: 'confirmed',
+    }).eq('id', bookingId)
+    setAttestationBookings(prev => prev.filter(b => b.id !== bookingId))
+    setConfirmingJobId(null)
+  }
+
+  const adjustBattery = async (delta: number) => {
+    if (!driver) return
+    const next = Math.min(100, Math.max(0, (driver.battery_percent ?? 50) + delta))
+    setDriver({ ...driver, battery_percent: next })
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    await supabase.from('drivers').update({ battery_percent: next }).eq('id', user.id)
+  }
 
   const greeting = () => {
     const h = new Date().getHours()
@@ -116,6 +144,52 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* Attestation — jobs needing driver confirmation */}
+      {attestationBookings.length > 0 && (
+        <div className="mb-5 space-y-2.5">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-amber-400">
+            ⚠ Confirmation Required
+          </p>
+          {attestationBookings.map(b => (
+            <div
+              key={b.id}
+              className="bg-[#0B1525] border border-amber-500/30 rounded-2xl p-4"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <p className="text-white font-semibold text-sm">{b.customer_name}</p>
+                  <p className="text-white/40 text-xs mt-0.5">
+                    {b.travel_date ?? ''}
+                    {b.travel_time ? ` · ${formatTime(b.travel_time)}` : ''}
+                  </p>
+                  <p className="text-white/40 text-xs mt-0.5 truncate">
+                    {b.pickup_location ?? b.airport ?? '—'}
+                  </p>
+                </div>
+                <button
+                  onClick={() => confirmJob(b.id)}
+                  disabled={confirmingJobId === b.id}
+                  className="flex-shrink-0 px-4 py-2 rounded-xl text-sm font-bold text-[#020813] disabled:opacity-50 flex items-center gap-1.5"
+                  style={{ background: 'linear-gradient(135deg, #f1c56a, #d5a538)' }}
+                >
+                  {confirmingJobId === b.id
+                    ? <Loader2 size={14} className="animate-spin" />
+                    : <CheckCircle2 size={14} />}
+                  Confirm
+                </button>
+              </div>
+              <div className="mt-2.5">
+                <span className="text-[10px] font-semibold px-2 py-1 rounded-full text-amber-400 bg-amber-500/10 border border-amber-500/20">
+                  {b.attestation_status === 'awaiting_second_attestation'
+                    ? '2nd confirmation'
+                    : '1st confirmation'}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Active Job Banner */}
       {activeBooking && (
         <Link href={`/jobs/${activeBooking.id}`}>
@@ -155,6 +229,70 @@ export default function DashboardPage() {
           <p className="text-white/30 text-[10px] uppercase tracking-wide mt-0.5">Total</p>
         </div>
       </div>
+
+      {/* EV Battery widget */}
+      {driver && (
+        <div className="bg-[#0B1525] border border-white/8 rounded-2xl px-4 py-3 mb-5">
+          <div className="flex items-center gap-3">
+            <Battery
+              size={16}
+              className={
+                (driver.battery_percent ?? 0) > 50
+                  ? 'text-green-400'
+                  : (driver.battery_percent ?? 0) > 25
+                    ? 'text-amber-400'
+                    : 'text-red-400'
+              }
+            />
+            <div className="flex-1">
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-white/30 text-[10px] uppercase tracking-widest">EV Battery</p>
+                <span
+                  className="text-xs font-bold"
+                  style={{
+                    color:
+                      (driver.battery_percent ?? 0) > 50
+                        ? '#10b981'
+                        : (driver.battery_percent ?? 0) > 25
+                          ? '#f59e0b'
+                          : '#ef4444',
+                  }}
+                >
+                  {driver.battery_percent != null ? `${driver.battery_percent}%` : '—'}
+                </span>
+              </div>
+              <div className="h-1.5 bg-white/8 rounded-full overflow-hidden">
+                <div
+                  className="h-full rounded-full transition-all duration-300"
+                  style={{
+                    width: `${driver.battery_percent ?? 0}%`,
+                    background:
+                      (driver.battery_percent ?? 0) > 50
+                        ? '#10b981'
+                        : (driver.battery_percent ?? 0) > 25
+                          ? '#f59e0b'
+                          : '#ef4444',
+                  }}
+                />
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              <button
+                onClick={() => adjustBattery(-5)}
+                className="w-7 h-7 rounded-lg bg-white/8 border border-white/10 text-white/60 text-sm font-bold flex items-center justify-center active:opacity-70"
+              >
+                −
+              </button>
+              <button
+                onClick={() => adjustBattery(5)}
+                className="w-7 h-7 rounded-lg bg-white/8 border border-white/10 text-white/60 text-sm font-bold flex items-center justify-center active:opacity-70"
+              >
+                +
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Upcoming Jobs */}
       <div className="flex items-center justify-between mb-3">
