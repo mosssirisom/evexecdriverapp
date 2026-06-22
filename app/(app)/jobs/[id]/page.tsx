@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import {
   ArrowLeft, Phone, MessageSquare, Navigation2, User, FileText, CheckCircle2,
   AlertOctagon, ChevronRight, Loader2, Users, Luggage, PlaneLanding, CreditCard,
-  UserX, X, Plus, Car, MapPin,
+  UserX, X, Plus, Car, MapPin, RefreshCw,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { BookingStatusBadge } from '@/components/badges'
@@ -355,6 +355,210 @@ function ExpenseModal({
           </button>
         </div>
       </div>
+    </div>
+  )
+}
+
+// ─── Flight widget ────────────────────────────────────────────────────────────
+
+interface FlightData {
+  status: 'Scheduled' | 'En Route' | 'Landed' | 'Cancelled' | 'Diverted' | 'Unknown'
+  origin: string | null
+  destination: string | null
+  scheduled_arrival: string | null
+  estimated_arrival: string | null
+  actual_arrival: string | null
+  gate: string | null
+  baggage_claim: string | null
+  delay_minutes: number | null
+  tail_number: string | null
+  aircraft_type: string | null
+}
+
+const STATUS_COLOR: Record<string, string> = {
+  Landed:    '#10b981',
+  'En Route': '#3b82f6',
+  Delayed:   '#f59e0b',
+  Cancelled: '#ef4444',
+  Diverted:  '#f97316',
+  Scheduled: 'rgba(255,255,255,0.45)',
+  Unknown:   'rgba(255,255,255,0.35)',
+}
+
+function formatArrival(iso: string | null): string {
+  if (!iso) return '—'
+  return new Date(iso).toLocaleTimeString('en-GB', {
+    hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London', hour12: false,
+  })
+}
+
+function FlightWidget({
+  bookingId,
+  flightNumber,
+  airport,
+  activelyMonitoring,
+}: {
+  bookingId: string
+  flightNumber: string
+  airport: string | null
+  activelyMonitoring: boolean
+}) {
+  const supabase = createClient()
+  const [flight, setFlight] = useState<FlightData | null>(null)
+  const [refreshing, setRefreshing] = useState(false)
+  const [lastChecked, setLastChecked] = useState<Date | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  const fetchFlight = useCallback(async (manual = false) => {
+    if (refreshing && !manual) return
+    setRefreshing(true)
+    setError(null)
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`
+      const res = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/track-flight`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ bookingId }),
+      })
+      const json = await res.json()
+      if (json.ok && json.data) {
+        setFlight(json.data)
+        setLastChecked(new Date())
+      } else if (json.error) {
+        setError(json.error)
+      }
+    } catch {
+      setError('Could not reach flight tracker')
+    }
+    setRefreshing(false)
+  }, [bookingId, supabase, refreshing])
+
+  useEffect(() => {
+    fetchFlight()
+    // Poll every 60 seconds when actively monitoring (Arrived stage)
+    if (!activelyMonitoring) return
+    const id = setInterval(() => fetchFlight(), 60_000)
+    return () => clearInterval(id)
+  }, [activelyMonitoring]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const statusColor = flight ? (STATUS_COLOR[flight.status] ?? STATUS_COLOR.Unknown) : 'rgba(255,255,255,0.35)'
+  const displayFlight = flightNumber.replace(/\s+/g, '').toUpperCase()
+
+  return (
+    <div className="bg-[#0B1525] border border-white/8 rounded-2xl p-4">
+      {/* Header row */}
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center flex-shrink-0">
+            <PlaneLanding size={18} className="text-blue-400" />
+          </div>
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-white/25 mb-0.5">Flight</p>
+            <p className="text-white font-bold text-base tracking-wide">{displayFlight}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          {flight && (
+            <span
+              className="text-[10px] font-bold px-2 py-1 rounded-full"
+              style={{ color: statusColor, background: `${statusColor}18`, border: `1px solid ${statusColor}40` }}
+            >
+              {flight.status}
+            </span>
+          )}
+          <button
+            onClick={() => fetchFlight(true)}
+            disabled={refreshing}
+            className="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center active:opacity-70 disabled:opacity-40"
+          >
+            <RefreshCw size={13} className={`text-white/40 ${refreshing ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
+      </div>
+
+      {error && !flight && (
+        <p className="text-white/30 text-xs">{error}</p>
+      )}
+
+      {flight && (
+        <div className="space-y-2.5">
+          {/* Arrival times */}
+          <div className="grid grid-cols-3 gap-2">
+            <div>
+              <p className="text-[9px] font-semibold uppercase tracking-wider text-white/25 mb-0.5">Scheduled</p>
+              <p className="text-white/70 text-sm font-semibold">{formatArrival(flight.scheduled_arrival)}</p>
+            </div>
+            <div>
+              <p className="text-[9px] font-semibold uppercase tracking-wider text-white/25 mb-0.5">Estimated</p>
+              <p
+                className="text-sm font-semibold"
+                style={{ color: (flight.delay_minutes ?? 0) > 0 ? '#f59e0b' : 'rgba(255,255,255,0.7)' }}
+              >
+                {formatArrival(flight.estimated_arrival ?? flight.scheduled_arrival)}
+                {(flight.delay_minutes ?? 0) > 0 && (
+                  <span className="text-[10px] ml-1 text-amber-400">+{flight.delay_minutes}m</span>
+                )}
+              </p>
+            </div>
+            {flight.actual_arrival && (
+              <div>
+                <p className="text-[9px] font-semibold uppercase tracking-wider text-white/25 mb-0.5">Landed</p>
+                <p className="text-sm font-bold" style={{ color: '#10b981' }}>{formatArrival(flight.actual_arrival)}</p>
+              </div>
+            )}
+          </div>
+
+          {/* Gate / Baggage */}
+          {(flight.gate || flight.baggage_claim) && (
+            <div className="flex items-center gap-3 pt-2.5 border-t border-white/5">
+              {flight.gate && (
+                <div>
+                  <p className="text-[9px] font-semibold uppercase tracking-wider text-white/25 mb-0.5">Gate</p>
+                  <p className="text-white/80 text-sm font-bold">{flight.gate}</p>
+                </div>
+              )}
+              {flight.gate && flight.baggage_claim && <div className="w-px h-6 bg-white/10" />}
+              {flight.baggage_claim && (
+                <div>
+                  <p className="text-[9px] font-semibold uppercase tracking-wider text-white/25 mb-0.5">Baggage</p>
+                  <p className="text-white/80 text-sm font-bold">{flight.baggage_claim}</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Route */}
+          {(flight.origin || flight.destination) && (
+            <div className="flex items-center gap-2 pt-2.5 border-t border-white/5">
+              <span className="text-white/40 text-xs font-mono">{flight.origin ?? '?'}</span>
+              <div className="flex-1 h-px bg-white/8" />
+              <PlaneLanding size={10} className="text-blue-400/60" />
+              <div className="flex-1 h-px bg-white/8" />
+              <span className="text-white/40 text-xs font-mono">{flight.destination ?? '?'}</span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Last checked */}
+      {lastChecked && (
+        <p className="text-[9px] text-white/20 mt-3">
+          Updated {lastChecked.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+          {activelyMonitoring && ' · auto-refreshes every 60s'}
+        </p>
+      )}
+
+      {/* Fallback flightradar link */}
+      <a
+        href={`https://www.flightradar24.com/${displayFlight}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center gap-1 mt-2 text-[10px] text-blue-400/50 hover:text-blue-400/80"
+      >
+        <ChevronRight size={10} /> View on Flightradar24
+      </a>
     </div>
   )
 }
@@ -886,33 +1090,12 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
 
           {/* ── Flight tracker ────────────────────────────────────────────── */}
           {booking.flight_number && (
-            <a
-              href={`https://www.flightradar24.com/${booking.flight_number.replace(/\s+/g, '').toUpperCase()}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="block bg-[#0B1525] border border-white/8 rounded-2xl p-4 active:opacity-80 transition-opacity"
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center flex-shrink-0">
-                    <PlaneLanding size={18} className="text-blue-400" />
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-widest text-white/25 mb-0.5">Flight</p>
-                    <p className="text-white font-bold text-base tracking-wide">{booking.flight_number.replace(/\s+/g, '').toUpperCase()}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-blue-400 text-xs font-semibold">Track Live</span>
-                  <ChevronRight size={14} className="text-blue-400/60" />
-                </div>
-              </div>
-              {booking.airport && (
-                <p className="text-white/30 text-xs mt-2.5 pt-2.5 border-t border-white/5 flex items-center gap-1.5">
-                  <PlaneLanding size={10} /> {booking.airport}
-                </p>
-              )}
-            </a>
+            <FlightWidget
+              bookingId={booking.id}
+              flightNumber={booking.flight_number}
+              airport={booking.airport}
+              activelyMonitoring={isArrived}
+            />
           )}
 
           {/* ── Map ──────────────────────────────────────────────────────── */}

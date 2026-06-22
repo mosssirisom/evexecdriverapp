@@ -55,6 +55,9 @@ export interface Booking {
   // Phase 2
   passenger_preferences: string[] | null
   wait_time_minutes: number | null
+  // Phase 3
+  flight_status: Record<string, unknown> | null
+  flight_checked_at: string | null
 }
 
 export interface BookingExpense {
