@@ -635,6 +635,18 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
     })
   }
 
+  const triggerReceiptEmail = (bookingId: string) => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`
+      fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/send-journey-receipt`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ bookingId }),
+      }).catch(() => {})
+    })
+  }
+
   const handleStatusUpdate = async (nextStatus: BookingStatus, triggerUndo = true) => {
     if (!booking || updating) return
     setUpdating(true)
@@ -701,6 +713,8 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
     } else {
       setBooking({ ...booking, status: 'Completed', completed_at: now })
       fireCustomerNotification(booking.id, 'Completed')
+      // Fire-and-forget receipt emails
+      triggerReceiptEmail(booking.id)
     }
     setUpdating(false)
   }

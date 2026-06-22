@@ -58,6 +58,9 @@ export interface Booking {
   // Phase 3
   flight_status: Record<string, unknown> | null
   flight_checked_at: string | null
+  // Phase 4
+  corporate_email: string | null
+  receipt_sent_at: string | null
 }
 
 export interface BookingExpense {
