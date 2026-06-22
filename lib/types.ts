@@ -20,6 +20,7 @@ export type BookingStatus =
 
 export interface Booking {
   id: string
+  ref: string | null
   created_at: string
   updated_at: string | null
   journey_type: string | null
@@ -29,6 +30,7 @@ export interface Booking {
   dropoff_address: string | null
   travel_date: string | null
   travel_time: string | null
+  pickup_time: string | null
   passengers: number
   luggage: string | null
   return_journey: boolean
@@ -43,7 +45,22 @@ export interface Booking {
   payment_status: string
   assigned_driver_id: string | null
   driver_notes: string | null
-  pickup_time: string | null
+  // Journey timestamps (Phase 1)
+  tracking_started_at: string | null
+  arrived_at: string | null
+  passenger_onboard_at: string | null
+  completed_at: string | null
+  actual_distance_miles: number | null
+  actual_duration_minutes: number | null
+}
+
+export interface BookingExpense {
+  id: string
+  booking_id: string
+  type: 'parking' | 'ulez' | 'congestion' | 'toll' | 'airport_fee' | 'other'
+  amount: number
+  notes: string | null
+  created_at: string
 }
 
 export interface Driver {
