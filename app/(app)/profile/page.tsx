@@ -1,12 +1,12 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { logout } from '@/app/actions/auth'
 import {
   Car, Shield, ChevronRight, Phone, Mail, LogOut, Bell,
   HelpCircle, Loader2, ClipboardList, MessageCircle, PoundSterling, Star,
-  AlertTriangle, CheckCircle2,
+  AlertTriangle, CheckCircle2, Upload,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { OPS_PHONE, OPS_WHATSAPP, SUPPORT_EMAIL } from '@/lib/config'
@@ -19,6 +19,9 @@ export default function ProfilePage() {
   const [tripCount, setTripCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [togglingOnline, setTogglingOnline] = useState(false)
+  const [uploadingDoc, setUploadingDoc] = useState<string | null>(null)
+  const [uploadedDocs, setUploadedDocs] = useState<Set<string>>(new Set())
+  const docInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
 
   const supabase = createClient()
 
@@ -27,17 +30,21 @@ export default function ProfilePage() {
     if (!user) return
     setEmail(user.email ?? null)
 
-    const [driverRes, tripsRes] = await Promise.all([
+    const [driverRes, tripsRes, docsRes] = await Promise.all([
       supabase.from('drivers').select('*').eq('id', user.id).single(),
       supabase
         .from('bookings')
         .select('id', { count: 'exact', head: true })
         .eq('assigned_driver_id', user.id)
         .in('status', ['completed', 'Completed']),
+      supabase.storage.from('driver-docs').list(user.id),
     ])
 
     if (driverRes.data) setDriver(driverRes.data)
     setTripCount(tripsRes.count ?? 0)
+    if (docsRes.data) {
+      setUploadedDocs(new Set(docsRes.data.map(f => f.name.split('.')[0])))
+    }
     setLoading(false)
   }, [supabase])
 
@@ -51,6 +58,17 @@ export default function ProfilePage() {
     const { error } = await supabase.from('drivers').update({ is_online: next }).eq('id', driver.id)
     if (error) setDriver({ ...driver, is_online: !next })
     setTogglingOnline(false)
+  }
+
+  const uploadDoc = async (docKey: string, file: File) => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user || uploadingDoc) return
+    setUploadingDoc(docKey)
+    const ext = file.name.split('.').pop() ?? 'jpg'
+    const path = `${user.id}/${docKey}.${ext}`
+    await supabase.storage.from('driver-docs').upload(path, file, { upsert: true })
+    setUploadedDocs(prev => new Set([...prev, docKey]))
+    setUploadingDoc(null)
   }
 
   const initials = driver?.full_name
@@ -172,11 +190,10 @@ export default function ProfilePage() {
       {(() => {
         const today = new Date()
         const docs = [
-          { label: 'Driver Licence', expiry: driver?.license_expiry },
-          { label: 'DBS Check', expiry: driver?.dbs_expiry },
-          { label: 'PCO Licence', expiry: driver?.pcol_expiry },
+          { key: 'license', label: 'Driver Licence', expiry: driver?.license_expiry },
+          { key: 'dbs', label: 'DBS Check', expiry: driver?.dbs_expiry },
+          { key: 'pcol', label: 'PCO Licence', expiry: driver?.pcol_expiry },
         ]
-        const withExpiry = docs.filter(d => d.expiry)
         const getDaysLeft = (expiry: string) =>
           Math.floor((new Date(expiry).getTime() - today.getTime()) / 86400000)
         return (
@@ -185,44 +202,85 @@ export default function ProfilePage() {
               <Shield size={14} className="text-[#d5a538]" />
               <p className="text-white/50 text-xs font-semibold uppercase tracking-widest">Documents</p>
             </div>
-            {withExpiry.length === 0 ? (
-              <p className="text-white/25 text-xs">Managed by EV Exec Operations</p>
-            ) : (
-              <div className="space-y-2.5">
-                {withExpiry.map(({ label, expiry }) => {
-                  const days = getDaysLeft(expiry!)
-                  const expired = days < 0
-                  const urgent = days >= 0 && days <= 14
-                  const warning = days > 14 && days <= 30
-                  const ok = days > 30
-                  return (
-                    <div key={label} className={`flex items-center justify-between rounded-xl px-3 py-2.5 ${
-                      expired ? 'bg-red-500/10 border border-red-500/30' :
-                      urgent ? 'bg-amber-500/10 border border-amber-500/25' :
-                      warning ? 'bg-yellow-500/8 border border-yellow-500/15' :
-                      'bg-white/3 border border-white/5'
-                    }`}>
+            <div className="space-y-2.5">
+              {docs.map(({ key, label, expiry }) => {
+                const hasExpiry = !!expiry
+                const days = hasExpiry ? getDaysLeft(expiry!) : null
+                const expired = days != null && days < 0
+                const urgent = days != null && days >= 0 && days <= 14
+                const warning = days != null && days > 14 && days <= 30
+                const ok = days != null && days > 30
+                const isUploading = uploadingDoc === key
+                const isUploaded = uploadedDocs.has(key)
+                return (
+                  <div key={key} className={`rounded-xl px-3 py-2.5 ${
+                    expired ? 'bg-red-500/10 border border-red-500/30' :
+                    urgent ? 'bg-amber-500/10 border border-amber-500/25' :
+                    warning ? 'bg-yellow-500/8 border border-yellow-500/15' :
+                    'bg-white/3 border border-white/5'
+                  }`}>
+                    <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        {expired || urgent ? (
-                          <AlertTriangle size={13} className={expired ? 'text-red-400' : 'text-amber-400'} />
+                        {hasExpiry ? (
+                          expired || urgent ? (
+                            <AlertTriangle size={13} className={expired ? 'text-red-400' : 'text-amber-400'} />
+                          ) : (
+                            <CheckCircle2 size={13} className={ok ? 'text-[#10b981]' : 'text-yellow-400'} />
+                          )
                         ) : (
-                          <CheckCircle2 size={13} className={ok ? 'text-[#10b981]' : 'text-yellow-400'} />
+                          <Shield size={13} className="text-white/25" />
                         )}
                         <span className="text-white/70 text-xs font-medium">{label}</span>
+                        {isUploaded && (
+                          <span className="text-[10px] font-semibold text-[#10b981] bg-[#10b981]/10 border border-[#10b981]/20 px-1.5 py-0.5 rounded-full">
+                            Uploaded
+                          </span>
+                        )}
                       </div>
-                      <div className="text-right">
-                        <p className={`text-xs font-semibold ${expired ? 'text-red-400' : urgent ? 'text-amber-400' : warning ? 'text-yellow-400' : 'text-white/40'}`}>
-                          {expired ? 'EXPIRED' : days === 0 ? 'Today' : `${days}d`}
-                        </p>
-                        <p className="text-white/20 text-[10px]">
-                          {new Date(expiry!).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' })}
-                        </p>
+                      <div className="flex items-center gap-2">
+                        {hasExpiry && (
+                          <div className="text-right">
+                            <p className={`text-xs font-semibold ${expired ? 'text-red-400' : urgent ? 'text-amber-400' : warning ? 'text-yellow-400' : 'text-white/40'}`}>
+                              {expired ? 'EXPIRED' : days === 0 ? 'Today' : `${days}d`}
+                            </p>
+                            <p className="text-white/20 text-[10px]">
+                              {new Date(expiry!).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' })}
+                            </p>
+                          </div>
+                        )}
+                        <button
+                          onClick={() => docInputRefs.current[key]?.click()}
+                          disabled={!!uploadingDoc}
+                          className="w-8 h-8 rounded-xl flex items-center justify-center border border-white/10 bg-white/5 active:opacity-70 disabled:opacity-40 flex-shrink-0"
+                          title={`Upload ${label}`}
+                        >
+                          {isUploading
+                            ? <Loader2 size={13} className="animate-spin text-[#d5a538]" />
+                            : <Upload size={13} className="text-white/40" />
+                          }
+                        </button>
+                        <input
+                          ref={el => { docInputRefs.current[key] = el }}
+                          type="file"
+                          accept="image/*,application/pdf"
+                          className="hidden"
+                          onChange={e => {
+                            const file = e.target.files?.[0]
+                            if (file) uploadDoc(key, file)
+                            e.target.value = ''
+                          }}
+                        />
                       </div>
                     </div>
-                  )
-                })}
-              </div>
-            )}
+                    {!hasExpiry && !isUploaded && (
+                      <p className="text-white/20 text-[10px] mt-1.5 pl-5">
+                        Tap upload to submit your {label.toLowerCase()} to operations
+                      </p>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
           </div>
         )
       })()}
