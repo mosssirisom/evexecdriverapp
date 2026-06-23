@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import {
   ArrowLeft, Phone, MessageSquare, Navigation2, User, FileText, CheckCircle2,
   AlertOctagon, ChevronRight, Loader2, Users, Luggage, PlaneLanding, CreditCard,
-  UserX, X, Plus, Car, MapPin, RefreshCw,
+  UserX, X, Plus, Car, MapPin, RefreshCw, Camera, Trash2,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { BookingStatusBadge } from '@/components/badges'
@@ -598,12 +598,22 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
   // Expense modal shown before completing journey
   const [showExpenseModal, setShowExpenseModal] = useState(false)
 
+  // Photo / damage reports
+  interface BookingPhoto { id: string; url: string; caption: string | null; created_at: string }
+  const [photos, setPhotos] = useState<BookingPhoto[]>([])
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const photoInputRef = useRef<HTMLInputElement>(null)
+
   const loadBooking = useCallback(async () => {
-    const { data } = await supabase.from('bookings').select('*').eq('id', id).single()
-    if (data) {
-      setBooking(data as Booking)
-      setDriverNote(data.driver_notes ?? '')
+    const [bookingRes, photosRes] = await Promise.all([
+      supabase.from('bookings').select('*').eq('id', id).single(),
+      supabase.from('booking_photos').select('id, url, caption, created_at').eq('booking_id', id).order('created_at', { ascending: true }),
+    ])
+    if (bookingRes.data) {
+      setBooking(bookingRes.data as Booking)
+      setDriverNote(bookingRes.data.driver_notes ?? '')
     }
+    if (photosRes.data) setPhotos(photosRes.data)
     setLoading(false)
   }, [id, supabase])
 
@@ -791,6 +801,32 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
       fireCustomerNotification(booking.id, 'No Show')
     }
     setUpdating(false)
+  }
+
+  const uploadPhoto = async (file: File) => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user || !booking || uploadingPhoto) return
+    setUploadingPhoto(true)
+    const ext = file.name.split('.').pop() ?? 'jpg'
+    const path = `${user.id}/${booking.id}/${crypto.randomUUID()}.${ext}`
+    const { error: upErr } = await supabase.storage.from('job-photos').upload(path, file, { upsert: false })
+    if (!upErr) {
+      const { data: urlData } = supabase.storage.from('job-photos').getPublicUrl(path)
+      const { data: row } = await supabase.from('booking_photos')
+        .insert({ booking_id: booking.id, driver_id: user.id, url: urlData.publicUrl })
+        .select('id, url, caption, created_at').single()
+      if (row) setPhotos(prev => [...prev, row])
+    }
+    setUploadingPhoto(false)
+  }
+
+  const deletePhoto = async (photoId: string, url: string) => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const path = url.split('/job-photos/')[1]
+    if (path) await supabase.storage.from('job-photos').remove([path])
+    await supabase.from('booking_photos').delete().eq('id', photoId)
+    setPhotos(prev => prev.filter(p => p.id !== photoId))
   }
 
   const saveNote = async () => {
@@ -1236,6 +1272,59 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
               )}
             </div>
           )}
+
+          {/* ── Photos / damage report ───────────────────────────────────── */}
+          <div className="bg-[#0B1525] border border-white/8 rounded-2xl p-4">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-white/25 flex items-center gap-1.5">
+                <Camera size={11} /> Photos
+              </p>
+              {!isDone && (
+                <button
+                  onClick={() => photoInputRef.current?.click()}
+                  disabled={uploadingPhoto}
+                  className="flex items-center gap-1.5 text-[#d5a538] text-xs font-semibold bg-[#d5a538]/10 border border-[#d5a538]/25 px-3 py-1.5 rounded-xl active:opacity-70 disabled:opacity-40"
+                >
+                  {uploadingPhoto ? <Loader2 size={12} className="animate-spin" /> : <Camera size={12} />}
+                  {uploadingPhoto ? 'Uploading…' : 'Add Photo'}
+                </button>
+              )}
+            </div>
+            <input
+              ref={photoInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              onChange={e => {
+                const file = e.target.files?.[0]
+                if (file) uploadPhoto(file)
+                e.target.value = ''
+              }}
+            />
+            {photos.length === 0 ? (
+              <p className="text-white/20 text-xs text-center py-4">
+                {isDone ? 'No photos recorded' : 'Tap Add Photo to capture damage or evidence'}
+              </p>
+            ) : (
+              <div className="grid grid-cols-3 gap-2">
+                {photos.map(photo => (
+                  <div key={photo.id} className="relative aspect-square rounded-xl overflow-hidden bg-white/5">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={photo.url} alt="" className="w-full h-full object-cover" />
+                    {!isDone && (
+                      <button
+                        onClick={() => deletePhoto(photo.id, photo.url)}
+                        className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/60 flex items-center justify-center active:opacity-70"
+                      >
+                        <Trash2 size={11} className="text-red-400" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
 
           {/* ── Dispatch + SOS ───────────────────────────────────────────── */}
           <div className={`grid gap-3 ${!isDone ? 'grid-cols-2' : 'grid-cols-1'}`}>
