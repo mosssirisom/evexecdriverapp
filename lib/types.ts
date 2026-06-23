@@ -88,4 +88,7 @@ export interface Driver {
   current_lat: number | null
   current_lng: number | null
   location_updated_at: string | null
+  license_expiry: string | null
+  dbs_expiry: string | null
+  pcol_expiry: string | null
 }

@@ -6,6 +6,7 @@ import { logout } from '@/app/actions/auth'
 import {
   Car, Shield, ChevronRight, Phone, Mail, LogOut, Bell,
   HelpCircle, Loader2, ClipboardList, MessageCircle, PoundSterling, Star,
+  AlertTriangle, CheckCircle2,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { OPS_PHONE, OPS_WHATSAPP, SUPPORT_EMAIL } from '@/lib/config'
@@ -168,13 +169,63 @@ export default function ProfilePage() {
       )}
 
       {/* Documents */}
-      <div className="bg-[#0B1525] border border-white/8 rounded-2xl p-4 mb-4">
-        <div className="flex items-center gap-2">
-          <Shield size={14} className="text-[#d5a538]" />
-          <p className="text-white/50 text-xs font-semibold uppercase tracking-widest">Documents</p>
-        </div>
-        <p className="text-white/25 text-xs mt-2">Managed by EV Exec Operations</p>
-      </div>
+      {(() => {
+        const today = new Date()
+        const docs = [
+          { label: 'Driver Licence', expiry: driver?.license_expiry },
+          { label: 'DBS Check', expiry: driver?.dbs_expiry },
+          { label: 'PCO Licence', expiry: driver?.pcol_expiry },
+        ]
+        const withExpiry = docs.filter(d => d.expiry)
+        const getDaysLeft = (expiry: string) =>
+          Math.floor((new Date(expiry).getTime() - today.getTime()) / 86400000)
+        return (
+          <div className="bg-[#0B1525] border border-white/8 rounded-2xl p-4 mb-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Shield size={14} className="text-[#d5a538]" />
+              <p className="text-white/50 text-xs font-semibold uppercase tracking-widest">Documents</p>
+            </div>
+            {withExpiry.length === 0 ? (
+              <p className="text-white/25 text-xs">Managed by EV Exec Operations</p>
+            ) : (
+              <div className="space-y-2.5">
+                {withExpiry.map(({ label, expiry }) => {
+                  const days = getDaysLeft(expiry!)
+                  const expired = days < 0
+                  const urgent = days >= 0 && days <= 14
+                  const warning = days > 14 && days <= 30
+                  const ok = days > 30
+                  return (
+                    <div key={label} className={`flex items-center justify-between rounded-xl px-3 py-2.5 ${
+                      expired ? 'bg-red-500/10 border border-red-500/30' :
+                      urgent ? 'bg-amber-500/10 border border-amber-500/25' :
+                      warning ? 'bg-yellow-500/8 border border-yellow-500/15' :
+                      'bg-white/3 border border-white/5'
+                    }`}>
+                      <div className="flex items-center gap-2">
+                        {expired || urgent ? (
+                          <AlertTriangle size={13} className={expired ? 'text-red-400' : 'text-amber-400'} />
+                        ) : (
+                          <CheckCircle2 size={13} className={ok ? 'text-[#10b981]' : 'text-yellow-400'} />
+                        )}
+                        <span className="text-white/70 text-xs font-medium">{label}</span>
+                      </div>
+                      <div className="text-right">
+                        <p className={`text-xs font-semibold ${expired ? 'text-red-400' : urgent ? 'text-amber-400' : warning ? 'text-yellow-400' : 'text-white/40'}`}>
+                          {expired ? 'EXPIRED' : days === 0 ? 'Today' : `${days}d`}
+                        </p>
+                        <p className="text-white/20 text-[10px]">
+                          {new Date(expiry!).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' })}
+                        </p>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )
+      })()}
 
       {/* Menu rows */}
       <div className="bg-[#0B1525] border border-white/8 rounded-2xl overflow-hidden mb-4">
