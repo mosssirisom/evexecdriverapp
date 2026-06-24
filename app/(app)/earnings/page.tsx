@@ -7,6 +7,7 @@ import {
   ChevronLeft, ChevronRight, ClipboardList, Download,
   CheckCircle2, Clock,
 } from 'lucide-react'
+import { PickupIcon, DropoffIcon } from '@/components/route-icons'
 import { createClient } from '@/lib/supabase/client'
 import { formatDate, formatTime } from '@/lib/format'
 import type { Booking } from '@/lib/types'
@@ -313,10 +314,10 @@ function EarningsContent() {
                         )}
                       </div>
                       <div className="flex items-center gap-1.5 text-xs text-white/30 min-w-0">
-                        <div className="w-1.5 h-1.5 rounded-full bg-[#10b981] flex-shrink-0" />
+                        <PickupIcon booking={booking} size={11} />
                         <span className="truncate">{pickup}</span>
                         <span className="text-white/20 mx-0.5 flex-shrink-0">→</span>
-                        <MapPin size={10} className="text-red-400 flex-shrink-0" />
+                        <DropoffIcon size={11} />
                         <span className="truncate">{dropoff}</span>
                       </div>
                     </div>
@@ -442,11 +443,11 @@ function EarningsContent() {
                     </div>
                     <div className="space-y-1.5">
                       <div className="flex items-center gap-2">
-                        <div className="w-1.5 h-1.5 rounded-full bg-[#10b981] flex-shrink-0" />
+                        <PickupIcon booking={job} size={13} />
                         <p className="text-white/50 text-xs truncate">{pickup}</p>
                       </div>
                       <div className="flex items-center gap-2">
-                        <MapPin size={8} className="text-red-400 flex-shrink-0 ml-[1px]" />
+                        <DropoffIcon size={13} />
                         <p className="text-white/50 text-xs truncate">{dropoff}</p>
                       </div>
                     </div>

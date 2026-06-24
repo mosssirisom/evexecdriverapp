@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { ChevronRight, Car, Navigation2, Phone } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { BookingStatusBadge } from '@/components/badges'
+import { PickupIcon, DropoffIcon } from '@/components/route-icons'
 import { formatTime } from '@/lib/format'
 import type { Booking, BookingStatus } from '@/lib/types'
 
@@ -117,7 +118,9 @@ export default function MyJobsPage() {
 
                   <div className="space-y-2 mb-4">
                     <div className="flex items-start gap-2">
-                      <div className="w-1.5 h-1.5 rounded-full bg-[#10b981] mt-1.5 flex-shrink-0" />
+                      <div className="mt-0.5">
+                        <PickupIcon booking={booking} size={13} />
+                      </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-white/50 text-xs leading-tight truncate">{pickupAddress}</p>
                       </div>
@@ -126,7 +129,9 @@ export default function MyJobsPage() {
                       </button>
                     </div>
                     <div className="flex items-start gap-2">
-                      <div className="w-1.5 h-1.5 rounded-full bg-red-400 mt-1.5 flex-shrink-0" />
+                      <div className="mt-0.5">
+                        <DropoffIcon size={13} />
+                      </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-white/50 text-xs leading-tight truncate">{dropoffAddress}</p>
                       </div>
