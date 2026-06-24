@@ -82,7 +82,7 @@ function BookingCard({ booking }: { booking: Booking }) {
 }
 
 export default function JobsPage() {
-  const [tab, setTab] = useState<Tab>('upcoming')
+  const [tab, setTab] = useState<Tab>('active')
   const [dateFilter, setDateFilter] = useState<DateFilter>('all')
   const [bookings, setBookings] = useState<Booking[]>([])
   const [loading, setLoading] = useState(true)
@@ -159,8 +159,8 @@ export default function JobsPage() {
 
       <div className="flex gap-1 bg-white/5 rounded-xl p-1 mb-5">
         {([
-          { key: 'upcoming' as Tab, label: `Upcoming (${upcoming.length})` },
           { key: 'active' as Tab, label: `Active (${active.length})` },
+          { key: 'upcoming' as Tab, label: `Upcoming (${upcoming.length})` },
           { key: 'completed' as Tab, label: 'Done' },
         ]).map(({ key, label }) => (
           <button
