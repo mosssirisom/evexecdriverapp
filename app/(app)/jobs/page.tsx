@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { ChevronRight, Car, Users } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { BookingStatusBadge } from '@/components/badges'
+import { PickupIcon, DropoffIcon } from '@/components/route-icons'
 import { formatDate, formatTime, paymentInfo } from '@/lib/format'
 import type { Booking } from '@/lib/types'
 
@@ -43,13 +44,17 @@ function BookingCard({ booking }: { booking: Booking }) {
 
         <div className="space-y-1.5">
           <div className="flex items-start gap-2">
-            <div className="w-1.5 h-1.5 rounded-full bg-[#10b981] mt-1.5 flex-shrink-0" />
+            <div className="mt-0.5">
+              <PickupIcon booking={booking} size={13} />
+            </div>
             <p className="text-white/50 text-xs leading-tight">
               {booking.pickup_location ?? booking.airport ?? '—'}
             </p>
           </div>
           <div className="flex items-start gap-2">
-            <div className="w-1.5 h-1.5 rounded-full bg-red-400 mt-1.5 flex-shrink-0" />
+            <div className="mt-0.5">
+              <DropoffIcon size={13} />
+            </div>
             <p className="text-white/50 text-xs leading-tight">{booking.dropoff_address ?? booking.airport ?? '—'}</p>
           </div>
         </div>

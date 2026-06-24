@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
 import { ChevronLeft, ChevronRight, Car, Ban, Clock } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { PickupIcon, DropoffIcon } from '@/components/route-icons'
 import { formatTime } from '@/lib/format'
 import type { Booking } from '@/lib/types'
 
@@ -334,13 +335,17 @@ export default function CalendarPage() {
                     <p className="text-white font-medium text-sm mb-2">{job.customer_name}</p>
                     <div className="space-y-1">
                       <div className="flex items-start gap-2">
-                        <div className="w-1.5 h-1.5 rounded-full bg-[#10b981] mt-1.5 flex-shrink-0" />
+                        <div className="mt-0.5">
+                          <PickupIcon booking={job} size={13} />
+                        </div>
                         <p className="text-white/50 text-xs leading-tight">
                           {job.pickup_location ?? job.airport ?? '—'}
                         </p>
                       </div>
                       <div className="flex items-start gap-2">
-                        <div className="w-1.5 h-1.5 rounded-full bg-red-400 mt-1.5 flex-shrink-0" />
+                        <div className="mt-0.5">
+                          <DropoffIcon size={13} />
+                        </div>
                         <p className="text-white/50 text-xs leading-tight">{job.dropoff_address ?? '—'}</p>
                       </div>
                     </div>

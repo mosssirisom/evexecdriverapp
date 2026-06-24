@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { BookingStatusBadge } from '@/components/badges'
+import { PickupIcon, DropoffIcon } from '@/components/route-icons'
 import { JobMap } from '@/components/job-map'
 import { formatDate, formatTime, paymentInfo } from '@/lib/format'
 import { OPS_PHONE } from '@/lib/config'
@@ -1131,7 +1132,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
             <div className="space-y-4">
               <div className="flex items-start gap-3">
                 <div className="flex flex-col items-center gap-1 flex-shrink-0 mt-0.5">
-                  <div className="w-3 h-3 rounded-full bg-[#10b981]" />
+                  <PickupIcon booking={booking} size={16} />
                   <div className="w-px h-5 bg-white/10" />
                 </div>
                 <div className="flex-1 min-w-0">
@@ -1151,7 +1152,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
               </div>
               <div className="flex items-start gap-3">
                 <div className="flex-shrink-0 mt-0.5">
-                  <div className="w-3 h-3 rounded-full bg-red-400" />
+                  <DropoffIcon size={16} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-white/30 text-[10px] uppercase tracking-wider mb-0.5">Drop-off</p>
