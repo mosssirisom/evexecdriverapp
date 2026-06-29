@@ -135,7 +135,7 @@ export default function ProfilePage() {
 
         <div className="mt-4 pt-4 border-t border-white/5 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className={`w-2 h-2 rounded-full ${driver?.is_online ? 'bg-green-400' : 'bg-white/20'}`} />
+            <span className={`w-2 h-2 rounded-full ${driver?.is_online ? 'bg-[#10b981]' : 'bg-white/20'}`} />
             <div>
               <p className="text-white text-sm font-medium">{driver?.is_online ? 'Online' : 'Offline'}</p>
               <p className="text-white/30 text-[11px]">
