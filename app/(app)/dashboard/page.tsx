@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { Car, ChevronRight, Bell, Briefcase, Star, RefreshCw, Battery, CheckCircle2, Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { BookingStatusBadge } from '@/components/badges'
-import { PickupIcon, DropoffIcon } from '@/components/route-icons'
+import { RouteDisplay } from '@/components/route-icons'
 import { formatTime } from '@/lib/format'
 import type { Booking, Driver } from '@/lib/types'
 
@@ -321,22 +321,7 @@ export default function DashboardPage() {
                   </div>
                 </div>
                 <p className="text-white font-medium text-sm mb-3">{booking.customer_name}</p>
-                <div className="space-y-1.5">
-                  <div className="flex items-start gap-2">
-                    <div className="mt-0.5">
-                      <PickupIcon booking={booking} size={13} />
-                    </div>
-                    <p className="text-white/50 text-xs leading-tight">
-                      {booking.pickup_location ?? booking.airport ?? '—'}
-                    </p>
-                  </div>
-                  <div className="flex items-start gap-2">
-                    <div className="mt-0.5">
-                      <DropoffIcon size={13} />
-                    </div>
-                    <p className="text-white/50 text-xs leading-tight">{booking.dropoff_address ?? booking.airport ?? '—'}</p>
-                  </div>
-                </div>
+                <RouteDisplay booking={booking} />
                 {booking.quoted_price && (
                   <div className="flex items-center mt-3 pt-3 border-t border-white/5">
                     <span className="ml-auto text-[#d5a538] font-semibold text-sm">

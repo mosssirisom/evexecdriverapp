@@ -1132,8 +1132,8 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
             <div className="space-y-4">
               <div className="flex items-start gap-3">
                 <div className="flex flex-col items-center gap-1 flex-shrink-0 mt-0.5">
-                  <PickupIcon booking={booking} size={16} />
-                  <div className="w-px h-5 bg-white/10" />
+                  <PickupIcon booking={booking} size={10} />
+                  <div className="w-px h-5 bg-[#d5a538]/20" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-white/30 text-[10px] uppercase tracking-wider mb-0.5">
@@ -1152,7 +1152,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
               </div>
               <div className="flex items-start gap-3">
                 <div className="flex-shrink-0 mt-0.5">
-                  <DropoffIcon size={16} />
+                  <DropoffIcon size={10} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-white/30 text-[10px] uppercase tracking-wider mb-0.5">Drop-off</p>

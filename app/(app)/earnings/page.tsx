@@ -7,7 +7,7 @@ import {
   ChevronLeft, ChevronRight, ClipboardList, Download,
   CheckCircle2, Clock,
 } from 'lucide-react'
-import { PickupIcon, DropoffIcon } from '@/components/route-icons'
+import { PickupIcon, DropoffIcon, RouteDisplay } from '@/components/route-icons'
 import { createClient } from '@/lib/supabase/client'
 import { formatDate, formatTime } from '@/lib/format'
 import type { Booking } from '@/lib/types'
@@ -441,16 +441,7 @@ function EarningsContent() {
                         </span>
                       )}
                     </div>
-                    <div className="space-y-1.5">
-                      <div className="flex items-center gap-2">
-                        <PickupIcon booking={job} size={13} />
-                        <p className="text-white/50 text-xs truncate">{pickup}</p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <DropoffIcon size={13} />
-                        <p className="text-white/50 text-xs truncate">{dropoff}</p>
-                      </div>
-                    </div>
+                    <RouteDisplay booking={job} />
                   </div>
                 )
               })}

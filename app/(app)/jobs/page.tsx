@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { ChevronRight, Car, Users } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { BookingStatusBadge } from '@/components/badges'
-import { PickupIcon, DropoffIcon } from '@/components/route-icons'
+import { RouteDisplay } from '@/components/route-icons'
 import { formatDate, formatTime, paymentInfo } from '@/lib/format'
 import type { Booking } from '@/lib/types'
 
@@ -42,22 +42,7 @@ function BookingCard({ booking }: { booking: Booking }) {
           <p className="text-white/30 text-xs mb-3 capitalize">{booking.journey_type.replace(/_/g, ' ')}</p>
         )}
 
-        <div className="space-y-1.5">
-          <div className="flex items-start gap-2">
-            <div className="mt-0.5">
-              <PickupIcon booking={booking} size={13} />
-            </div>
-            <p className="text-white/50 text-xs leading-tight">
-              {booking.pickup_location ?? booking.airport ?? '—'}
-            </p>
-          </div>
-          <div className="flex items-start gap-2">
-            <div className="mt-0.5">
-              <DropoffIcon size={13} />
-            </div>
-            <p className="text-white/50 text-xs leading-tight">{booking.dropoff_address ?? booking.airport ?? '—'}</p>
-          </div>
-        </div>
+        <RouteDisplay booking={booking} />
 
         {(booking.quoted_price || booking.payment_method || booking.payment_status) && (
           <div className="flex items-center gap-2 mt-3 pt-3 border-t border-white/5">
