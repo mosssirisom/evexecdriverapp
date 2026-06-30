@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react'
+import { MapPin, PlaneLanding, Flag } from 'lucide-react'
 
 function isAirportBooking(booking: {
   flight_number?: string | null
@@ -12,43 +12,29 @@ function isAirportBooking(booking: {
   )
 }
 
-/** Filled circle — pickup / origin */
+/** Pickup icon — plane for airport, map pin for regular */
 export function PickupIcon({
   booking,
-  size = 7,
+  size = 12,
 }: {
   booking: { flight_number?: string | null; journey_type?: string | null; airport?: string | null }
   size?: number
 }) {
-  return (
-    <div
-      className="rounded-full flex-shrink-0"
-      style={{
-        width: size,
-        height: size,
-        background: isAirportBooking(booking) ? '#10b981' : '#d5a538',
-      } as CSSProperties}
-    />
+  return isAirportBooking(booking) ? (
+    <PlaneLanding size={size} className="flex-shrink-0 text-[#10b981]" />
+  ) : (
+    <MapPin size={size} className="flex-shrink-0 text-[#d5a538]" />
   )
 }
 
-/** Outlined circle — drop-off / destination */
-export function DropoffIcon({ size = 7 }: { size?: number }) {
-  return (
-    <div
-      className="rounded-full flex-shrink-0"
-      style={{
-        width: size,
-        height: size,
-        border: '1.5px solid rgba(255,255,255,0.25)',
-      } as CSSProperties}
-    />
-  )
+/** Dropoff icon — flag marker for destination */
+export function DropoffIcon({ size = 12 }: { size?: number }) {
+  return <Flag size={size} className="flex-shrink-0 text-white/30" />
 }
 
 /**
  * Connected vertical route timeline for compact card list views.
- * Renders an origin dot → connector line → destination dot alongside
+ * Renders an origin icon → connector line → destination icon alongside
  * the two address strings.
  */
 export function RouteDisplay({
@@ -68,16 +54,17 @@ export function RouteDisplay({
 
   return (
     <div className="flex gap-2.5">
-      {/* Left: vertical timeline markers */}
-      <div className="flex flex-col items-center flex-shrink-0 mt-[3px]">
-        <div
-          className="w-1.5 h-1.5 rounded-full flex-shrink-0"
-          style={{ background: airport ? '#10b981' : '#d5a538' }}
-        />
+      {/* Left: vertical timeline icons */}
+      <div className="flex flex-col items-center flex-shrink-0 pt-[1px]">
+        {airport ? (
+          <PlaneLanding size={10} className="flex-shrink-0 text-[#10b981]" />
+        ) : (
+          <MapPin size={10} className="flex-shrink-0 text-[#d5a538]" />
+        )}
         {dropoff && (
           <>
-            <div className="w-px flex-1 min-h-[10px] bg-white/10 my-[3px]" />
-            <div className="w-1.5 h-1.5 rounded-full border border-white/20 flex-shrink-0" />
+            <div className="w-px flex-1 min-h-[10px] bg-white/10 my-[2px]" />
+            <Flag size={10} className="flex-shrink-0 text-white/30" />
           </>
         )}
       </div>

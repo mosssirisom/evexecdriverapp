@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react'
 import Link from 'next/link'
-import { ChevronRight, Car, Navigation2, Phone } from 'lucide-react'
+import { ChevronRight, Car, Navigation2, Phone, MapPin, PlaneLanding, Flag } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { BookingStatusBadge } from '@/components/badges'
 import { formatTime } from '@/lib/format'
@@ -116,17 +116,15 @@ export default function MyJobsPage() {
                   </div>
 
                   <div className="flex gap-2.5 mb-4">
-                    {/* Vertical timeline markers */}
-                    <div className="flex flex-col items-center flex-shrink-0">
-                      <div
-                        className="w-1.5 h-1.5 rounded-full flex-shrink-0 mt-0.5"
-                        style={{
-                          background: (booking.flight_number || (booking.journey_type ?? '').toLowerCase().includes('airport') || booking.airport)
-                            ? '#10b981' : '#d5a538',
-                        }}
-                      />
+                    {/* Vertical timeline icons */}
+                    <div className="flex flex-col items-center flex-shrink-0 pt-[1px]">
+                      {(booking.flight_number || (booking.journey_type ?? '').toLowerCase().includes('airport') || booking.airport) ? (
+                        <PlaneLanding size={11} className="flex-shrink-0 text-[#10b981]" />
+                      ) : (
+                        <MapPin size={11} className="flex-shrink-0 text-[#d5a538]" />
+                      )}
                       <div className="w-px flex-1 min-h-[12px] bg-white/10 my-[3px]" />
-                      <div className="w-1.5 h-1.5 rounded-full border border-white/20 flex-shrink-0 mb-0.5" />
+                      <Flag size={11} className="flex-shrink-0 text-white/30" />
                     </div>
                     {/* Addresses with nav buttons */}
                     <div className="flex-1 min-w-0 space-y-[7px]">
