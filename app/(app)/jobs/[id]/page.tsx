@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import {
   ArrowLeft, Phone, MessageSquare, Navigation2, User, FileText, CheckCircle2,
   AlertOctagon, ChevronRight, Loader2, Users, Luggage, PlaneLanding, CreditCard,
-  UserX, X, Plus, Car, MapPin, RefreshCw, Camera, Trash2,
+  UserX, X, Plus, Car, MapPin, RefreshCw, Camera, Trash2, ArrowLeftRight, Banknote,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { BookingStatusBadge } from '@/components/badges'
@@ -599,6 +599,11 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
   // Expense modal shown before completing journey
   const [showExpenseModal, setShowExpenseModal] = useState(false)
 
+  // Payment method selection
+  const [localPaymentMethod, setLocalPaymentMethod] = useState<'Cash' | 'Card' | 'TBC' | null>(null)
+  const [cashReceived, setCashReceived] = useState('')
+  const [savingPayment, setSavingPayment] = useState(false)
+
   // Photo / damage reports
   interface BookingPhoto { id: string; url: string; caption: string | null; created_at: string }
   const [photos, setPhotos] = useState<BookingPhoto[]>([])
@@ -830,6 +835,17 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
     setPhotos(prev => prev.filter(p => p.id !== photoId))
   }
 
+  const handleSetPaymentMethod = async (method: 'Cash' | 'Card' | 'TBC') => {
+    if (!booking) return
+    setLocalPaymentMethod(method)
+    setSavingPayment(true)
+    const patch: Record<string, string> = { payment_method: method }
+    if (method === 'Card') patch.payment_status = 'paid'
+    await supabase.from('bookings').update(patch).eq('id', booking.id)
+    setBooking(prev => prev ? { ...prev, payment_method: method, ...(method === 'Card' ? { payment_status: 'paid' } : {}) } : prev)
+    setSavingPayment(false)
+  }
+
   const saveNote = async () => {
     if (!booking) return
     setSavingNote(true)
@@ -868,6 +884,9 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
 
   const progressIndex = PROGRESS_STEPS.findIndex(s => s === booking.status)
   const showProgress = progressIndex >= 0 || isCompleted
+  const currentPaymentMethod = (localPaymentMethod ?? booking.payment_method) as 'Cash' | 'Card' | 'TBC' | null
+  const cashReceivedValid = currentPaymentMethod !== 'Cash' || (parseFloat(cashReceived) > 0)
+  const canCompleteJourney = cashReceivedValid
 
   const pickupAddress = booking.pickup_location ?? booking.airport ?? '—'
   const dropoffAddress = booking.dropoff_address ?? booking.airport ?? '—'
@@ -986,18 +1005,27 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
 
               {/* Swipe action */}
               {nextStep && !pobUndoActive && (
-                <SwipeToConfirm
-                  label={nextStep.label}
-                  onConfirm={() => {
-                    if (nextStep.to === 'Completed') {
-                      setShowExpenseModal(true)
-                    } else {
-                      handleStatusUpdate(nextStep.to)
-                    }
-                  }}
-                  loading={updating}
-                  variant={nextStep.to === 'Completed' ? 'green' : 'gold'}
-                />
+                <>
+                  <SwipeToConfirm
+                    label={nextStep.label}
+                    onConfirm={() => {
+                      if (nextStep.to === 'Completed') {
+                        if (!canCompleteJourney) return
+                        setShowExpenseModal(true)
+                      } else {
+                        handleStatusUpdate(nextStep.to)
+                      }
+                    }}
+                    loading={updating}
+                    variant={nextStep.to === 'Completed' ? 'green' : 'gold'}
+                  />
+                  {nextStep.to === 'Completed' && !canCompleteJourney && (
+                    <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 rounded-xl px-3 py-2.5 mt-2">
+                      <Banknote size={14} className="text-amber-400 flex-shrink-0" />
+                      <p className="text-amber-400 text-xs font-semibold">Enter cash received above before completing</p>
+                    </div>
+                  )}
+                </>
               )}
 
               {/* No Show */}
@@ -1182,32 +1210,100 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
                   </button>
                 </div>
               </div>
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 pt-3 border-t border-white/5">
-                {booking.passengers > 0 && (
-                  <span className="text-white/35 text-xs flex items-center gap-1">
-                    <Users size={11} /> {booking.passengers} Passengers
-                  </span>
-                )}
-                {booking.luggage && (
-                  <span className="text-white/35 text-xs flex items-center gap-1">
-                    <Luggage size={11} /> {booking.luggage.replace(/pieces?/i, 'Bags')}
-                  </span>
-                )}
-                {(booking.payment_method || booking.payment_status) && (() => {
-                  const p = paymentInfo(booking.payment_method, booking.payment_status)
-                  return (
-                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full flex items-center gap-1 ${p.className}`}>
-                      <CreditCard size={10} /> {p.text}
+              {(booking.passengers > 0 || booking.luggage) && (
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 pt-3 border-t border-white/5">
+                  {booking.passengers > 0 && (
+                    <span className="text-white/35 text-xs flex items-center gap-1">
+                      <Users size={11} /> {booking.passengers} Passengers
                     </span>
+                  )}
+                  {booking.luggage && (
+                    <span className="text-white/35 text-xs flex items-center gap-1">
+                      <Luggage size={11} /> {booking.luggage.replace(/pieces?/i, 'Bags')}
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* ── Payment ──────────────────────────────────────────────────── */}
+          <div className="bg-[#0B1525] border border-white/8 rounded-2xl p-4">
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-white/25 mb-4">Payment</p>
+
+            {booking.quoted_price != null && (
+              <div className="flex items-center justify-between mb-4 pb-4 border-b border-white/8">
+                <p className="text-white/40 text-sm">Total</p>
+                <p className="text-[#d5a538] font-bold text-2xl">£{booking.quoted_price.toFixed(2)}</p>
+              </div>
+            )}
+
+            <div className="mb-3">
+              <p className="text-white/30 text-[10px] uppercase tracking-wide mb-2">Payment Method</p>
+              <div className="flex gap-2">
+                {(['Cash', 'Card', 'TBC'] as const).map((method) => {
+                  const active = currentPaymentMethod === method
+                  return (
+                    <button
+                      key={method}
+                      onClick={() => !isDone && handleSetPaymentMethod(method)}
+                      disabled={isDone || savingPayment}
+                      className="flex-1 py-2.5 rounded-xl text-xs font-bold transition-all active:opacity-70 disabled:opacity-50 flex items-center justify-center gap-1.5"
+                      style={
+                        active
+                          ? method === 'Card'
+                            ? { background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.4)', color: '#10b981' }
+                            : method === 'Cash'
+                            ? { background: 'rgba(213,165,56,0.15)', border: '1px solid rgba(213,165,56,0.4)', color: '#d5a538' }
+                            : { background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.2)', color: 'rgba(255,255,255,0.7)' }
+                          : { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.3)' }
+                      }
+                    >
+                      {method === 'Cash' && <Banknote size={12} />}
+                      {method === 'Card' && <CreditCard size={12} />}
+                      {method}
+                    </button>
                   )
-                })()}
-                {booking.quoted_price != null && (
-                  <span className="ml-auto text-[#d5a538] font-bold text-base">
-                    £{booking.quoted_price.toFixed(2)}
-                  </span>
-                )}
+                })}
               </div>
             </div>
+
+            {currentPaymentMethod === 'Cash' && !isDone && (
+              <div className="mt-3">
+                <p className="text-white/30 text-[10px] uppercase tracking-wide mb-2">Cash Received</p>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#d5a538] font-bold text-sm">£</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={cashReceived}
+                    onChange={e => setCashReceived(e.target.value)}
+                    className="w-full bg-white/5 border border-[#d5a538]/30 rounded-xl pl-7 pr-3 py-3 text-white text-sm font-semibold focus:outline-none focus:border-[#d5a538]/60"
+                  />
+                </div>
+                {cashReceived && parseFloat(cashReceived) > 0 && booking.quoted_price != null && (
+                  <p className="text-white/30 text-xs mt-1.5 text-right">
+                    Change: £{Math.max(0, parseFloat(cashReceived) - booking.quoted_price).toFixed(2)}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {currentPaymentMethod === 'Card' && (
+              <div className="mt-3 flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-3 py-2.5">
+                <CheckCircle2 size={14} className="text-emerald-400 flex-shrink-0" />
+                <p className="text-emerald-400 text-xs font-semibold">Marked as paid on operator system</p>
+              </div>
+            )}
+
+            {currentPaymentMethod === 'TBC' && (
+              <div className="mt-3 flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl px-3 py-2.5">
+                <div className="w-3.5 h-3.5 rounded-full border-2 border-white/30 flex-shrink-0" />
+                <p className="text-white/40 text-xs">Payment to be confirmed</p>
+              </div>
+            )}
           </div>
 
           {/* ── Flight tracker ────────────────────────────────────────────── */}
@@ -1227,8 +1323,17 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
 
           {/* ── Return journey ─────────────────────────────────────────── */}
           {booking.return_journey && (
-            <div className="bg-[#0B1525] border border-white/8 rounded-xl px-4 py-3">
-              <p className="text-white/40 text-xs">↩ Return journey included</p>
+            <div className="bg-[#0B1525] border border-white/8 rounded-xl px-4 py-3 flex items-center gap-3">
+              <div
+                className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                style={{ background: 'rgba(213,165,56,0.1)', border: '1px solid rgba(213,165,56,0.2)' }}
+              >
+                <ArrowLeftRight size={15} className="text-[#d5a538]" />
+              </div>
+              <div>
+                <p className="text-white/80 text-xs font-semibold">Return journey included</p>
+                <p className="text-white/30 text-[10px] mt-0.5">Round-trip booking</p>
+              </div>
             </div>
           )}
 
