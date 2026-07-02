@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
-import { Car, ChevronRight, Bell, Briefcase, Star, RefreshCw, Battery, CheckCircle2, Loader2 } from 'lucide-react'
+import { Car, ChevronRight, Bell, Briefcase, Star, RefreshCw, CheckCircle2, Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { BookingStatusBadge } from '@/components/badges'
 import { RouteDisplay } from '@/components/route-icons'
@@ -85,15 +85,6 @@ export default function DashboardPage() {
     }).eq('id', bookingId)
     setAttestationBookings(prev => prev.filter(b => b.id !== bookingId))
     setConfirmingJobId(null)
-  }
-
-  const adjustBattery = async (delta: number) => {
-    if (!driver) return
-    const next = Math.min(100, Math.max(0, (driver.battery_percent ?? 50) + delta))
-    setDriver({ ...driver, battery_percent: next })
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-    await supabase.from('drivers').update({ battery_percent: next }).eq('id', user.id)
   }
 
   const greeting = () => {
@@ -230,70 +221,6 @@ export default function DashboardPage() {
           <p className="text-white/30 text-[10px] uppercase tracking-wide mt-0.5">Total</p>
         </div>
       </div>
-
-      {/* EV Battery widget */}
-      {driver && (
-        <div className="bg-[#0B1525] border border-white/8 rounded-2xl px-4 py-3 mb-5">
-          <div className="flex items-center gap-3">
-            <Battery
-              size={16}
-              className={
-                (driver.battery_percent ?? 0) > 50
-                  ? 'text-green-400'
-                  : (driver.battery_percent ?? 0) > 25
-                    ? 'text-amber-400'
-                    : 'text-red-400'
-              }
-            />
-            <div className="flex-1">
-              <div className="flex items-center justify-between mb-1">
-                <p className="text-white/30 text-[10px] uppercase tracking-widest">EV Battery</p>
-                <span
-                  className="text-xs font-bold"
-                  style={{
-                    color:
-                      (driver.battery_percent ?? 0) > 50
-                        ? '#10b981'
-                        : (driver.battery_percent ?? 0) > 25
-                          ? '#f59e0b'
-                          : '#ef4444',
-                  }}
-                >
-                  {driver.battery_percent != null ? `${driver.battery_percent}%` : '—'}
-                </span>
-              </div>
-              <div className="h-1.5 bg-white/8 rounded-full overflow-hidden">
-                <div
-                  className="h-full rounded-full transition-all duration-300"
-                  style={{
-                    width: `${driver.battery_percent ?? 0}%`,
-                    background:
-                      (driver.battery_percent ?? 0) > 50
-                        ? '#10b981'
-                        : (driver.battery_percent ?? 0) > 25
-                          ? '#f59e0b'
-                          : '#ef4444',
-                  }}
-                />
-              </div>
-            </div>
-            <div className="flex items-center gap-1.5 flex-shrink-0">
-              <button
-                onClick={() => adjustBattery(-5)}
-                className="w-7 h-7 rounded-lg bg-white/8 border border-white/10 text-white/60 text-sm font-bold flex items-center justify-center active:opacity-70"
-              >
-                −
-              </button>
-              <button
-                onClick={() => adjustBattery(5)}
-                className="w-7 h-7 rounded-lg bg-white/8 border border-white/10 text-white/60 text-sm font-bold flex items-center justify-center active:opacity-70"
-              >
-                +
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Upcoming Jobs */}
       <div className="flex items-center justify-between mb-3">
