@@ -80,7 +80,10 @@ export function JobMap({ pickup, dropoff }: Props) {
       const map = L.map(mapRef.current, { zoomControl: false, attributionControl: false })
       mapInstanceRef.current = map
 
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map)
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        maxZoom: 19,
+        subdomains: 'abcd',
+      }).addTo(map)
 
       const greenDot = L.divIcon({
         className: '',
@@ -131,7 +134,7 @@ export function JobMap({ pickup, dropoff }: Props) {
             <div className="w-6 h-6 rounded-full border-2 border-[#d5a538] border-t-transparent animate-spin" />
           </div>
         )}
-        <div ref={mapRef} className="h-full w-full" />
+        <div ref={mapRef} className="h-full w-full" style={{ background: '#0d1b2e' }} />
       </div>
       {(eta || dist) && (
         <div className="flex items-center gap-4 px-4 py-3 border-t border-white/5">

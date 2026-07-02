@@ -2,36 +2,130 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, ClipboardList, CalendarDays, User } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Home, ClipboardList, CalendarDays, MessageSquare, User } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
+
+const ACTIVE_STATUSES = ['En Route', 'en_route', 'Arrived', 'arrived', 'Passenger On Board', 'Active', 'active']
+
+function useUnreadMessages() {
+  const [count, setCount] = useState(0)
+  const supabase = createClient()
+
+  useEffect(() => {
+    let channel: ReturnType<typeof supabase.channel> | null = null
+
+    const fetchCount = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const { count: c } = await supabase
+        .from('driver_messages')
+        .select('id', { count: 'exact', head: true })
+        .eq('driver_id', user.id)
+        .eq('from_driver', false)
+        .is('read_at', null)
+      setCount(c ?? 0)
+
+      if (!channel) {
+        channel = supabase
+          .channel('nav-unread')
+          .on('postgres_changes', {
+            event: '*', schema: 'public', table: 'driver_messages',
+            filter: `driver_id=eq.${user.id}`,
+          }, fetchCount)
+          .subscribe()
+      }
+    }
+
+    fetchCount()
+    return () => { if (channel) supabase.removeChannel(channel) }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  return count
+}
+
+function useActiveJobsCount() {
+  const [count, setCount] = useState(0)
+  const supabase = createClient()
+
+  useEffect(() => {
+    let channel: ReturnType<typeof supabase.channel> | null = null
+
+    const fetchCount = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const { count: c } = await supabase
+        .from('bookings')
+        .select('id', { count: 'exact', head: true })
+        .eq('assigned_driver_id', user.id)
+        .in('status', ACTIVE_STATUSES)
+      setCount(c ?? 0)
+
+      if (!channel) {
+        channel = supabase
+          .channel('nav-active-jobs')
+          .on('postgres_changes', {
+            event: '*', schema: 'public', table: 'bookings',
+            filter: `assigned_driver_id=eq.${user.id}`,
+          }, fetchCount)
+          .subscribe()
+      }
+    }
+
+    fetchCount()
+    return () => { if (channel) supabase.removeChannel(channel) }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  return count
+}
 
 const NAV_ITEMS = [
   { href: '/dashboard', label: 'Home', icon: Home },
   { href: '/jobs', label: 'Jobs', icon: ClipboardList },
   { href: '/calendar', label: 'Calendar', icon: CalendarDays },
+  { href: '/chat', label: 'Chat', icon: MessageSquare },
   { href: '/profile', label: 'Me', icon: User },
 ]
 
 export function BottomNav() {
   const pathname = usePathname()
+  const unread = useUnreadMessages()
+  const activeJobs = useActiveJobsCount()
 
-  // Hide nav on job detail pages to maximise driving screen space
   if (/^\/jobs\/[^/]+/.test(pathname)) return null
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-[#0B1525] border-t border-white/8 z-50">
-      <div className="flex items-center justify-around pb-safe">
+    <nav className="fixed bottom-4 left-3 right-3 bg-[#0B1525] border border-white/10 rounded-[28px] shadow-2xl shadow-black/40 z-50">
+      <div className="flex h-[78px] items-center justify-around px-1">
         {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
-          const active = pathname === href || (href !== '/dashboard' && pathname.startsWith(href))
+          const active = pathname === href
+            || (href !== '/dashboard' && pathname.startsWith(href))
+            || (href === '/jobs' && pathname === '/my-jobs')
+          const isChat = href === '/chat'
+          const isJobs = href === '/jobs'
+          const resolvedHref = isJobs && activeJobs > 0 ? '/my-jobs' : href
           return (
             <Link
               key={href}
-              href={href}
-              className={`flex flex-col items-center gap-1 py-4 px-1.5 transition-colors ${
-                active ? 'text-[#d5a538]' : 'text-white/30 hover:text-white/60'
+              href={resolvedHref}
+              className={`relative flex min-h-[62px] min-w-[56px] flex-col items-center justify-center gap-1.5 rounded-2xl px-2 transition-colors ${
+                active ? 'text-[#d5a538]' : 'text-white/35 hover:text-white/65'
               }`}
             >
-              <Icon size={20} strokeWidth={active ? 2.5 : 1.8} />
-              <span className="text-[9px] font-medium tracking-wide">{label}</span>
+              <Icon size={22} strokeWidth={active ? 2.5 : 1.9} />
+              {isChat && unread > 0 && (
+                <span className="absolute top-2.5 right-2 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">
+                  {unread > 9 ? '9+' : unread}
+                </span>
+              )}
+              {isJobs && activeJobs > 0 && (
+                <span className="absolute top-2.5 right-2 w-4 h-4 rounded-full bg-[#10b981] text-[#020813] text-[9px] font-bold flex items-center justify-center">
+                  {activeJobs > 9 ? '9+' : activeJobs}
+                </span>
+              )}
+              <span className="text-[10px] font-medium tracking-wide">{label}</span>
             </Link>
           )
         })}
@@ -39,3 +133,4 @@ export function BottomNav() {
     </nav>
   )
 }
+

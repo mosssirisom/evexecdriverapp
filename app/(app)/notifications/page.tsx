@@ -3,11 +3,14 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ChevronLeft, Bell, ChevronRight } from 'lucide-react'
+import {
+  ChevronLeft, Bell, ChevronRight,
+  Car, MapPin, Users, CheckCircle2, XCircle, Clock, Navigation, UserCheck, AlertCircle,
+} from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { BookingStatusBadge } from '@/components/badges'
+import { PickupIcon } from '@/components/route-icons'
 import { formatDate, formatTime } from '@/lib/format'
-import type { Booking } from '@/lib/types'
+import type { Booking, BookingStatus } from '@/lib/types'
 
 function timeAgo(dateStr: string | null): string {
   if (!dateStr) return ''
@@ -19,6 +22,34 @@ function timeAgo(dateStr: string | null): string {
   if (hours < 24) return `${hours}h ago`
   const days = Math.floor(hours / 24)
   return `${days}d ago`
+}
+
+interface StatusMeta {
+  label: string
+  Icon: React.ElementType
+  iconColor: string
+  bgColor: string
+}
+
+const STATUS_META: Record<BookingStatus, StatusMeta> = {
+  pending:              { label: 'Awaiting confirmation', Icon: Clock,        iconColor: '#f59e0b', bgColor: 'rgba(245,158,11,0.12)' },
+  accepted:             { label: 'Job confirmed',         Icon: UserCheck,    iconColor: '#60a5fa', bgColor: 'rgba(96,165,250,0.12)' },
+  confirmed:            { label: 'Job confirmed',         Icon: UserCheck,    iconColor: '#60a5fa', bgColor: 'rgba(96,165,250,0.12)' },
+  Dispatched:           { label: 'Job dispatched',        Icon: Navigation,   iconColor: '#a78bfa', bgColor: 'rgba(167,139,250,0.12)' },
+  en_route:             { label: 'Journey started',       Icon: Car,          iconColor: '#a78bfa', bgColor: 'rgba(167,139,250,0.12)' },
+  'En Route':           { label: 'Journey started',       Icon: Car,          iconColor: '#a78bfa', bgColor: 'rgba(167,139,250,0.12)' },
+  arrived:              { label: 'Arrived at pickup',     Icon: MapPin,       iconColor: '#22d3ee', bgColor: 'rgba(34,211,238,0.12)' },
+  Arrived:              { label: 'Arrived at pickup',     Icon: MapPin,       iconColor: '#22d3ee', bgColor: 'rgba(34,211,238,0.12)' },
+  active:               { label: 'Passenger on board',   Icon: Users,        iconColor: '#10b981', bgColor: 'rgba(16,185,129,0.12)' },
+  Active:               { label: 'Passenger on board',   Icon: Users,        iconColor: '#10b981', bgColor: 'rgba(16,185,129,0.12)' },
+  'Passenger On Board': { label: 'Passenger on board',   Icon: Users,        iconColor: '#10b981', bgColor: 'rgba(16,185,129,0.12)' },
+  completed:            { label: 'Job completed',         Icon: CheckCircle2, iconColor: 'rgba(255,255,255,0.4)', bgColor: 'rgba(255,255,255,0.06)' },
+  Completed:            { label: 'Job completed',         Icon: CheckCircle2, iconColor: 'rgba(255,255,255,0.4)', bgColor: 'rgba(255,255,255,0.06)' },
+  rejected:             { label: 'Job rejected',          Icon: XCircle,      iconColor: '#f87171', bgColor: 'rgba(248,113,113,0.12)' },
+  cancelled:            { label: 'Job cancelled',         Icon: XCircle,      iconColor: '#f87171', bgColor: 'rgba(248,113,113,0.12)' },
+  Cancelled:            { label: 'Job cancelled',         Icon: XCircle,      iconColor: '#f87171', bgColor: 'rgba(248,113,113,0.12)' },
+  'No Show':            { label: 'No show',               Icon: AlertCircle,  iconColor: '#f59e0b', bgColor: 'rgba(245,158,11,0.12)' },
+  CRITICAL_UNALLOCATED: { label: 'Needs driver — urgent', Icon: AlertCircle,  iconColor: '#f87171', bgColor: 'rgba(248,113,113,0.15)' },
 }
 
 export default function NotificationsPage() {
@@ -37,7 +68,7 @@ export default function NotificationsPage() {
       .select('*')
       .eq('assigned_driver_id', user.id)
       .order('updated_at', { ascending: false, nullsFirst: false })
-      .limit(20)
+      .limit(30)
 
     setBookings(data ?? [])
     setLoading(false)
@@ -51,7 +82,7 @@ export default function NotificationsPage() {
         <button onClick={() => router.back()} className="text-white/40 active:text-white/70">
           <ChevronLeft size={22} />
         </button>
-        <h1 className="text-white font-bold text-xl">Notifications</h1>
+        <h1 className="text-white font-bold text-xl">Activity</h1>
       </div>
 
       {loading ? (
@@ -61,33 +92,59 @@ export default function NotificationsPage() {
       ) : bookings.length === 0 ? (
         <div className="bg-[#0B1525] border border-white/8 rounded-2xl p-12 text-center">
           <Bell size={32} className="mx-auto mb-3 text-white/20" />
-          <p className="text-white/40 text-sm">No notifications</p>
-          <p className="text-white/20 text-xs mt-1">You&apos;re all caught up</p>
+          <p className="text-white/40 text-sm">No activity yet</p>
+          <p className="text-white/20 text-xs mt-1">Your job history will appear here</p>
         </div>
       ) : (
-        <div className="space-y-3">
-          {bookings.map((booking) => (
-            <Link key={booking.id} href={`/jobs/${booking.id}`}>
-              <div className="bg-[#0B1525] border border-white/8 rounded-2xl p-4 active:opacity-80 transition-opacity">
-                <div className="flex items-start justify-between gap-2 mb-2">
-                  <div className="flex items-center gap-2">
-                    <BookingStatusBadge status={booking.status} />
-                    <span className="text-white/25 text-[10px]">{timeAgo(booking.updated_at)}</span>
+        <div className="space-y-2.5">
+          {bookings.map((booking) => {
+            const meta = STATUS_META[booking.status]
+            if (!meta) return null
+            const { label, Icon, iconColor, bgColor } = meta
+            const pickup = booking.pickup_location ?? booking.airport ?? 'See job details'
+            return (
+              <Link key={booking.id} href={`/jobs/${booking.id}`}>
+                <div className="bg-[#0B1525] border border-white/8 rounded-2xl p-4 active:opacity-80 transition-opacity">
+                  <div className="flex items-start gap-3">
+                    {/* Status icon */}
+                    <div
+                      className="flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center mt-0.5"
+                      style={{ background: bgColor }}
+                    >
+                      <Icon size={16} style={{ color: iconColor }} />
+                    </div>
+
+                    {/* Content */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="text-white font-semibold text-sm leading-tight">{booking.customer_name}</p>
+                          <p className="text-white/40 text-[11px] mt-0.5">{label}</p>
+                        </div>
+                        <div className="flex items-center gap-1.5 flex-shrink-0">
+                          <span className="text-white/25 text-[10px]">{timeAgo(booking.updated_at)}</span>
+                          <ChevronRight size={13} className="text-white/25" />
+                        </div>
+                      </div>
+
+                      {/* Route */}
+                      <div className="flex items-center gap-1.5 mt-2">
+                        <PickupIcon booking={booking} size={11} />
+                        <p className="text-white/50 text-xs truncate">{pickup}</p>
+                      </div>
+
+                      {/* Date/time */}
+                      {booking.travel_date && (
+                        <p className="text-white/20 text-[10px] mt-1">
+                          {formatDate(booking.travel_date)}{booking.travel_time ? ` · ${formatTime(booking.travel_time)}` : ''}
+                        </p>
+                      )}
+                    </div>
                   </div>
-                  <ChevronRight size={14} className="text-white/30 flex-shrink-0" />
                 </div>
-                <p className="text-white font-medium text-sm">{booking.customer_name}</p>
-                <p className="text-white/40 text-xs mt-1">
-                  {booking.pickup_location ?? booking.airport ?? 'See job details'}
-                </p>
-                {booking.travel_date && (
-                  <p className="text-white/25 text-[11px] mt-1">
-                    {formatDate(booking.travel_date)}{booking.travel_time ? ` · ${formatTime(booking.travel_time)}` : ''}
-                  </p>
-                )}
-              </div>
-            </Link>
-          ))}
+              </Link>
+            )
+          })}
         </div>
       )}
     </div>

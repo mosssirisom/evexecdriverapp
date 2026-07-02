@@ -5,7 +5,9 @@ import { useSearchParams } from 'next/navigation'
 import {
   PoundSterling, Briefcase, TrendingUp, MapPin,
   ChevronLeft, ChevronRight, ClipboardList, Download,
+  CheckCircle2, Clock,
 } from 'lucide-react'
+import { PickupIcon, DropoffIcon, RouteDisplay } from '@/components/route-icons'
 import { createClient } from '@/lib/supabase/client'
 import { formatDate, formatTime } from '@/lib/format'
 import type { Booking } from '@/lib/types'
@@ -23,6 +25,14 @@ const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December']
 
 const COMPLETED_STATUSES = ['completed', 'Completed']
+const CANCELLED_STATUSES = ['cancelled', 'Cancelled', 'No Show']
+const ALL_ASSIGNED_STATUSES = [
+  'accepted', 'confirmed', 'Dispatched', 'En Route', 'en_route',
+  'Passenger On Board', 'Arrived', 'arrived', 'Active', 'active',
+  ...COMPLETED_STATUSES, ...CANCELLED_STATUSES,
+]
+
+type PerfJob = Pick<Booking, 'id' | 'status' | 'travel_date' | 'travel_time' | 'tracking_started_at'>
 
 function getDateRange(period: Period): { from: string; to: string } {
   const now = new Date()
@@ -54,6 +64,7 @@ function EarningsContent() {
   const [month, setMonth] = useState(now.getMonth())
 
   const [bookings, setBookings] = useState<Booking[]>([])
+  const [perfJobs, setPerfJobs] = useState<PerfJob[]>([])
   const [loading, setLoading] = useState(true)
 
   const supabase = createClient()
@@ -63,15 +74,23 @@ function EarningsContent() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
 
-    const { data } = await supabase
-      .from('bookings')
-      .select('*')
-      .eq('assigned_driver_id', user.id)
-      .in('status', COMPLETED_STATUSES)
-      .order('travel_date', { ascending: false })
-      .order('travel_time', { ascending: false })
+    const [completedRes, perfRes] = await Promise.all([
+      supabase
+        .from('bookings')
+        .select('*')
+        .eq('assigned_driver_id', user.id)
+        .in('status', COMPLETED_STATUSES)
+        .order('travel_date', { ascending: false })
+        .order('travel_time', { ascending: false }),
+      supabase
+        .from('bookings')
+        .select('id, status, travel_date, travel_time, tracking_started_at')
+        .eq('assigned_driver_id', user.id)
+        .in('status', ALL_ASSIGNED_STATUSES),
+    ])
 
-    setBookings(data ?? [])
+    setBookings(completedRes.data ?? [])
+    setPerfJobs((perfRes.data ?? []) as PerfJob[])
     setLoading(false)
   }, [supabase])
 
@@ -83,6 +102,20 @@ function EarningsContent() {
   const periodTotal = periodBookings.reduce((s, b) => s + (b.quoted_price ?? 0), 0)
   const periodTrips = periodBookings.length
   const perJob = periodTrips > 0 ? periodTotal / periodTrips : 0
+
+  // Performance stats (all-time, all assigned jobs)
+  const completedCount = perfJobs.filter(b => COMPLETED_STATUSES.includes(b.status)).length
+  const cancelledCount = perfJobs.filter(b => CANCELLED_STATUSES.includes(b.status)).length
+  const finalisedCount = completedCount + cancelledCount
+  const completionRate = finalisedCount > 0 ? Math.round((completedCount / finalisedCount) * 100) : null
+
+  const trackedJobs = perfJobs.filter(b => b.tracking_started_at && b.travel_date && b.travel_time)
+  const onTimeCount = trackedJobs.filter(b => {
+    const scheduled = new Date(`${b.travel_date}T${b.travel_time}`).getTime()
+    const started = new Date(b.tracking_started_at!).getTime()
+    return started <= scheduled + 15 * 60 * 1000
+  }).length
+  const onTimeRate = trackedJobs.length > 0 ? Math.round((onTimeCount / trackedJobs.length) * 100) : null
 
   // Monthly report
   const prevMonth = () => {
@@ -187,7 +220,7 @@ function EarningsContent() {
           </div>
 
           {/* Stats */}
-          <div className="grid grid-cols-2 gap-3 mb-6">
+          <div className="grid grid-cols-2 gap-3 mb-4">
             <div className="bg-[#0B1525] border border-white/8 rounded-xl p-3 text-center">
               <Briefcase size={16} className="mx-auto mb-1 text-[#d5a538]" />
               <p className="text-white font-bold text-lg">{periodTrips}</p>
@@ -199,6 +232,57 @@ function EarningsContent() {
               <p className="text-white/30 text-[10px] uppercase tracking-wide">Per Job avg</p>
             </div>
           </div>
+
+          {/* Performance */}
+          {(completionRate !== null || onTimeRate !== null) && (
+            <div className="bg-[#0B1525] border border-white/8 rounded-2xl p-4 mb-5">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-white/25 mb-3">Performance</p>
+              <div className="grid grid-cols-2 gap-4">
+                {completionRate !== null && (
+                  <div>
+                    <div className="flex items-center gap-1.5 mb-1.5">
+                      <CheckCircle2 size={13} className="text-[#10b981]" />
+                      <p className="text-white/40 text-[10px] uppercase tracking-wide">Completion</p>
+                    </div>
+                    <p className={`text-2xl font-bold ${completionRate >= 90 ? 'text-[#10b981]' : completionRate >= 75 ? 'text-amber-400' : 'text-red-400'}`}>
+                      {completionRate}%
+                    </p>
+                    <p className="text-white/20 text-[10px] mt-0.5">{completedCount} of {finalisedCount} jobs</p>
+                    <div className="h-1 bg-white/5 rounded-full mt-2 overflow-hidden">
+                      <div
+                        className="h-full rounded-full"
+                        style={{
+                          width: `${completionRate}%`,
+                          background: completionRate >= 90 ? '#10b981' : completionRate >= 75 ? '#f59e0b' : '#ef4444',
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+                {onTimeRate !== null && (
+                  <div>
+                    <div className="flex items-center gap-1.5 mb-1.5">
+                      <Clock size={13} className="text-[#d5a538]" />
+                      <p className="text-white/40 text-[10px] uppercase tracking-wide">On Time</p>
+                    </div>
+                    <p className={`text-2xl font-bold ${onTimeRate >= 90 ? 'text-[#10b981]' : onTimeRate >= 75 ? 'text-amber-400' : 'text-red-400'}`}>
+                      {onTimeRate}%
+                    </p>
+                    <p className="text-white/20 text-[10px] mt-0.5">{onTimeCount} of {trackedJobs.length} tracked</p>
+                    <div className="h-1 bg-white/5 rounded-full mt-2 overflow-hidden">
+                      <div
+                        className="h-full rounded-full"
+                        style={{
+                          width: `${onTimeRate}%`,
+                          background: onTimeRate >= 90 ? '#10b981' : onTimeRate >= 75 ? '#f59e0b' : '#ef4444',
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Jobs list */}
           {periodBookings.length === 0 ? (
@@ -230,10 +314,10 @@ function EarningsContent() {
                         )}
                       </div>
                       <div className="flex items-center gap-1.5 text-xs text-white/30 min-w-0">
-                        <div className="w-1.5 h-1.5 rounded-full bg-[#10b981] flex-shrink-0" />
+                        <PickupIcon booking={booking} size={11} />
                         <span className="truncate">{pickup}</span>
                         <span className="text-white/20 mx-0.5 flex-shrink-0">→</span>
-                        <MapPin size={10} className="text-red-400 flex-shrink-0" />
+                        <DropoffIcon size={11} />
                         <span className="truncate">{dropoff}</span>
                       </div>
                     </div>
@@ -357,16 +441,7 @@ function EarningsContent() {
                         </span>
                       )}
                     </div>
-                    <div className="space-y-1.5">
-                      <div className="flex items-center gap-2">
-                        <div className="w-1.5 h-1.5 rounded-full bg-[#10b981] flex-shrink-0" />
-                        <p className="text-white/50 text-xs truncate">{pickup}</p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <MapPin size={8} className="text-red-400 flex-shrink-0 ml-[1px]" />
-                        <p className="text-white/50 text-xs truncate">{dropoff}</p>
-                      </div>
-                    </div>
+                    <RouteDisplay booking={job} />
                   </div>
                 )
               })}

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react'
 import Link from 'next/link'
-import { ChevronRight, Car, Navigation2, Phone } from 'lucide-react'
+import { ChevronRight, Car, Navigation2, Phone, MapPin, PlaneLanding, Flag } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { BookingStatusBadge } from '@/components/badges'
 import { formatTime } from '@/lib/format'
@@ -115,24 +115,31 @@ export default function MyJobsPage() {
                     )}
                   </div>
 
-                  <div className="space-y-2 mb-4">
-                    <div className="flex items-start gap-2">
-                      <div className="w-1.5 h-1.5 rounded-full bg-[#10b981] mt-1.5 flex-shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-white/50 text-xs leading-tight truncate">{pickupAddress}</p>
-                      </div>
-                      <button onClick={() => navigateTo(pickupAddress)} className="text-[#d5a538] flex-shrink-0 active:opacity-70">
-                        <Navigation2 size={14} />
-                      </button>
+                  <div className="flex gap-2.5 mb-4">
+                    {/* Vertical timeline icons */}
+                    <div className="flex flex-col items-center flex-shrink-0 pt-[1px]">
+                      {(booking.flight_number || (booking.journey_type ?? '').toLowerCase().includes('airport') || booking.airport) ? (
+                        <PlaneLanding size={11} className="flex-shrink-0 text-[#10b981]" />
+                      ) : (
+                        <MapPin size={11} className="flex-shrink-0 text-[#d5a538]" />
+                      )}
+                      <div className="w-px flex-1 min-h-[12px] bg-white/10 my-[3px]" />
+                      <Flag size={11} className="flex-shrink-0 text-white/30" />
                     </div>
-                    <div className="flex items-start gap-2">
-                      <div className="w-1.5 h-1.5 rounded-full bg-red-400 mt-1.5 flex-shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-white/50 text-xs leading-tight truncate">{dropoffAddress}</p>
+                    {/* Addresses with nav buttons */}
+                    <div className="flex-1 min-w-0 space-y-[7px]">
+                      <div className="flex items-center gap-2">
+                        <p className="flex-1 text-white/50 text-xs leading-tight truncate">{pickupAddress}</p>
+                        <button onClick={() => navigateTo(pickupAddress)} className="text-[#d5a538] flex-shrink-0 active:opacity-70">
+                          <Navigation2 size={14} />
+                        </button>
                       </div>
-                      <button onClick={() => navigateTo(dropoffAddress)} className="text-[#d5a538] flex-shrink-0 active:opacity-70">
-                        <Navigation2 size={14} />
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <p className="flex-1 text-white/35 text-xs leading-tight truncate">{dropoffAddress}</p>
+                        <button onClick={() => navigateTo(dropoffAddress)} className="text-[#d5a538] flex-shrink-0 active:opacity-70">
+                          <Navigation2 size={14} />
+                        </button>
+                      </div>
                     </div>
                   </div>
 

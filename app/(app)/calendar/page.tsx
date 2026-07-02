@@ -2,8 +2,9 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
-import { ChevronLeft, ChevronRight, Car, Ban } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Car, Ban, Clock } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { RouteDisplay } from '@/components/route-icons'
 import { formatTime } from '@/lib/format'
 import type { Booking } from '@/lib/types'
 
@@ -17,6 +18,7 @@ export default function CalendarPage() {
   const [month, setMonth] = useState(today.getMonth())
   const [bookings, setBookings] = useState<Booking[]>([])
   const [unavailableDates, setUnavailableDates] = useState<Set<string>>(new Set())
+  const [shifts, setShifts] = useState<{ shift_date: string; start_time: string; end_time: string; notes: string | null }[]>([])
   const [selectedDay, setSelectedDay] = useState<number | null>(today.getDate())
   const [loading, setLoading] = useState(true)
   const [toggling, setToggling] = useState(false)
@@ -32,7 +34,7 @@ export default function CalendarPage() {
     const lastDate = new Date(year, month + 1, 0).getDate()
     const lastDay = `${year}-${String(month + 1).padStart(2, '0')}-${String(lastDate).padStart(2, '0')}`
 
-    const [bookingsRes, unavailRes] = await Promise.all([
+    const [bookingsRes, unavailRes, shiftsRes] = await Promise.all([
       supabase
         .from('bookings')
         .select('*')
@@ -46,12 +48,20 @@ export default function CalendarPage() {
         .eq('driver_id', user.id)
         .gte('date', firstDay)
         .lte('date', lastDay),
+      supabase
+        .from('driver_shifts')
+        .select('shift_date, start_time, end_time, notes')
+        .eq('driver_id', user.id)
+        .gte('shift_date', firstDay)
+        .lte('shift_date', lastDay)
+        .order('shift_date', { ascending: true }),
     ])
 
     if (bookingsRes.data) setBookings(bookingsRes.data)
     if (unavailRes.data) {
       setUnavailableDates(new Set(unavailRes.data.map((r) => r.date)))
     }
+    if (shiftsRes.data) setShifts(shiftsRes.data)
     setLoading(false)
   }, [supabase, year, month])
 
@@ -116,6 +126,19 @@ export default function CalendarPage() {
   const totalMonthJobs = bookings.length
   const totalMonthEarnings = bookings.reduce((s, b) => s + (b.quoted_price ?? 0), 0)
 
+  const shiftsByDay: Record<string, { start_time: string; end_time: string; notes: string | null }> = {}
+  shifts.forEach(s => { shiftsByDay[s.shift_date] = s })
+
+  const fmtShiftTime = (t: string) => t.slice(0, 5)
+
+  const shiftMinutes = (s: { start_time: string; end_time: string }) => {
+    const [sh, sm] = s.start_time.split(':').map(Number)
+    const [eh, em] = s.end_time.split(':').map(Number)
+    return (eh * 60 + em) - (sh * 60 + sm)
+  }
+
+  const totalMonthShiftHours = shifts.reduce((acc, s) => acc + shiftMinutes(s) / 60, 0)
+
   return (
     <div className="min-h-screen bg-[#060C1A] px-4 pt-12 pb-4">
       <div className="mb-5">
@@ -135,14 +158,20 @@ export default function CalendarPage() {
 
       {/* Monthly summary */}
       {!loading && (
-        <div className="grid grid-cols-2 gap-3 mb-4">
+        <div className="grid grid-cols-3 gap-3 mb-4">
           <div className="bg-[#0B1525] border border-white/8 rounded-2xl p-3 text-center">
-            <p className="text-white/30 text-[10px] uppercase tracking-wide">Jobs this month</p>
+            <p className="text-white/30 text-[10px] uppercase tracking-wide">Jobs</p>
             <p className="text-white font-bold text-xl mt-0.5">{totalMonthJobs}</p>
           </div>
           <div className="bg-[#0B1525] border border-white/8 rounded-2xl p-3 text-center">
             <p className="text-white/30 text-[10px] uppercase tracking-wide">Earnings</p>
             <p className="text-[#d5a538] font-bold text-xl mt-0.5">£{totalMonthEarnings.toFixed(0)}</p>
+          </div>
+          <div className="bg-[#0B1525] border border-white/8 rounded-2xl p-3 text-center">
+            <p className="text-white/30 text-[10px] uppercase tracking-wide">Shift hrs</p>
+            <p className="text-white font-bold text-xl mt-0.5">
+              {totalMonthShiftHours > 0 ? totalMonthShiftHours.toFixed(0) : '—'}
+            </p>
           </div>
         </div>
       )}
@@ -167,6 +196,7 @@ export default function CalendarPage() {
           const isSelected = selectedDay === day
           const hasJobs = dayBookings.length > 0
           const isUnavailable = unavailableDates.has(dateStr)
+          const hasShift = !!shiftsByDay[dateStr]
 
           return (
             <button
@@ -207,9 +237,28 @@ export default function CalendarPage() {
               {isUnavailable && !hasJobs && !isSelected && (
                 <div className="w-1.5 h-0.5 rounded-full bg-red-400/50 mt-0.5" />
               )}
+              {hasShift && !isSelected && (
+                <div className="w-1.5 h-0.5 rounded-full bg-blue-400/60 mt-0.5" />
+              )}
             </button>
           )
         })}
+      </div>
+
+      {/* Legend */}
+      <div className="flex items-center gap-4 mb-5 flex-wrap">
+        <div className="flex items-center gap-1.5">
+          <div className="w-2 h-2 rounded-full bg-[#d5a538]" />
+          <span className="text-white/30 text-[10px]">Job</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-2 h-2 rounded-full bg-blue-400/70" />
+          <span className="text-white/30 text-[10px]">Shift</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-2 h-2 rounded-full bg-red-400/50" />
+          <span className="text-white/30 text-[10px]">Unavailable</span>
+        </div>
       </div>
 
       {/* Selected day */}
@@ -223,6 +272,27 @@ export default function CalendarPage() {
               {selectedBookings.length} job{selectedBookings.length !== 1 ? 's' : ''}
             </span>
           </div>
+
+          {/* Shift block */}
+          {selectedDateStr && shiftsByDay[selectedDateStr] && (() => {
+            const shift = shiftsByDay[selectedDateStr]
+            const mins = shiftMinutes(shift)
+            const hours = (mins / 60).toFixed(1)
+            return (
+              <div className="flex items-center gap-3 bg-blue-500/10 border border-blue-500/25 rounded-2xl px-4 py-3 mb-3">
+                <Clock size={16} className="text-blue-400 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-blue-300 font-semibold text-sm">
+                    {fmtShiftTime(shift.start_time)} – {fmtShiftTime(shift.end_time)}
+                  </p>
+                  {shift.notes && (
+                    <p className="text-blue-400/60 text-xs mt-0.5 truncate">{shift.notes}</p>
+                  )}
+                </div>
+                <span className="text-blue-400/60 text-xs font-medium flex-shrink-0">{hours}h</span>
+              </div>
+            )
+          })()}
 
           {/* Availability toggle — only for future/today days with no bookings */}
           {!loading && !selectedIsPast && selectedBookings.length === 0 && (
@@ -263,18 +333,7 @@ export default function CalendarPage() {
                       )}
                     </div>
                     <p className="text-white font-medium text-sm mb-2">{job.customer_name}</p>
-                    <div className="space-y-1">
-                      <div className="flex items-start gap-2">
-                        <div className="w-1.5 h-1.5 rounded-full bg-[#10b981] mt-1.5 flex-shrink-0" />
-                        <p className="text-white/50 text-xs leading-tight">
-                          {job.pickup_location ?? job.airport ?? '—'}
-                        </p>
-                      </div>
-                      <div className="flex items-start gap-2">
-                        <div className="w-1.5 h-1.5 rounded-full bg-red-400 mt-1.5 flex-shrink-0" />
-                        <p className="text-white/50 text-xs leading-tight">{job.dropoff_address ?? '—'}</p>
-                      </div>
-                    </div>
+                    <RouteDisplay booking={job} />
                   </div>
                 </Link>
               ))}

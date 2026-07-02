@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { ChevronRight, Car, Users } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { BookingStatusBadge } from '@/components/badges'
+import { RouteDisplay } from '@/components/route-icons'
 import { formatDate, formatTime, paymentInfo } from '@/lib/format'
 import type { Booking } from '@/lib/types'
 
@@ -41,18 +42,7 @@ function BookingCard({ booking }: { booking: Booking }) {
           <p className="text-white/30 text-xs mb-3 capitalize">{booking.journey_type.replace(/_/g, ' ')}</p>
         )}
 
-        <div className="space-y-1.5">
-          <div className="flex items-start gap-2">
-            <div className="w-1.5 h-1.5 rounded-full bg-[#10b981] mt-1.5 flex-shrink-0" />
-            <p className="text-white/50 text-xs leading-tight">
-              {booking.pickup_location ?? booking.airport ?? '—'}
-            </p>
-          </div>
-          <div className="flex items-start gap-2">
-            <div className="w-1.5 h-1.5 rounded-full bg-red-400 mt-1.5 flex-shrink-0" />
-            <p className="text-white/50 text-xs leading-tight">{booking.dropoff_address ?? booking.airport ?? '—'}</p>
-          </div>
-        </div>
+        <RouteDisplay booking={booking} />
 
         {(booking.quoted_price || booking.payment_method || booking.payment_status) && (
           <div className="flex items-center gap-2 mt-3 pt-3 border-t border-white/5">
@@ -82,7 +72,7 @@ function BookingCard({ booking }: { booking: Booking }) {
 }
 
 export default function JobsPage() {
-  const [tab, setTab] = useState<Tab>('upcoming')
+  const [tab, setTab] = useState<Tab>('active')
   const [dateFilter, setDateFilter] = useState<DateFilter>('all')
   const [bookings, setBookings] = useState<Booking[]>([])
   const [loading, setLoading] = useState(true)
@@ -159,8 +149,8 @@ export default function JobsPage() {
 
       <div className="flex gap-1 bg-white/5 rounded-xl p-1 mb-5">
         {([
-          { key: 'upcoming' as Tab, label: `Upcoming (${upcoming.length})` },
           { key: 'active' as Tab, label: `Active (${active.length})` },
+          { key: 'upcoming' as Tab, label: `Upcoming (${upcoming.length})` },
           { key: 'completed' as Tab, label: 'Done' },
         ]).map(({ key, label }) => (
           <button
