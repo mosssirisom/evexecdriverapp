@@ -8,7 +8,7 @@ import { BookingStatusBadge } from '@/components/badges'
 import { formatTime } from '@/lib/format'
 import type { Booking, BookingStatus } from '@/lib/types'
 
-const ACTIVE_STATUSES: BookingStatus[] = ['En Route', 'en_route', 'Arrived', 'arrived', 'Passenger On Board', 'Active', 'active']
+const ACTIVE_STATUSES: BookingStatus[] = ['En Route', 'Arrived', 'Passenger On Board']
 
 function navigateTo(destination: string) {
   const dest = encodeURIComponent(destination)
@@ -84,9 +84,9 @@ export default function MyJobsPage() {
                   className="px-4 py-2.5 flex items-center justify-between"
                   style={{
                     background:
-                      booking.status === 'active' || booking.status === 'Active'
+                      booking.status === 'Passenger On Board'
                         ? 'linear-gradient(135deg, rgba(16,185,129,0.15), rgba(16,185,129,0.05))'
-                        : booking.status === 'arrived'
+                        : booking.status === 'Arrived'
                         ? 'linear-gradient(135deg, rgba(6,182,212,0.15), rgba(6,182,212,0.05))'
                         : 'linear-gradient(135deg, rgba(139,92,246,0.15), rgba(139,92,246,0.05))',
                   }}
