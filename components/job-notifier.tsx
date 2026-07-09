@@ -34,6 +34,23 @@ async function registerPush(userId: string) {
   } catch { /* permission denied or unsupported */ }
 }
 
+type NewJobPayload = { customer_name: string; pickup_location?: string; airport?: string; travel_date?: string }
+
+function notifyNewJob(b: NewJobPayload, addToast: ReturnType<typeof useToast>['addToast']) {
+  const pickup = b.pickup_location ?? b.airport ?? 'See job details'
+  const msg = `${pickup}${b.travel_date ? ` · ${b.travel_date}` : ''}`
+
+  addToast({ title: `New job — ${b.customer_name}`, message: msg, href: '/jobs' })
+
+  if ('Notification' in window && Notification.permission === 'granted') {
+    new Notification('New job assigned — EV Exec', {
+      body: `${b.customer_name} · ${pickup}`,
+      icon: '/logo.png',
+      tag: 'new-job',
+    })
+  }
+}
+
 export function JobNotifier() {
   const supabase = createClient()
   const { addToast } = useToast()
@@ -61,20 +78,18 @@ export function JobNotifier() {
         .on(
           'postgres_changes',
           { event: 'INSERT', schema: 'public', table: 'bookings', filter: `assigned_driver_id=eq.${user.id}` },
+          (payload) => notifyNewJob(payload.new as NewJobPayload, addToast)
+        )
+        .on(
+          // The real dispatch flow assigns a driver by UPDATEing an existing
+          // unassigned booking, not by INSERTing a new one — without this,
+          // drivers were never notified when actually dispatched a job.
+          'postgres_changes',
+          { event: 'UPDATE', schema: 'public', table: 'bookings', filter: `assigned_driver_id=eq.${user.id}` },
           (payload) => {
-            const b = payload.new as { customer_name: string; pickup_location?: string; airport?: string; travel_date?: string }
-            const pickup = b.pickup_location ?? b.airport ?? 'See job details'
-            const msg = `${pickup}${b.travel_date ? ` · ${b.travel_date}` : ''}`
-
-            addToast({ title: `New job — ${b.customer_name}`, message: msg, href: '/jobs' })
-
-            if ('Notification' in window && Notification.permission === 'granted') {
-              new Notification('New job assigned — EV Exec', {
-                body: `${b.customer_name} · ${pickup}`,
-                icon: '/logo.png',
-                tag: 'new-job',
-              })
-            }
+            const oldAssigned = (payload.old as { assigned_driver_id?: string | null } | null)?.assigned_driver_id
+            if (oldAssigned === user.id) return // already assigned to this driver — some other field changed
+            notifyNewJob(payload.new as NewJobPayload, addToast)
           }
         )
         .subscribe()
