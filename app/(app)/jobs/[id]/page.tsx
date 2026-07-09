@@ -20,16 +20,10 @@ import type { Booking, BookingStatus } from '@/lib/types'
 type StatusStep = { from: BookingStatus; to: BookingStatus; label: string }
 
 const STATUS_FLOW: StatusStep[] = [
-  { from: 'accepted',           to: 'En Route', label: 'Head to Pickup' },
-  { from: 'confirmed',          to: 'En Route', label: 'Head to Pickup' },
   { from: 'Dispatched',         to: 'En Route', label: 'Head to Pickup' },
   { from: 'En Route',           to: 'Arrived',  label: 'Arrived at Pickup' },
-  { from: 'en_route',           to: 'Arrived',  label: 'Arrived at Pickup' },
   { from: 'Arrived',            to: 'Passenger On Board', label: 'Passenger On Board' },
-  { from: 'arrived',            to: 'Passenger On Board', label: 'Passenger On Board' },
   { from: 'Passenger On Board', to: 'Completed', label: 'Complete Journey' },
-  { from: 'active',             to: 'Completed', label: 'Complete Journey' },
-  { from: 'Active',             to: 'Completed', label: 'Complete Journey' },
 ]
 
 // Timestamp column to stamp when entering each status
@@ -645,7 +639,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
   const gpsLastPushRef = useRef<number>(0)
 
   useEffect(() => {
-    const statusNeedsGps = booking && ['En Route', 'en_route', 'Arrived', 'arrived'].includes(booking.status)
+    const statusNeedsGps = booking && ['En Route', 'Arrived'].includes(booking.status)
     const driverId = booking?.assigned_driver_id
 
     if (!statusNeedsGps || !driverId || typeof navigator === 'undefined' || !navigator.geolocation) {
@@ -874,13 +868,13 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
   // ── Derived state ──────────────────────────────────────────────────────────
 
   const nextStep = STATUS_FLOW.find(s => s.from === booking.status)
-  const isDone = ['completed', 'Completed', 'cancelled', 'Cancelled', 'rejected'].includes(booking.status)
+  const isDone = ['Completed', 'Cancelled'].includes(booking.status)
   const isNoShow = booking.status === 'Cancelled' && (booking.driver_notes ?? '').includes('[No Show]')
-  const isEnRoute = ['En Route', 'en_route'].includes(booking.status)
-  const isArrived = ['Arrived', 'arrived'].includes(booking.status)
+  const isEnRoute = booking.status === 'En Route'
+  const isArrived = booking.status === 'Arrived'
   const isPob = booking.status === 'Passenger On Board'
-  const isActive = isPob || ['active', 'Active'].includes(booking.status)
-  const isCompleted = ['completed', 'Completed'].includes(booking.status)
+  const isActive = isPob
+  const isCompleted = booking.status === 'Completed'
 
   const progressIndex = PROGRESS_STEPS.findIndex(s => s === booking.status)
   const showProgress = progressIndex >= 0 || isCompleted
