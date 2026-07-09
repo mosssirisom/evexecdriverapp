@@ -87,7 +87,7 @@ export default function JobsPage() {
       .from('bookings')
       .select('*')
       .eq('assigned_driver_id', user.id)
-      .in('status', ['accepted', 'confirmed', 'Dispatched', 'En Route', 'en_route', 'Passenger On Board', 'Arrived', 'arrived', 'Active', 'active', 'No Show', 'completed', 'Completed', 'cancelled', 'Cancelled'])
+      .in('status', ['Dispatched', 'En Route', 'Arrived', 'Passenger On Board', 'Completed', 'Cancelled'])
       .order('travel_date', { ascending: true })
       .order('travel_time', { ascending: true })
 
@@ -97,9 +97,9 @@ export default function JobsPage() {
 
   useEffect(() => { loadBookings() }, [loadBookings])
 
-  const upcoming = sortNearestFirst(bookings.filter((b) => ['accepted', 'confirmed', 'Dispatched'].includes(b.status)))
-  const active = sortNearestFirst(bookings.filter((b) => ['En Route', 'en_route', 'Passenger On Board', 'Arrived', 'arrived', 'Active', 'active'].includes(b.status)))
-  const completed = sortNearestFirst(bookings.filter((b) => ['completed', 'Completed', 'cancelled', 'Cancelled', 'No Show'].includes(b.status)))
+  const upcoming = sortNearestFirst(bookings.filter((b) => b.status === 'Dispatched'))
+  const active = sortNearestFirst(bookings.filter((b) => ['En Route', 'Arrived', 'Passenger On Board'].includes(b.status)))
+  const completed = sortNearestFirst(bookings.filter((b) => ['Completed', 'Cancelled'].includes(b.status)))
 
   const applyDateFilter = (list: Booking[]) => {
     const now = new Date()
