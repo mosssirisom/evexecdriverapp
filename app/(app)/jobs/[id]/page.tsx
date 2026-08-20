@@ -879,6 +879,12 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
   const progressIndex = PROGRESS_STEPS.findIndex(s => s === booking.status)
   const showProgress = progressIndex >= 0 || isCompleted
   const currentPaymentMethod = (localPaymentMethod ?? booking.payment_method) as 'Cash' | 'Card' | 'TBC' | null
+  // A Stripe payment link (sent from the operator dashboard) isn't a driver-
+  // selectable option — it shows a status instead of the Cash/Card/TBC
+  // toggle, so the driver isn't left staring at three unselected buttons
+  // with no idea the customer already paid online.
+  const isPaymentLink = booking.payment_method === 'Payment link'
+  const isPaidOnline = isPaymentLink && String(booking.payment_status ?? '').toLowerCase() === 'paid'
   const cashReceivedValid = currentPaymentMethod !== 'Cash' || (parseFloat(cashReceived) > 0)
   const canCompleteJourney = cashReceivedValid
 
@@ -1234,32 +1240,46 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
 
             <div className="mb-3">
               <p className="text-white/30 text-[10px] uppercase tracking-wide mb-2">Payment Method</p>
-              <div className="flex gap-2">
-                {(['Cash', 'Card', 'TBC'] as const).map((method) => {
-                  const active = currentPaymentMethod === method
-                  return (
-                    <button
-                      key={method}
-                      onClick={() => !isDone && handleSetPaymentMethod(method)}
-                      disabled={isDone || savingPayment}
-                      className="flex-1 py-2.5 rounded-xl text-xs font-bold transition-all active:opacity-70 disabled:opacity-50 flex items-center justify-center gap-1.5"
-                      style={
-                        active
-                          ? method === 'Card'
-                            ? { background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.4)', color: '#10b981' }
-                            : method === 'Cash'
-                            ? { background: 'rgba(213,165,56,0.15)', border: '1px solid rgba(213,165,56,0.4)', color: '#d5a538' }
-                            : { background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.2)', color: 'rgba(255,255,255,0.7)' }
-                          : { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.3)' }
-                      }
-                    >
-                      {method === 'Cash' && <Banknote size={12} />}
-                      {method === 'Card' && <CreditCard size={12} />}
-                      {method}
-                    </button>
-                  )
-                })}
-              </div>
+              {isPaymentLink ? (
+                isPaidOnline ? (
+                  <div className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-3 py-2.5">
+                    <CheckCircle2 size={14} className="text-emerald-400 flex-shrink-0" />
+                    <p className="text-emerald-400 text-xs font-semibold">Paid online — no cash needed</p>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 rounded-xl px-3 py-2.5">
+                    <Banknote size={14} className="text-amber-400 flex-shrink-0" />
+                    <p className="text-amber-400 text-xs font-semibold">Payment link sent — awaiting payment</p>
+                  </div>
+                )
+              ) : (
+                <div className="flex gap-2">
+                  {(['Cash', 'Card', 'TBC'] as const).map((method) => {
+                    const active = currentPaymentMethod === method
+                    return (
+                      <button
+                        key={method}
+                        onClick={() => !isDone && handleSetPaymentMethod(method)}
+                        disabled={isDone || savingPayment}
+                        className="flex-1 py-2.5 rounded-xl text-xs font-bold transition-all active:opacity-70 disabled:opacity-50 flex items-center justify-center gap-1.5"
+                        style={
+                          active
+                            ? method === 'Card'
+                              ? { background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.4)', color: '#10b981' }
+                              : method === 'Cash'
+                              ? { background: 'rgba(213,165,56,0.15)', border: '1px solid rgba(213,165,56,0.4)', color: '#d5a538' }
+                              : { background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.2)', color: 'rgba(255,255,255,0.7)' }
+                            : { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.3)' }
+                        }
+                      >
+                        {method === 'Cash' && <Banknote size={12} />}
+                        {method === 'Card' && <CreditCard size={12} />}
+                        {method}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
             </div>
 
             {currentPaymentMethod === 'Cash' && !isDone && (
