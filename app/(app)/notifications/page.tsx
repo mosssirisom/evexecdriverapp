@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   ChevronLeft, Bell, ChevronRight,
-  Car, MapPin, Users, CheckCircle2, XCircle, Clock, Navigation, UserCheck, AlertCircle,
+  Car, MapPin, Users, CheckCircle2, XCircle, Clock, Navigation, AlertCircle,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { PickupIcon } from '@/components/route-icons'
@@ -32,24 +32,15 @@ interface StatusMeta {
 }
 
 const STATUS_META: Record<BookingStatus, StatusMeta> = {
-  pending:              { label: 'Awaiting confirmation', Icon: Clock,        iconColor: '#f59e0b', bgColor: 'rgba(245,158,11,0.12)' },
-  accepted:             { label: 'Job confirmed',         Icon: UserCheck,    iconColor: '#60a5fa', bgColor: 'rgba(96,165,250,0.12)' },
-  confirmed:            { label: 'Job confirmed',         Icon: UserCheck,    iconColor: '#60a5fa', bgColor: 'rgba(96,165,250,0.12)' },
-  Dispatched:           { label: 'Job dispatched',        Icon: Navigation,   iconColor: '#a78bfa', bgColor: 'rgba(167,139,250,0.12)' },
-  en_route:             { label: 'Journey started',       Icon: Car,          iconColor: '#a78bfa', bgColor: 'rgba(167,139,250,0.12)' },
-  'En Route':           { label: 'Journey started',       Icon: Car,          iconColor: '#a78bfa', bgColor: 'rgba(167,139,250,0.12)' },
-  arrived:              { label: 'Arrived at pickup',     Icon: MapPin,       iconColor: '#22d3ee', bgColor: 'rgba(34,211,238,0.12)' },
-  Arrived:              { label: 'Arrived at pickup',     Icon: MapPin,       iconColor: '#22d3ee', bgColor: 'rgba(34,211,238,0.12)' },
-  active:               { label: 'Passenger on board',   Icon: Users,        iconColor: '#10b981', bgColor: 'rgba(16,185,129,0.12)' },
-  Active:               { label: 'Passenger on board',   Icon: Users,        iconColor: '#10b981', bgColor: 'rgba(16,185,129,0.12)' },
-  'Passenger On Board': { label: 'Passenger on board',   Icon: Users,        iconColor: '#10b981', bgColor: 'rgba(16,185,129,0.12)' },
-  completed:            { label: 'Job completed',         Icon: CheckCircle2, iconColor: 'rgba(255,255,255,0.4)', bgColor: 'rgba(255,255,255,0.06)' },
-  Completed:            { label: 'Job completed',         Icon: CheckCircle2, iconColor: 'rgba(255,255,255,0.4)', bgColor: 'rgba(255,255,255,0.06)' },
-  rejected:             { label: 'Job rejected',          Icon: XCircle,      iconColor: '#f87171', bgColor: 'rgba(248,113,113,0.12)' },
-  cancelled:            { label: 'Job cancelled',         Icon: XCircle,      iconColor: '#f87171', bgColor: 'rgba(248,113,113,0.12)' },
-  Cancelled:            { label: 'Job cancelled',         Icon: XCircle,      iconColor: '#f87171', bgColor: 'rgba(248,113,113,0.12)' },
-  'No Show':            { label: 'No show',               Icon: AlertCircle,  iconColor: '#f59e0b', bgColor: 'rgba(245,158,11,0.12)' },
-  CRITICAL_UNALLOCATED: { label: 'Needs driver — urgent', Icon: AlertCircle,  iconColor: '#f87171', bgColor: 'rgba(248,113,113,0.15)' },
+  Unassigned:            { label: 'Awaiting driver assignment', Icon: Clock,        iconColor: '#f59e0b', bgColor: 'rgba(245,158,11,0.12)' },
+  Dispatched:            { label: 'Job dispatched',        Icon: Navigation,   iconColor: '#a78bfa', bgColor: 'rgba(167,139,250,0.12)' },
+  'En Route':            { label: 'Journey started',       Icon: Car,          iconColor: '#a78bfa', bgColor: 'rgba(167,139,250,0.12)' },
+  Arrived:               { label: 'Arrived at pickup',     Icon: MapPin,       iconColor: '#22d3ee', bgColor: 'rgba(34,211,238,0.12)' },
+  'Passenger On Board':  { label: 'Passenger on board',    Icon: Users,        iconColor: '#10b981', bgColor: 'rgba(16,185,129,0.12)' },
+  Completed:             { label: 'Job completed',         Icon: CheckCircle2, iconColor: 'rgba(255,255,255,0.4)', bgColor: 'rgba(255,255,255,0.06)' },
+  Cancelled:             { label: 'Job cancelled',         Icon: XCircle,      iconColor: '#f87171', bgColor: 'rgba(248,113,113,0.12)' },
+  'Unassigned / Missed Call Recovery': { label: 'Needs driver — missed call', Icon: AlertCircle, iconColor: '#f87171', bgColor: 'rgba(248,113,113,0.12)' },
+  CRITICAL_UNALLOCATED:  { label: 'Needs driver — urgent', Icon: AlertCircle,  iconColor: '#f87171', bgColor: 'rgba(248,113,113,0.15)' },
 }
 
 export default function NotificationsPage() {
