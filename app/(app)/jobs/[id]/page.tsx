@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import {
   ArrowLeft, Phone, MessageSquare, Navigation2, User, FileText, CheckCircle2,
   AlertOctagon, ChevronRight, Loader2, Users, Luggage, PlaneLanding, CreditCard,
-  UserX, X, Plus, Car, MapPin, RefreshCw, Camera, Trash2, ArrowLeftRight, Banknote,
+  UserX, X, Plus, Car, MapPin, RefreshCw, Camera, Trash2, ArrowLeftRight, Banknote, Clock,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { BookingStatusBadge } from '@/components/badges'
@@ -888,6 +888,16 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
   const cashReceivedValid = currentPaymentMethod !== 'Cash' || (parseFloat(cashReceived) > 0)
   const canCompleteJourney = cashReceivedValid
 
+  // Only allow initial dispatch transitions within 24 h of pickup;
+  // mid-job statuses (En Route and beyond) are always unlocked.
+  const jobDateTime = booking.travel_date
+    ? new Date(`${booking.travel_date}T${booking.travel_time ?? '00:00:00'}`)
+    : null
+  const withinSwipeWindow =
+    isEnRoute || isArrived || isPob || isActive ||
+    !jobDateTime ||
+    (jobDateTime.getTime() - Date.now()) / 3_600_000 <= 24
+
   const pickupAddress = booking.pickup_location ?? booking.airport ?? '—'
   const dropoffAddress = booking.dropoff_address ?? booking.airport ?? '—'
   const bookingRef = booking.ref ?? booking.id.slice(0, 8).toUpperCase()
@@ -1006,19 +1016,26 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
               {/* Swipe action */}
               {nextStep && !pobUndoActive && (
                 <>
-                  <SwipeToConfirm
-                    label={nextStep.label}
-                    onConfirm={() => {
-                      if (nextStep.to === 'Completed') {
-                        if (!canCompleteJourney) return
-                        setShowExpenseModal(true)
-                      } else {
-                        handleStatusUpdate(nextStep.to)
-                      }
-                    }}
-                    loading={updating}
-                    variant={nextStep.to === 'Completed' ? 'green' : 'gold'}
-                  />
+                  {withinSwipeWindow ? (
+                    <SwipeToConfirm
+                      label={nextStep.label}
+                      onConfirm={() => {
+                        if (nextStep.to === 'Completed') {
+                          if (!canCompleteJourney) return
+                          setShowExpenseModal(true)
+                        } else {
+                          handleStatusUpdate(nextStep.to)
+                        }
+                      }}
+                      loading={updating}
+                      variant={nextStep.to === 'Completed' ? 'green' : 'gold'}
+                    />
+                  ) : (
+                    <div className="w-full h-16 rounded-2xl bg-white/4 border border-white/8 flex items-center justify-center gap-2">
+                      <Clock size={14} className="text-white/25" />
+                      <span className="text-white/25 text-sm font-semibold">Available 24 h before pickup</span>
+                    </div>
+                  )}
                   {nextStep.to === 'Completed' && !canCompleteJourney && (
                     <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 rounded-xl px-3 py-2.5 mt-2">
                       <Banknote size={14} className="text-amber-400 flex-shrink-0" />
