@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
-import { ChevronRight, Car, Users } from 'lucide-react'
+import { ChevronRight, Car, Users, Search, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { BookingStatusBadge } from '@/components/badges'
 import { RouteDisplay } from '@/components/route-icons'
@@ -37,7 +37,12 @@ function BookingCard({ booking }: { booking: Booking }) {
           </div>
         </div>
 
-        <p className="text-white font-medium text-sm mb-0.5">{booking.customer_name}</p>
+        <div className="flex items-baseline justify-between gap-2 mb-0.5">
+          <p className="text-white font-medium text-sm">{booking.customer_name}</p>
+          {booking.ref && (
+            <span className="text-white/25 text-[10px] font-mono flex-shrink-0">{booking.ref}</span>
+          )}
+        </div>
         {booking.journey_type && (
           <p className="text-white/30 text-xs mb-3 capitalize">{booking.journey_type.replace(/_/g, ' ')}</p>
         )}
@@ -76,6 +81,7 @@ export default function JobsPage() {
   const [dateFilter, setDateFilter] = useState<DateFilter>('all')
   const [bookings, setBookings] = useState<Booking[]>([])
   const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState('')
 
   const supabase = createClient()
 
@@ -115,15 +121,40 @@ export default function JobsPage() {
   }
 
   const baseList = tab === 'upcoming' ? upcoming : tab === 'active' ? active : completed
-  const currentList = sortNearestFirst(applyDateFilter(baseList))
+  const applySearch = (list: Booking[]) => {
+    const q = search.trim().toLowerCase()
+    if (!q) return list
+    return list.filter(b =>
+      b.customer_name.toLowerCase().includes(q) ||
+      (b.ref ?? '').toLowerCase().includes(q)
+    )
+  }
+  const currentList = sortNearestFirst(applySearch(applyDateFilter(baseList)))
 
   const today = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
 
   return (
     <div className="min-h-screen bg-[#060C1A] px-4 pt-12 pb-4">
-      <div className="mb-6">
+      <div className="mb-4">
         <h1 className="text-white font-bold text-xl">Jobs</h1>
         <p className="text-white/40 text-xs mt-1">{today}</p>
+      </div>
+
+      {/* Search */}
+      <div className="relative mb-4">
+        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none" />
+        <input
+          type="text"
+          placeholder="Search by name or ref (EVX-…)"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          className="w-full bg-white/5 border border-white/8 rounded-xl pl-8 pr-8 py-2.5 text-white text-sm placeholder-white/20 focus:outline-none focus:border-[#d5a538]/50"
+        />
+        {search && (
+          <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30">
+            <X size={14} />
+          </button>
+        )}
       </div>
 
       <div className="flex gap-2 mb-4 overflow-x-auto pb-1 no-scrollbar">

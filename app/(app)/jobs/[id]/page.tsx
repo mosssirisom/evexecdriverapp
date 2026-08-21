@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, use, useEffect, useCallback, useRef } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
   ArrowLeft, Phone, MessageSquare, Navigation2, User, FileText, CheckCircle2,
@@ -986,6 +987,10 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
                   {booking.quoted_price != null && (
                     <p className="text-green-400/60 text-sm mt-1">£{booking.quoted_price.toFixed(2)}</p>
                   )}
+                  <Link href={`/jobs/${booking.id}/receipt`} className="inline-flex items-center gap-1.5 mt-3 px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-white/60 text-sm font-medium hover:bg-white/8 transition-colors">
+                    <FileText size={14} />
+                    View Receipt
+                  </Link>
                 </div>
               )}
 
