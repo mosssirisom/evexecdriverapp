@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
-import { ChevronLeft, ChevronRight, Car, Ban, Clock } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Car, Ban, Clock, CheckCircle2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { RouteDisplay } from '@/components/route-icons'
 import { formatTime } from '@/lib/format'
@@ -225,13 +225,16 @@ export default function CalendarPage() {
               </span>
               {hasJobs && (
                 <div className="flex gap-0.5 mt-1">
-                  {dayBookings.slice(0, 3).map((_, idx) => (
-                    <div
-                      key={idx}
-                      className="w-1 h-1 rounded-full"
-                      style={{ background: isSelected ? '#020813' : '#d5a538' }}
-                    />
-                  ))}
+                  {dayBookings.slice(0, 3).map((b, idx) => {
+                    const done = b.status === 'completed' || b.status === 'Completed'
+                    return (
+                      <div
+                        key={idx}
+                        className="w-1 h-1 rounded-full"
+                        style={{ background: isSelected ? '#020813' : done ? '#10b981' : '#d5a538' }}
+                      />
+                    )
+                  })}
                 </div>
               )}
               {isUnavailable && !hasJobs && !isSelected && (
@@ -323,20 +326,41 @@ export default function CalendarPage() {
             </div>
           ) : (
             <div className="space-y-3">
-              {selectedBookings.map(job => (
-                <Link key={job.id} href={`/jobs/${job.id}`}>
-                  <div className="bg-[#0B1525] border border-white/8 rounded-2xl p-4 active:opacity-80 transition-opacity">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-[#d5a538] font-semibold text-sm">{formatTime(job.travel_time)}</span>
-                      {job.quoted_price != null && (
-                        <span className="text-[#d5a538] font-bold text-sm">£{job.quoted_price.toFixed(0)}</span>
-                      )}
+              {selectedBookings.map(job => {
+                const isCompleted = job.status === 'completed' || job.status === 'Completed'
+                const isCancelled = job.status === 'cancelled' || job.status === 'Cancelled' || job.status === 'No Show'
+                return (
+                  <Link key={job.id} href={`/jobs/${job.id}`}>
+                    <div className={`rounded-2xl p-4 active:opacity-80 transition-opacity ${
+                      isCompleted
+                        ? 'bg-[#0B1525] border border-green-500/20'
+                        : isCancelled
+                        ? 'bg-[#0B1525] border border-white/5 opacity-50'
+                        : 'bg-[#0B1525] border border-white/8'
+                    }`}>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-[#d5a538] font-semibold text-sm">{formatTime(job.travel_time)}</span>
+                        <div className="flex items-center gap-2">
+                          {job.quoted_price != null && (
+                            <span className="text-[#d5a538] font-bold text-sm">£{job.quoted_price.toFixed(0)}</span>
+                          )}
+                          {isCompleted && (
+                            <div className="flex items-center gap-1 bg-green-500/15 border border-green-500/25 rounded-full px-2 py-0.5">
+                              <CheckCircle2 size={11} className="text-green-400" />
+                              <span className="text-green-400 text-[10px] font-semibold">Done</span>
+                            </div>
+                          )}
+                          {isCancelled && (
+                            <span className="text-white/30 text-[10px] font-medium">Cancelled</span>
+                          )}
+                        </div>
+                      </div>
+                      <p className="text-white font-medium text-sm mb-2">{job.customer_name}</p>
+                      <RouteDisplay booking={job} />
                     </div>
-                    <p className="text-white font-medium text-sm mb-2">{job.customer_name}</p>
-                    <RouteDisplay booking={job} />
-                  </div>
-                </Link>
-              ))}
+                  </Link>
+                )
+              })}
             </div>
           )}
         </div>
