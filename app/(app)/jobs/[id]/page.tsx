@@ -601,7 +601,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
   const [showExpenseModal, setShowExpenseModal] = useState(false)
 
   // Payment method selection
-  const [localPaymentMethod, setLocalPaymentMethod] = useState<'Cash' | 'Card' | 'TBC' | null>(null)
+  const [localPaymentMethod, setLocalPaymentMethod] = useState<'Cash' | 'Card' | 'Bank Transfer' | 'TBC' | null>(null)
   const [cashReceived, setCashReceived] = useState('')
   const [savingPayment, setSavingPayment] = useState(false)
 
@@ -836,14 +836,18 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
     setPhotos(prev => prev.filter(p => p.id !== photoId))
   }
 
-  const handleSetPaymentMethod = async (method: 'Cash' | 'Card' | 'TBC') => {
+  const handleSetPaymentMethod = async (method: 'Cash' | 'Card' | 'Bank Transfer' | 'TBC') => {
     if (!booking) return
     setLocalPaymentMethod(method)
     setSavingPayment(true)
     const patch: Record<string, string> = { payment_method: method }
-    if (method === 'Card') patch.payment_status = 'paid'
+    if (method === 'Card' || method === 'Bank Transfer') patch.payment_status = 'paid'
     await supabase.from('bookings').update(patch).eq('id', booking.id)
-    setBooking(prev => prev ? { ...prev, payment_method: method, ...(method === 'Card' ? { payment_status: 'paid' } : {}) } : prev)
+    setBooking(prev => prev ? {
+      ...prev,
+      payment_method: method,
+      ...((method === 'Card' || method === 'Bank Transfer') ? { payment_status: 'paid' } : {}),
+    } : prev)
     setSavingPayment(false)
   }
 
@@ -885,7 +889,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
 
   const progressIndex = PROGRESS_STEPS.findIndex(s => s === booking.status)
   const showProgress = progressIndex >= 0 || isCompleted
-  const currentPaymentMethod = (localPaymentMethod ?? booking.payment_method) as 'Cash' | 'Card' | 'TBC' | null
+  const currentPaymentMethod = (localPaymentMethod ?? booking.payment_method) as 'Cash' | 'Card' | 'Bank Transfer' | 'TBC' | null
   const cashReceivedValid = currentPaymentMethod !== 'Cash' || (parseFloat(cashReceived) > 0)
   const canCompleteJourney = cashReceivedValid
 
@@ -1262,18 +1266,18 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
 
             <div className="mb-3">
               <p className="text-white/30 text-[10px] uppercase tracking-wide mb-2">Payment Method</p>
-              <div className="flex gap-2">
-                {(['Cash', 'Card', 'TBC'] as const).map((method) => {
+              <div className="grid grid-cols-2 gap-2">
+                {(['Cash', 'Card', 'Bank Transfer', 'TBC'] as const).map((method) => {
                   const active = currentPaymentMethod === method
                   return (
                     <button
                       key={method}
-                      onClick={() => !isDone && handleSetPaymentMethod(method)}
-                      disabled={isDone || savingPayment}
-                      className="flex-1 py-2.5 rounded-xl text-xs font-bold transition-all active:opacity-70 disabled:opacity-50 flex items-center justify-center gap-1.5"
+                      onClick={() => handleSetPaymentMethod(method)}
+                      disabled={savingPayment}
+                      className="py-2.5 rounded-xl text-xs font-bold transition-all active:opacity-70 disabled:opacity-50 flex items-center justify-center gap-1.5"
                       style={
                         active
-                          ? method === 'Card'
+                          ? (method === 'Card' || method === 'Bank Transfer')
                             ? { background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.4)', color: '#10b981' }
                             : method === 'Cash'
                             ? { background: 'rgba(213,165,56,0.15)', border: '1px solid rgba(213,165,56,0.4)', color: '#d5a538' }
@@ -1283,6 +1287,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
                     >
                       {method === 'Cash' && <Banknote size={12} />}
                       {method === 'Card' && <CreditCard size={12} />}
+                      {method === 'Bank Transfer' && <ArrowLeftRight size={12} />}
                       {method}
                     </button>
                   )
@@ -1313,10 +1318,12 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
               </div>
             )}
 
-            {currentPaymentMethod === 'Card' && (
+            {(currentPaymentMethod === 'Card' || currentPaymentMethod === 'Bank Transfer') && (
               <div className="mt-3 flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-3 py-2.5">
                 <CheckCircle2 size={14} className="text-emerald-400 flex-shrink-0" />
-                <p className="text-emerald-400 text-xs font-semibold">Marked as paid on operator system</p>
+                <p className="text-emerald-400 text-xs font-semibold">
+                  {currentPaymentMethod === 'Bank Transfer' ? 'Bank transfer — marked as paid' : 'Marked as paid on operator system'}
+                </p>
               </div>
             )}
 
