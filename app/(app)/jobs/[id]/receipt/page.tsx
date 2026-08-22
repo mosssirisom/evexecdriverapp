@@ -195,7 +195,10 @@ export default function ReceiptPage({ params }: { params: Promise<{ id: string }
           {/* Financials */}
           <div className="mt-4 pt-4 border-t border-white/8 print-divider space-y-2">
             {booking.quoted_price != null && (
-              <Row label="Journey fare" value={`£${booking.quoted_price.toFixed(2)}`} />
+              <Row
+                label="Journey fare"
+                value={booking.quoted_price > 0 ? `£${booking.quoted_price.toFixed(2)}` : 'No payment to collect'}
+              />
             )}
             {expenses.map(e => (
               <Row key={e.id} label={e.type.charAt(0).toUpperCase() + e.type.slice(1).replace(/_/g, ' ')} value={`£${e.amount.toFixed(2)}`} />

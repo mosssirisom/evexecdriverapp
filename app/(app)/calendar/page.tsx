@@ -341,7 +341,7 @@ export default function CalendarPage() {
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-[#d5a538] font-semibold text-sm">{formatTime(job.travel_time)}</span>
                         <div className="flex items-center gap-2">
-                          {job.quoted_price != null && (
+                          {job.quoted_price != null && job.quoted_price > 0 && (
                             <span className="text-[#d5a538] font-bold text-sm">£{job.quoted_price.toFixed(0)}</span>
                           )}
                           {isCompleted && (

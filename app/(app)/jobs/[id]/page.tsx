@@ -988,7 +988,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
                 <div className="text-center py-2">
                   <CheckCircle2 size={32} className="mx-auto mb-2 text-green-400" />
                   <p className="text-green-400 font-bold text-lg">Journey Complete</p>
-                  {booking.quoted_price != null && (
+                  {booking.quoted_price != null && booking.quoted_price > 0 && (
                     <p className="text-green-400/60 text-sm mt-1">£{booking.quoted_price.toFixed(2)}</p>
                   )}
                   <Link href={`/jobs/${booking.id}/receipt`} className="inline-flex items-center gap-1.5 mt-3 px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-white/60 text-sm font-medium hover:bg-white/8 transition-colors">
@@ -1260,7 +1260,10 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
             {booking.quoted_price != null && (
               <div className="flex items-center justify-between mb-4 pb-4 border-b border-white/8">
                 <p className="text-white/40 text-sm">Total</p>
-                <p className="text-[#d5a538] font-bold text-2xl">£{booking.quoted_price.toFixed(2)}</p>
+                {booking.quoted_price > 0
+                  ? <p className="text-[#d5a538] font-bold text-2xl">£{booking.quoted_price.toFixed(2)}</p>
+                  : <p className="text-white/40 text-sm italic">No payment to collect</p>
+                }
               </div>
             )}
 
