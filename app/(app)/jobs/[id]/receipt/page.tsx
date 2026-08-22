@@ -2,7 +2,7 @@
 
 import { useEffect, useState, use } from 'react'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Printer, CheckCircle2 } from 'lucide-react'
+import { ArrowLeft, Printer, CheckCircle2, MessageSquare, Mail } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { formatDate, formatTime, paymentInfo } from '@/lib/format'
 import type { Booking, BookingExpense } from '@/lib/types'
@@ -52,6 +52,33 @@ export default function ReceiptPage({ params }: { params: Promise<{ id: string }
   const p = paymentInfo(booking.payment_method, booking.payment_status)
   const expenseTotal = expenses.reduce((s, e) => s + e.amount, 0)
   const totalCharged = (booking.quoted_price ?? 0) + expenseTotal
+  // Airport journeys store destination in booking.airport; others use dropoff_address
+  const dropoff = booking.dropoff_address || booking.airport
+
+  // Build receipt text for SMS / email
+  const lines = [
+    `EV Exec Journey Receipt`,
+    `Ref: ${ref}`,
+    ``,
+    `Passenger: ${booking.customer_name}`,
+    `Date: ${formatDate(booking.travel_date)} at ${formatTime(booking.travel_time)}`,
+    booking.pickup_location ? `From: ${booking.pickup_location}` : null,
+    dropoff ? `To: ${dropoff}` : null,
+    booking.flight_number ? `Flight: ${booking.flight_number}` : null,
+    ``,
+    `Driver: ${driverName}`,
+    totalCharged > 0 ? `Total: £${totalCharged.toFixed(2)}` : null,
+    `Payment: ${p.text}`,
+    ``,
+    `EV Exec Chauffeur Services · evexec.co.uk`,
+  ].filter(Boolean).join('\n')
+
+  const smsHref = `sms:${booking.customer_phone}&body=${encodeURIComponent(lines)}`
+  const emailHref = booking.customer_email
+    ? `mailto:${booking.customer_email}?subject=${encodeURIComponent(`EV Exec Journey Receipt – ${ref}`)}&body=${encodeURIComponent(lines)}`
+    : null
+
+  const hasContact = booking.customer_phone || emailHref
 
   return (
     <>
@@ -70,7 +97,7 @@ export default function ReceiptPage({ params }: { params: Promise<{ id: string }
 
       <div className="min-h-screen bg-[#060C1A] px-4 pt-12 pb-8">
         {/* Top bar */}
-        <div className="flex items-center justify-between mb-6 no-print">
+        <div className="flex items-center justify-between mb-4 no-print">
           <button onClick={() => router.back()} className="flex items-center gap-1.5 text-white/50 text-sm">
             <ArrowLeft size={16} /> Back
           </button>
@@ -83,6 +110,30 @@ export default function ReceiptPage({ params }: { params: Promise<{ id: string }
             Save / Print
           </button>
         </div>
+
+        {/* Send to customer buttons */}
+        {hasContact && (
+          <div className="flex gap-2 mb-4 no-print max-w-md mx-auto">
+            {booking.customer_phone && (
+              <a
+                href={smsHref}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-[#0B1525] border border-white/10 text-white/70 text-sm font-medium active:opacity-70"
+              >
+                <MessageSquare size={14} className="text-[#10b981]" />
+                Send via SMS
+              </a>
+            )}
+            {emailHref && (
+              <a
+                href={emailHref}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-[#0B1525] border border-white/10 text-white/70 text-sm font-medium active:opacity-70"
+              >
+                <Mail size={14} className="text-[#d5a538]" />
+                Send via Email
+              </a>
+            )}
+          </div>
+        )}
 
         {/* Receipt card */}
         <div className="receipt-card bg-[#0B1525] border border-white/8 rounded-2xl p-6 max-w-md mx-auto">
@@ -122,16 +173,19 @@ export default function ReceiptPage({ params }: { params: Promise<{ id: string }
           {/* Route */}
           <div className="bg-white/4 rounded-xl p-3 mb-5 border border-white/5">
             {booking.pickup_location && (
-              <div className="flex gap-2 mb-2">
-                <span className="text-[#d5a538] text-xs font-bold w-12 pt-0.5 print-black">FROM</span>
+              <div className="flex gap-2 mb-2.5">
+                <span className="text-[#d5a538] text-xs font-bold w-12 pt-0.5 print-black flex-shrink-0">FROM</span>
                 <span className="text-white text-sm print-black flex-1">{booking.pickup_location}</span>
               </div>
             )}
-            {booking.dropoff_address && (
+            {dropoff && (
               <div className="flex gap-2">
-                <span className="text-white/40 text-xs font-bold w-12 pt-0.5 print-gray">TO</span>
-                <span className="text-white text-sm print-black flex-1">{booking.dropoff_address}</span>
+                <span className="text-white/40 text-xs font-bold w-12 pt-0.5 print-gray flex-shrink-0">TO</span>
+                <span className="text-white text-sm print-black flex-1">{dropoff}</span>
               </div>
+            )}
+            {!booking.pickup_location && !dropoff && (
+              <p className="text-white/30 text-xs">Route not recorded</p>
             )}
           </div>
 
