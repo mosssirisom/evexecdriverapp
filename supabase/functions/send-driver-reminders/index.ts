@@ -30,24 +30,52 @@ const WINDOW_MS = 60_000
 interface ReminderConfig {
   type: NotificationType
   offsetMs: number
-  smsBody: (opts: { ref: string; customer: string; pickup: string; time: string }) => string
+  smsBody: (opts: { ref: string; customer: string; route: string; time: string }) => string
+}
+
+// Build a clear route description that shows direction relative to airport
+function buildRoute(opts: {
+  journey_type: string | null
+  pickup_location: string | null
+  airport: string | null
+  dropoff_address: string | null
+}): string {
+  const jt = (opts.journey_type ?? '').toLowerCase()
+  const isToAirport   = jt.includes('to') && jt.includes('airport')
+  const isFromAirport = jt.includes('from') && jt.includes('airport')
+
+  if (isToAirport) {
+    const from = opts.pickup_location ?? 'pickup address'
+    const to   = opts.airport ?? 'airport'
+    return `TO AIRPORT: ${from} → ${to}`
+  }
+  if (isFromAirport) {
+    const from = opts.airport ?? 'airport'
+    const to   = opts.dropoff_address ?? 'drop-off address'
+    return `FROM AIRPORT: ${from} → ${to}`
+  }
+
+  // Point-to-point or unknown type — just show from/to if available
+  const from = opts.pickup_location ?? opts.airport ?? 'pickup point'
+  const to   = opts.dropoff_address ?? opts.airport
+  return to ? `${from} → ${to}` : `from ${from}`
 }
 
 const REMINDERS: ReminderConfig[] = [
   {
     type: 'driver_reminder_24h',
     offsetMs: 24 * 3600_000,
-    smsBody: ({ ref, customer, pickup, time }) =>
+    smsBody: ({ ref, customer, route, time }) =>
       `EV Exec: Job reminder – tomorrow's pickup at ${time}. ` +
-      `Ref ${ref}: ${customer} from ${pickup}. ` +
+      `Ref ${ref}: ${customer}. ${route}. ` +
       `Please ensure your vehicle is clean and ready. Open the driver app for full details.`,
   },
   {
     type: 'driver_reminder_1h',
     offsetMs: 1 * 3600_000,
-    smsBody: ({ ref, customer, pickup, time }) =>
+    smsBody: ({ ref, customer, route, time }) =>
       `EV Exec: 1-hour reminder – pickup at ${time}. ` +
-      `Ref ${ref}: ${customer} from ${pickup}. ` +
+      `Ref ${ref}: ${customer}. ${route}. ` +
       `Please make your way to the collection point now.`,
   },
 ]
@@ -71,7 +99,7 @@ Deno.serve(async (_req) => {
 
     const { data: bookings, error } = await supabase
       .from('bookings')
-      .select('id, ref, customer_name, pickup_location, airport, pickup_time, assigned_driver_id')
+      .select('id, ref, customer_name, pickup_location, airport, dropoff_address, journey_type, pickup_time, assigned_driver_id')
       .in('status', ACTIVE_STATUSES)
       .not('assigned_driver_id', 'is', null)
       .not('pickup_time', 'is', null)
@@ -114,7 +142,7 @@ Deno.serve(async (_req) => {
       const body = reminder.smsBody({
         ref:      booking.ref ?? booking.id.slice(0, 8).toUpperCase(),
         customer: booking.customer_name ?? 'your passenger',
-        pickup:   booking.pickup_location ?? booking.airport ?? 'your pickup point',
+        route:    buildRoute(booking),
         time:     formatTime(booking.pickup_time),
       })
 
