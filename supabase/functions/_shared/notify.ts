@@ -28,7 +28,7 @@ export type NotificationType =
   | 'job_cancelled'
   | 'job_updated'
 
-export type NotificationChannel = 'push' | 'sms' | 'whatsapp' | 'voice'
+export type NotificationChannel = 'push' | 'sms' | 'whatsapp' | 'voice' | 'email'
 
 export interface RecordNotificationParams {
   bookingId: string | null

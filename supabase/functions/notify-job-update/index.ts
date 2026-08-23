@@ -4,22 +4,24 @@
 // or key journey details (travel_date, travel_time, pickup_location, airport,
 // dropoff_address) are changed while a driver is assigned.
 //
-// Sends a push notification to the assigned driver.
-// Falls back to SMS for cancellations (critical, driver must know).
+// Delivery order:
+//   1. Web push — free, instant.
+//   2. Email fallback via Resend — when no push subscription is registered.
 
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { pushToDriver, recordNotification, type NotificationType } from '../_shared/notify.ts'
-import { sendSms } from '../_shared/twilio.ts'
+import { sendEmail, cancellationEmail, updateEmail } from '../_shared/email.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+const APP_URL = Deno.env.get('APP_URL') ?? 'https://evexec.co.uk'
 
 const CANCELLED_STATUSES = ['cancelled', 'Cancelled', 'canceled', 'Canceled']
 
-function formatDate(iso: string | null): string {
-  if (!iso) return ''
-  return new Date(iso).toLocaleDateString('en-GB', {
+function formatDate(dateStr: string | null): string {
+  if (!dateStr) return ''
+  return new Date(dateStr).toLocaleDateString('en-GB', {
     weekday: 'short', day: 'numeric', month: 'short',
     timeZone: 'Europe/London',
   })
@@ -27,8 +29,29 @@ function formatDate(iso: string | null): string {
 
 function formatTime(timeStr: string | null): string {
   if (!timeStr) return ''
-  // travel_time is stored as HH:MM or HH:MM:SS
   return timeStr.slice(0, 5)
+}
+
+function buildRoute(opts: {
+  journey_type: string | null
+  pickup_location: string | null
+  airport: string | null
+  dropoff_address: string | null
+}): string {
+  const jt = (opts.journey_type ?? '').toLowerCase()
+  const isToAirport   = jt.includes('to') && jt.includes('airport')
+  const isFromAirport = jt.includes('from') && jt.includes('airport')
+
+  if (isToAirport) {
+    return `TO AIRPORT: ${opts.pickup_location ?? 'pickup'} → ${opts.airport ?? 'airport'}`
+  }
+  if (isFromAirport) {
+    return `FROM AIRPORT: ${opts.airport ?? 'airport'} → ${opts.dropoff_address ?? 'drop-off'}`
+  }
+
+  const from = opts.pickup_location ?? opts.airport ?? 'pickup point'
+  const to   = opts.dropoff_address ?? opts.airport
+  return to ? `${from} → ${to}` : `from ${from}`
 }
 
 Deno.serve(async (req) => {
@@ -53,80 +76,109 @@ Deno.serve(async (req) => {
     })
   }
 
-  const bookingId = newRecord.id as string
-  const ref = (newRecord.ref as string) ?? bookingId.slice(0, 8).toUpperCase()
-  const customerName = (newRecord.customer_name as string) ?? 'your passenger'
-  const newStatus = (newRecord.status as string) ?? ''
-  const isCancelled = CANCELLED_STATUSES.includes(newStatus)
+  const bookingId    = newRecord.id as string
+  const ref          = (newRecord.ref as string) ?? bookingId.slice(0, 8).toUpperCase()
+  const customer     = (newRecord.customer_name as string) ?? 'your passenger'
+  const newStatus    = (newRecord.status as string) ?? ''
+  const isCancelled  = CANCELLED_STATUSES.includes(newStatus)
+  const bookingUrl   = `${APP_URL}/jobs/${bookingId}`
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
   let notifType: NotificationType
   let pushTitle: string
   let pushBody: string
-  let smsFallback = false
 
   if (isCancelled) {
     notifType = 'job_cancelled'
     pushTitle = `Job cancelled — ${ref}`
-    pushBody = `Booking for ${customerName} has been cancelled. Open the app for details.`
-    smsFallback = true
+    pushBody  = `Booking for ${customer} has been cancelled. Do not travel to the collection point.`
   } else {
-    // Detail change — determine what changed
-    const changedFields: string[] = []
     const WATCH = ['travel_date', 'travel_time', 'pickup_location', 'airport', 'dropoff_address']
-    for (const f of WATCH) {
-      if (oldRecord[f] !== newRecord[f]) changedFields.push(f)
-    }
+    const changed = WATCH.filter(f => oldRecord[f] !== newRecord[f])
 
-    if (changedFields.length === 0) {
+    if (changed.length === 0) {
       return new Response(JSON.stringify({ ok: true, skipped: 'no relevant change' }), {
         headers: { 'Content-Type': 'application/json' },
       })
     }
 
     notifType = 'job_updated'
-    const date = formatDate(newRecord.travel_date as string | null)
     const time = formatTime(newRecord.travel_time as string | null)
     pushTitle = `Job updated — ${ref}`
-    pushBody = `${customerName}${date ? ` · ${date}` : ''}${time ? ` at ${time}` : ''}. Tap to view new details.`
+    pushBody  = `${customer}${time ? ` · pickup at ${time}` : ''}. Tap to view updated details.`
   }
 
-  // Send push notification
+  // 1. Try push notification first
   const pushed = await pushToDriver(supabase, {
     driverId,
     bookingId,
-    type: notifType,
+    type:  notifType,
     title: pushTitle,
-    body: pushBody,
-    url: `/jobs/${bookingId}`,
+    body:  pushBody,
+    url:   `/jobs/${bookingId}`,
   })
 
-  // SMS fallback for cancellations (critical — driver must know even with no push)
-  if (smsFallback && !pushed) {
-    const { data: driver } = await supabase
-      .from('drivers')
-      .select('phone')
-      .eq('id', driverId)
-      .maybeSingle()
-
-    if (driver?.phone) {
-      const smsBody = `EV Exec: Job CANCELLED – Ref ${ref} (${customerName}) has been cancelled. Log in to the driver app for details.`
-      const sms = await sendSms(driver.phone, smsBody)
-      await recordNotification(supabase, {
-        bookingId,
-        type: notifType,
-        channel: 'sms',
-        recipient: driver.phone,
-        body: smsBody,
-        delivered: sms.ok,
-        providerMessageId: sms.sid,
-        error: sms.error,
-      })
-    }
+  if (pushed) {
+    return new Response(JSON.stringify({ ok: true, pushed: true, type: notifType }), {
+      headers: { 'Content-Type': 'application/json' },
+    })
   }
 
-  return new Response(JSON.stringify({ ok: true, pushed, type: notifType }), {
+  // 2. Email fallback
+  const { data: driver } = await supabase
+    .from('drivers')
+    .select('email, full_name')
+    .eq('id', driverId)
+    .maybeSingle()
+
+  if (!driver?.email) {
+    console.warn(`[notify-job-update] no email for driver on booking ${bookingId}`)
+    return new Response(JSON.stringify({ ok: true, pushed: false, skipped: 'no email' }), {
+      headers: { 'Content-Type': 'application/json' },
+    })
+  }
+
+  let emailContent: { subject: string; html: string }
+
+  if (isCancelled) {
+    emailContent = cancellationEmail({
+      driverName: driver.full_name ?? 'Driver',
+      ref,
+      customer,
+      bookingUrl,
+    })
+  } else {
+    emailContent = updateEmail({
+      driverName: driver.full_name ?? 'Driver',
+      ref,
+      customer,
+      date:  formatDate(newRecord.travel_date as string | null),
+      time:  formatTime(newRecord.travel_time as string | null),
+      route: buildRoute(newRecord as {
+        journey_type: string | null
+        pickup_location: string | null
+        airport: string | null
+        dropoff_address: string | null
+      }),
+      bookingUrl,
+    })
+  }
+
+  const result = await sendEmail({ to: driver.email, ...emailContent })
+
+  await recordNotification(supabase, {
+    bookingId,
+    type:      notifType,
+    channel:   'email',
+    recipient: driver.email,
+    body:      pushBody,
+    delivered: result.ok,
+    providerMessageId: result.id,
+    error:     result.error,
+  })
+
+  return new Response(JSON.stringify({ ok: true, pushed: false, emailed: result.ok, type: notifType }), {
     headers: { 'Content-Type': 'application/json' },
   })
 })
