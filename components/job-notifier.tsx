@@ -34,6 +34,17 @@ async function registerPush(userId: string) {
   } catch { /* permission denied or unsupported */ }
 }
 
+const CANCELLED_STATUSES = new Set(['cancelled', 'Cancelled', 'canceled', 'Canceled', 'No Show', 'no show'])
+const DETAIL_FIELDS = ['travel_date', 'travel_time', 'pickup_location', 'airport', 'dropoff_address'] as const
+
+type BookingRow = Record<string, string | number | boolean | null>
+
+function showNativeNotification(title: string, body: string, tag: string) {
+  if ('Notification' in window && Notification.permission === 'granted') {
+    new Notification(title, { body, icon: '/logo.png', tag })
+  }
+}
+
 export function JobNotifier() {
   const supabase = createClient()
   const { addToast } = useToast()
@@ -57,23 +68,59 @@ export function JobNotifier() {
       }
 
       channel = supabase
-        .channel('driver-new-jobs')
+        .channel('driver-job-events')
+        // New job assigned
         .on(
           'postgres_changes',
           { event: 'INSERT', schema: 'public', table: 'bookings', filter: `assigned_driver_id=eq.${user.id}` },
           (payload) => {
-            const b = payload.new as { customer_name: string; pickup_location?: string; airport?: string; travel_date?: string }
-            const pickup = b.pickup_location ?? b.airport ?? 'See job details'
+            const b = payload.new as BookingRow
+            const pickup = (b.pickup_location ?? b.airport ?? 'See job details') as string
+            const customer = (b.customer_name ?? 'New booking') as string
             const msg = `${pickup}${b.travel_date ? ` · ${b.travel_date}` : ''}`
+            addToast({ title: `New job — ${customer}`, message: msg, href: `/jobs/${b.id}` })
+            showNativeNotification(`New job — ${customer}`, `${customer} · ${pickup}`, 'new-job')
+          }
+        )
+        // Job updated or cancelled
+        .on(
+          'postgres_changes',
+          { event: 'UPDATE', schema: 'public', table: 'bookings', filter: `assigned_driver_id=eq.${user.id}` },
+          (payload) => {
+            const b = payload.new as BookingRow
+            const old = payload.old as BookingRow
+            const customer = (b.customer_name ?? 'Your booking') as string
+            const ref = (b.ref ?? String(b.id).slice(0, 8).toUpperCase()) as string
 
-            addToast({ title: `New job — ${b.customer_name}`, message: msg, href: '/jobs' })
+            const isCancelled = CANCELLED_STATUSES.has(b.status as string)
+              && !CANCELLED_STATUSES.has(old.status as string)
 
-            if ('Notification' in window && Notification.permission === 'granted') {
-              new Notification('New job assigned — EV Exec', {
-                body: `${b.customer_name} · ${pickup}`,
-                icon: '/logo.png',
-                tag: 'new-job',
+            if (isCancelled) {
+              addToast({
+                title: `Job cancelled — ${ref}`,
+                message: `Booking for ${customer} has been cancelled.`,
+                href: `/jobs/${b.id}`,
               })
+              showNativeNotification(
+                `Job cancelled — ${ref}`,
+                `Booking for ${customer} has been cancelled.`,
+                `cancelled-${b.id}`
+              )
+              return
+            }
+
+            const changed = DETAIL_FIELDS.filter(f => b[f] !== old[f])
+            if (changed.length > 0 && !isCancelled) {
+              addToast({
+                title: `Job updated — ${ref}`,
+                message: `${customer} · Details have changed. Tap to view.`,
+                href: `/jobs/${b.id}`,
+              })
+              showNativeNotification(
+                `Job updated — ${ref}`,
+                `${customer} · Journey details have changed.`,
+                `updated-${b.id}`
+              )
             }
           }
         )

@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts"
 import { createClient } from "jsr:@supabase/supabase-js@2"
+import { recordNotification } from '../_shared/notify.ts'
 // @ts-ignore - no type declarations published for this package
 import webpush from "npm:web-push@3.6.7"
 
@@ -47,17 +48,27 @@ Deno.serve(async (req: Request) => {
     .select('id, endpoint, p256dh, auth_key')
     .eq('driver_id', driverId)
 
-  if (!subs || subs.length === 0) {
-    return new Response(JSON.stringify({ sent: 0 }), {
-      headers: { 'Content-Type': 'application/json' },
-    })
-  }
-
   const customerName = (booking.customer_name as string) ?? 'New booking'
   const pickup = (booking.pickup_location as string) ??
     (booking.airport as string) ??
     'See job details'
   const bookingId = booking.id as string
+  const body = `${customerName} · ${pickup}`
+
+  if (!subs || subs.length === 0) {
+    await recordNotification(supabase, {
+      bookingId,
+      type: 'job_assigned',
+      channel: 'push',
+      recipient: driverId,
+      body,
+      delivered: false,
+      error: 'No push subscription registered for driver',
+    })
+    return new Response(JSON.stringify({ sent: 0 }), {
+      headers: { 'Content-Type': 'application/json' },
+    })
+  }
 
   const payload = JSON.stringify({
     title: `New job — ${customerName}`,
@@ -90,6 +101,18 @@ Deno.serve(async (req: Request) => {
   }
 
   const sent = results.filter((r) => r.status === 'fulfilled').length
+  const delivered = sent > 0
+
+  await recordNotification(supabase, {
+    bookingId,
+    type: 'job_assigned',
+    channel: 'push',
+    recipient: driverId,
+    body,
+    delivered,
+    error: delivered ? undefined : 'All push subscriptions failed',
+  })
+
   return new Response(JSON.stringify({ sent, total: subs.length }), {
     headers: { 'Content-Type': 'application/json' },
   })

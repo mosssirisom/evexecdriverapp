@@ -24,6 +24,9 @@ export type NotificationType =
   | 'operator_panic'
   | 'driver_reminder_24h'
   | 'driver_reminder_1h'
+  | 'job_assigned'
+  | 'job_cancelled'
+  | 'job_updated'
 
 export type NotificationChannel = 'push' | 'sms' | 'whatsapp' | 'voice'
 

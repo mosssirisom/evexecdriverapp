@@ -13,7 +13,7 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { sendSms, sendWhatsApp } from '../_shared/twilio.ts'
-import { recordNotification, type NotificationType } from '../_shared/notify.ts'
+import { recordNotification, pushToDriver, type NotificationType } from '../_shared/notify.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -139,35 +139,53 @@ Deno.serve(async (_req) => {
         continue
       }
 
-      const body = reminder.smsBody({
+      const msgBody = reminder.smsBody({
         ref:      booking.ref ?? booking.id.slice(0, 8).toUpperCase(),
         customer: booking.customer_name ?? 'your passenger',
         route:    buildRoute(booking),
         time:     formatTime(booking.pickup_time),
       })
 
-      const sms = await sendSms(driver.phone, body)
+      // Try push first (free, instant)
+      const pushed = await pushToDriver(supabase, {
+        driverId:  booking.assigned_driver_id,
+        bookingId: booking.id,
+        type:      reminder.type,
+        title:     reminder.type === 'driver_reminder_24h'
+          ? `Reminder: job tomorrow — ${booking.ref ?? booking.id.slice(0, 8).toUpperCase()}`
+          : `1-hour reminder — ${booking.ref ?? booking.id.slice(0, 8).toUpperCase()}`,
+        body:      msgBody,
+        url:       `/jobs/${booking.id}`,
+      })
+
+      if (pushed) {
+        summary.sent++
+        continue
+      }
+
+      // SMS fallback when driver has no push subscription
+      const sms = await sendSms(driver.phone, msgBody)
 
       await recordNotification(supabase, {
         bookingId: booking.id,
         type:      reminder.type,
         channel:   'sms',
         recipient: driver.phone,
-        body,
+        body:      msgBody,
         delivered:        sms.ok,
         providerMessageId: sms.sid,
         error:             sms.error,
       })
 
-      // WhatsApp fallback if SMS failed
+      // WhatsApp fallback if SMS also failed
       if (!sms.ok) {
-        const wa = await sendWhatsApp(driver.phone, body)
+        const wa = await sendWhatsApp(driver.phone, msgBody)
         await recordNotification(supabase, {
           bookingId: booking.id,
           type:      reminder.type,
           channel:   'whatsapp',
           recipient: driver.phone,
-          body,
+          body:      msgBody,
           delivered:        wa.ok,
           providerMessageId: wa.sid,
           error:             wa.error,
