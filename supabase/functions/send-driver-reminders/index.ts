@@ -42,32 +42,6 @@ const REMINDERS: ReminderConfig[] = [
   { type: 'driver_reminder_1h',  offsetMs: 1 * 3600_000 },
 ]
 
-function buildRoute(opts: {
-  journey_type: string | null
-  pickup_location: string | null
-  airport: string | null
-  dropoff_address: string | null
-}): string {
-  const jt = (opts.journey_type ?? '').toLowerCase()
-  const isToAirport   = jt.includes('to') && jt.includes('airport')
-  const isFromAirport = jt.includes('from') && jt.includes('airport')
-
-  if (isToAirport) {
-    const from = opts.pickup_location ?? 'pickup address'
-    const to   = opts.airport ?? 'airport'
-    return `TO AIRPORT: ${from} → ${to}`
-  }
-  if (isFromAirport) {
-    const from = opts.airport ?? 'airport'
-    const to   = opts.dropoff_address ?? 'drop-off address'
-    return `FROM AIRPORT: ${from} → ${to}`
-  }
-
-  const from = opts.pickup_location ?? opts.airport ?? 'pickup point'
-  const to   = opts.dropoff_address ?? opts.airport
-  return to ? `${from} → ${to}` : `from ${from}`
-}
-
 function formatDate(isoOrDate: string | null): string {
   if (!isoOrDate) return ''
   return new Date(isoOrDate).toLocaleDateString('en-GB', {
@@ -95,7 +69,7 @@ Deno.serve(async (_req) => {
 
     const { data: bookings, error } = await supabase
       .from('bookings')
-      .select('id, ref, customer_name, pickup_location, airport, dropoff_address, journey_type, pickup_time, travel_date, assigned_driver_id')
+      .select('id, ref, customer_name, pickup_location, airport, dropoff_address, journey_type, pickup_time, travel_date, travel_time, passengers, assigned_driver_id')
       .in('status', ACTIVE_STATUSES)
       .not('assigned_driver_id', 'is', null)
       .not('pickup_time', 'is', null)
@@ -124,11 +98,23 @@ Deno.serve(async (_req) => {
 
       const ref        = booking.ref ?? booking.id.slice(0, 8).toUpperCase()
       const customer   = booking.customer_name ?? 'your passenger'
-      const route      = buildRoute(booking)
-      const time       = formatTime(booking.pickup_time)
+      // Use travel_time (stored as local UK time string) directly to avoid BST/UTC offset issues
+      const time       = booking.travel_time
+        ? (booking.travel_time as string).slice(0, 5)
+        : formatTime(booking.pickup_time)
       const date       = formatDate(booking.travel_date ?? booking.pickup_time)
       const bookingUrl = `${APP_URL}/jobs/${booking.id}`
       const reminderType = reminder.type === 'driver_reminder_24h' ? '24h' : '1h' as const
+
+      const jt = (booking.journey_type ?? '').toLowerCase()
+      const isFromAirport = jt.includes('from') && jt.includes('airport')
+      const pickup  = isFromAirport
+        ? (booking.airport ?? booking.pickup_location ?? 'pickup point')
+        : (booking.pickup_location ?? booking.airport ?? 'pickup point')
+      const dropoff = isFromAirport
+        ? (booking.dropoff_address ?? booking.airport ?? '')
+        : (booking.dropoff_address ?? booking.airport ?? '')
+      const passengers = booking.passengers ? String(booking.passengers) : undefined
 
       const pushTitle = reminder.type === 'driver_reminder_24h'
         ? `Reminder: job tomorrow — ${ref}`
@@ -169,9 +155,11 @@ Deno.serve(async (_req) => {
         driverName: driver.full_name ?? 'Driver',
         ref,
         customer,
-        route,
+        pickup,
+        dropoff,
         date,
         time,
+        passengers,
         type: reminderType,
         bookingUrl,
       })

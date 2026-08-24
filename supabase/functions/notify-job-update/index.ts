@@ -32,28 +32,6 @@ function formatTime(timeStr: string | null): string {
   return timeStr.slice(0, 5)
 }
 
-function buildRoute(opts: {
-  journey_type: string | null
-  pickup_location: string | null
-  airport: string | null
-  dropoff_address: string | null
-}): string {
-  const jt = (opts.journey_type ?? '').toLowerCase()
-  const isToAirport   = jt.includes('to') && jt.includes('airport')
-  const isFromAirport = jt.includes('from') && jt.includes('airport')
-
-  if (isToAirport) {
-    return `TO AIRPORT: ${opts.pickup_location ?? 'pickup'} → ${opts.airport ?? 'airport'}`
-  }
-  if (isFromAirport) {
-    return `FROM AIRPORT: ${opts.airport ?? 'airport'} → ${opts.dropoff_address ?? 'drop-off'}`
-  }
-
-  const from = opts.pickup_location ?? opts.airport ?? 'pickup point'
-  const to   = opts.dropoff_address ?? opts.airport
-  return to ? `${from} → ${to}` : `from ${from}`
-}
-
 Deno.serve(async (req) => {
   if (req.method !== 'POST') {
     return new Response('Method not allowed', { status: 405 })
@@ -104,6 +82,7 @@ Deno.serve(async (req) => {
     }
 
     notifType = 'job_updated'
+    // Use travel_time directly to avoid BST/UTC offset issues
     const time = formatTime(newRecord.travel_time as string | null)
     pushTitle = `Job updated — ${ref}`
     pushBody  = `${customer}${time ? ` · pickup at ${time}` : ''}. Tap to view updated details.`
@@ -139,6 +118,15 @@ Deno.serve(async (req) => {
     })
   }
 
+  const jt = ((newRecord.journey_type as string | null) ?? '').toLowerCase()
+  const isFromAirport = jt.includes('from') && jt.includes('airport')
+  const pickupAddr = isFromAirport
+    ? ((newRecord.airport as string | null) ?? (newRecord.pickup_location as string | null) ?? '')
+    : ((newRecord.pickup_location as string | null) ?? (newRecord.airport as string | null) ?? '')
+  const dropoffAddr = isFromAirport
+    ? ((newRecord.dropoff_address as string | null) ?? (newRecord.airport as string | null) ?? '')
+    : ((newRecord.dropoff_address as string | null) ?? (newRecord.airport as string | null) ?? '')
+
   let emailContent: { subject: string; html: string }
 
   if (isCancelled) {
@@ -146,6 +134,9 @@ Deno.serve(async (req) => {
       driverName: driver.full_name ?? 'Driver',
       ref,
       customer,
+      date:   formatDate(newRecord.travel_date as string | null),
+      time:   formatTime(newRecord.travel_time as string | null),
+      pickup: pickupAddr,
       bookingUrl,
     })
   } else {
@@ -153,14 +144,10 @@ Deno.serve(async (req) => {
       driverName: driver.full_name ?? 'Driver',
       ref,
       customer,
-      date:  formatDate(newRecord.travel_date as string | null),
-      time:  formatTime(newRecord.travel_time as string | null),
-      route: buildRoute(newRecord as {
-        journey_type: string | null
-        pickup_location: string | null
-        airport: string | null
-        dropoff_address: string | null
-      }),
+      date:    formatDate(newRecord.travel_date as string | null),
+      time:    formatTime(newRecord.travel_time as string | null),
+      pickup:  pickupAddr,
+      dropoff: dropoffAddr,
       bookingUrl,
     })
   }
