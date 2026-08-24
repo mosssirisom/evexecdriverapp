@@ -16,7 +16,6 @@ declare
   is_cancelled       boolean;
   detail_changed     boolean;
   payload            jsonb;
-  fn_url             text;
 begin
   -- Only act when a driver is assigned
   if new.assigned_driver_id is null then
@@ -38,25 +37,20 @@ begin
     return new;
   end if;
 
-  fn_url := (select decrypted_secret from vault.decrypted_secrets where name = 'supabase_functions_url' limit 1);
-  if fn_url is null then
-    fn_url := current_setting('app.supabase_functions_url', true);
-  end if;
-  if fn_url is null then
-    fn_url := 'https://' || current_setting('app.supabase_project_ref', true) || '.supabase.co/functions/v1';
-  end if;
-
   payload := jsonb_build_object(
     'record',     to_jsonb(new),
     'old_record', to_jsonb(old)
   );
 
   perform net.http_post(
-    url     := fn_url || '/notify-job-update',
+    url     := 'https://yoltkmhtxwluqxxpewbl.supabase.co/functions/v1/notify-job-update',
     body    := payload,
     headers := jsonb_build_object(
       'Content-Type',  'application/json',
-      'Authorization', 'Bearer ' || current_setting('app.service_role_key', true)
+      'Authorization', 'Bearer ' || (
+        select decrypted_secret from vault.decrypted_secrets
+        where name = 'attestation_engine_service_key' limit 1
+      )
     )
   );
 
