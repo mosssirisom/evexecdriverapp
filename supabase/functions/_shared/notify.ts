@@ -138,6 +138,17 @@ export async function pushToDriver(supabase: SupabaseClient, params: PushParams)
 
   const delivered = results.some((r) => r.status === 'fulfilled')
 
+  const failureDetail = results
+    .map((r, i) => {
+      if (r.status !== 'rejected') return null
+      const reason = (r as PromiseRejectedResult).reason
+      const code = reason?.statusCode ?? reason?.status ?? '?'
+      const body = typeof reason?.body === 'string' ? reason.body.slice(0, 200) : (reason?.message ?? String(reason))
+      return `[${i}] HTTP ${code}: ${body}`
+    })
+    .filter(Boolean)
+    .join(' | ')
+
   await recordNotification(supabase, {
     bookingId: params.bookingId,
     type: params.type,
@@ -145,7 +156,7 @@ export async function pushToDriver(supabase: SupabaseClient, params: PushParams)
     recipient: params.driverId,
     body: params.body,
     delivered,
-    error: delivered ? undefined : 'All push subscriptions failed',
+    error: delivered ? undefined : (failureDetail || 'All push subscriptions failed'),
   })
 
   return delivered
