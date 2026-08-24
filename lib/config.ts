@@ -6,4 +6,4 @@ export const CONTACT_EMAIL = 'driver@evexec.co.uk'
 export const LOGIN_EMAIL_PLACEHOLDER = 'you@evexec.co.uk'
 
 // VAPID public key for Web Push (matches private key set in Supabase edge function secrets)
-export const VAPID_PUBLIC_KEY = 'BI8dCqvvyo4fR6EZT57f9ZqyIM_CoxrYRpdLRYlm_yrxNOXnDd89-oTkjEYDVWx9W_OU-y-6NPBvd8aKoJpGo_E'
+export const VAPID_PUBLIC_KEY = 'BMt8K1mjEPT87eXgYTAcS6yIwSve84prRQDA4zxpnuExPA7GmYHCZiFI2G9uaHx421w8YRWDaaQ9c4MekSe9eRw'
