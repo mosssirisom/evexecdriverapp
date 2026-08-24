@@ -12,17 +12,32 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
   return Uint8Array.from([...rawData].map((c) => c.charCodeAt(0)))
 }
 
+const PUSH_KEY_STORAGE = 'evexec_vapid_key'
+
 async function registerPush(userId: string) {
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) return
   try {
     const reg = await navigator.serviceWorker.ready
     const existing = await reg.pushManager.getSubscription()
-    const sub = existing ?? await reg.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) as unknown as ArrayBuffer,
-    })
+
+    // If the stored VAPID key differs from the current one, the existing
+    // subscription is bound to the old key and will be rejected by Apple/Chrome.
+    // Unsubscribe so we get a fresh one tied to the current key.
+    const storedKey = localStorage.getItem(PUSH_KEY_STORAGE)
+    if (existing && storedKey !== VAPID_PUBLIC_KEY) {
+      await existing.unsubscribe()
+    }
+
+    const sub = (storedKey === VAPID_PUBLIC_KEY ? existing : null) ??
+      await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) as unknown as ArrayBuffer,
+      })
+
     const json = sub.toJSON()
     if (!json.endpoint || !json.keys?.p256dh || !json.keys?.auth) return
+
+    localStorage.setItem(PUSH_KEY_STORAGE, VAPID_PUBLIC_KEY)
 
     const supabase = createClient()
     await supabase.from('push_subscriptions').upsert({
