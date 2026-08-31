@@ -140,36 +140,36 @@ export default function CalendarPage() {
   const totalMonthShiftHours = shifts.reduce((acc, s) => acc + shiftMinutes(s) / 60, 0)
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] px-4 pt-12 pb-4">
+    <div className="min-h-screen bg-[#eaeff7] px-4 pt-12 pb-4">
       <div className="mb-5">
-        <h1 className="text-gray-900 font-bold text-xl">Calendar</h1>
+        <h1 className="text-[#060C1A] font-bold text-xl">Calendar</h1>
       </div>
 
       {/* Month navigation */}
       <div className="flex items-center justify-between mb-4">
-        <button onClick={prevMonth} className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center active:opacity-70">
-          <ChevronLeft size={18} className="text-gray-500" />
+        <button onClick={prevMonth} className="w-9 h-9 rounded-xl bg-[#dce8f2] flex items-center justify-center active:opacity-70">
+          <ChevronLeft size={18} className="text-[#4a6a8a]" />
         </button>
-        <span className="text-gray-900 font-semibold text-base">{MONTHS[month]} {year}</span>
-        <button onClick={nextMonth} className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center active:opacity-70">
-          <ChevronRight size={18} className="text-gray-500" />
+        <span className="text-[#060C1A] font-semibold text-base">{MONTHS[month]} {year}</span>
+        <button onClick={nextMonth} className="w-9 h-9 rounded-xl bg-[#dce8f2] flex items-center justify-center active:opacity-70">
+          <ChevronRight size={18} className="text-[#4a6a8a]" />
         </button>
       </div>
 
       {/* Monthly summary */}
       {!loading && (
         <div className="grid grid-cols-3 gap-3 mb-4">
-          <div className="bg-white border border-gray-200 rounded-2xl p-3 text-center">
-            <p className="text-gray-400 text-[10px] uppercase tracking-wide">Jobs</p>
-            <p className="text-gray-900 font-bold text-xl mt-0.5">{totalMonthJobs}</p>
+          <div className="bg-white border border-[#c4d4e4] rounded-2xl p-3 text-center">
+            <p className="text-[#7a9ab8] text-[10px] uppercase tracking-wide">Jobs</p>
+            <p className="text-[#060C1A] font-bold text-xl mt-0.5">{totalMonthJobs}</p>
           </div>
-          <div className="bg-white border border-gray-200 rounded-2xl p-3 text-center">
-            <p className="text-gray-400 text-[10px] uppercase tracking-wide">Earnings</p>
+          <div className="bg-white border border-[#c4d4e4] rounded-2xl p-3 text-center">
+            <p className="text-[#7a9ab8] text-[10px] uppercase tracking-wide">Earnings</p>
             <p className="text-[#d5a538] font-bold text-xl mt-0.5">£{totalMonthEarnings.toFixed(0)}</p>
           </div>
-          <div className="bg-white border border-gray-200 rounded-2xl p-3 text-center">
-            <p className="text-gray-400 text-[10px] uppercase tracking-wide">Shift hrs</p>
-            <p className="text-gray-900 font-bold text-xl mt-0.5">
+          <div className="bg-white border border-[#c4d4e4] rounded-2xl p-3 text-center">
+            <p className="text-[#7a9ab8] text-[10px] uppercase tracking-wide">Shift hrs</p>
+            <p className="text-[#060C1A] font-bold text-xl mt-0.5">
               {totalMonthShiftHours > 0 ? totalMonthShiftHours.toFixed(0) : '—'}
             </p>
           </div>
@@ -179,7 +179,7 @@ export default function CalendarPage() {
       {/* Day headers */}
       <div className="grid grid-cols-7 mb-1">
         {DAYS.map(d => (
-          <div key={d} className="text-center text-[9px] font-semibold text-gray-400 py-1 uppercase tracking-wide">
+          <div key={d} className="text-center text-[9px] font-semibold text-[#7a9ab8] py-1 uppercase tracking-wide">
             {d}
           </div>
         ))}
@@ -219,7 +219,7 @@ export default function CalendarPage() {
                 isSelected ? 'text-[#020813]'
                 : isUnavailable ? 'text-red-400/70'
                 : isToday ? 'text-[#d5a538]'
-                : 'text-gray-600'
+                : 'text-[#2d4c6d]'
               }`}>
                 {day}
               </span>
@@ -252,15 +252,15 @@ export default function CalendarPage() {
       <div className="flex items-center gap-4 mb-5 flex-wrap">
         <div className="flex items-center gap-1.5">
           <div className="w-2 h-2 rounded-full bg-[#d5a538]" />
-          <span className="text-gray-400 text-[10px]">Job</span>
+          <span className="text-[#7a9ab8] text-[10px]">Job</span>
         </div>
         <div className="flex items-center gap-1.5">
           <div className="w-2 h-2 rounded-full bg-blue-400/70" />
-          <span className="text-gray-400 text-[10px]">Shift</span>
+          <span className="text-[#7a9ab8] text-[10px]">Shift</span>
         </div>
         <div className="flex items-center gap-1.5">
           <div className="w-2 h-2 rounded-full bg-red-400/50" />
-          <span className="text-gray-400 text-[10px]">Unavailable</span>
+          <span className="text-[#7a9ab8] text-[10px]">Unavailable</span>
         </div>
       </div>
 
@@ -268,10 +268,10 @@ export default function CalendarPage() {
       {selectedDateStr && (
         <div>
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-gray-900 font-semibold text-sm">
+            <h2 className="text-[#060C1A] font-semibold text-sm">
               {selectedDay} {MONTHS[month]}
             </h2>
-            <span className="text-gray-400 text-xs">
+            <span className="text-[#7a9ab8] text-xs">
               {selectedBookings.length} job{selectedBookings.length !== 1 ? 's' : ''}
             </span>
           </div>
@@ -305,7 +305,7 @@ export default function CalendarPage() {
               className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold mb-3 border transition-opacity disabled:opacity-50 active:opacity-70 ${
                 selectedIsUnavailable
                   ? 'border-red-500/30 text-red-400 bg-red-500/8'
-                  : 'border-gray-200 text-gray-400 bg-gray-50'
+                  : 'border-[#c4d4e4] text-[#7a9ab8] bg-[#f0f5fa]'
               }`}
             >
               <Ban size={14} />
@@ -318,9 +318,9 @@ export default function CalendarPage() {
               <div className="w-6 h-6 rounded-full border-2 border-[#d5a538] border-t-transparent animate-spin" />
             </div>
           ) : selectedBookings.length === 0 ? (
-            <div className="bg-white border border-gray-200 rounded-2xl p-8 text-center">
-              <Car size={24} className="mx-auto mb-2 text-gray-300" />
-              <p className="text-gray-400 text-sm">
+            <div className="bg-white border border-[#c4d4e4] rounded-2xl p-8 text-center">
+              <Car size={24} className="mx-auto mb-2 text-[#a8c0d4]" />
+              <p className="text-[#7a9ab8] text-sm">
                 {selectedIsUnavailable ? 'Marked as unavailable' : 'No jobs this day'}
               </p>
             </div>
@@ -335,8 +335,8 @@ export default function CalendarPage() {
                       isCompleted
                         ? 'bg-white border border-green-500/20'
                         : isCancelled
-                        ? 'bg-white border border-gray-100 opacity-50'
-                        : 'bg-white border border-gray-200'
+                        ? 'bg-white border border-[#d8e6f0] opacity-50'
+                        : 'bg-white border border-[#c4d4e4]'
                     }`}>
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-[#d5a538] font-semibold text-sm">{formatTime(job.travel_time)}</span>
@@ -351,11 +351,11 @@ export default function CalendarPage() {
                             </div>
                           )}
                           {isCancelled && (
-                            <span className="text-gray-400 text-[10px] font-medium">Cancelled</span>
+                            <span className="text-[#7a9ab8] text-[10px] font-medium">Cancelled</span>
                           )}
                         </div>
                       </div>
-                      <p className="text-gray-900 font-medium text-sm mb-2">{job.customer_name}</p>
+                      <p className="text-[#060C1A] font-medium text-sm mb-2">{job.customer_name}</p>
                       <RouteDisplay booking={job} />
                     </div>
                   </Link>

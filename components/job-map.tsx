@@ -126,7 +126,7 @@ export function JobMap({ pickup, dropoff }: Props) {
   if (failed) return null
 
   return (
-    <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+    <div className="bg-white border border-[#c4d4e4] rounded-2xl overflow-hidden">
       <div className="relative" style={{ height: 200 }}>
         {loading && (
           <div className="absolute inset-0 flex items-center justify-center bg-white z-10">
@@ -136,14 +136,14 @@ export function JobMap({ pickup, dropoff }: Props) {
         <div ref={mapRef} className="h-full w-full" style={{ background: '#e5e7eb' }} />
       </div>
       {(eta || dist) && (
-        <div className="flex items-center gap-4 px-4 py-3 border-t border-gray-100">
+        <div className="flex items-center gap-4 px-4 py-3 border-t border-[#d8e6f0]">
           {eta && (
-            <span className="flex items-center gap-1.5 text-gray-500 text-xs">
+            <span className="flex items-center gap-1.5 text-[#4a6a8a] text-xs">
               <Clock size={11} className="text-[#d5a538]" /> {eta}
             </span>
           )}
           {dist && (
-            <span className="flex items-center gap-1.5 text-gray-500 text-xs">
+            <span className="flex items-center gap-1.5 text-[#4a6a8a] text-xs">
               <Route size={11} className="text-[#d5a538]" /> {dist}
             </span>
           )}

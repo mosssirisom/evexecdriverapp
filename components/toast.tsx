@@ -35,12 +35,12 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                 <Bell size={15} className="text-[#020813]" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-gray-900 font-semibold text-sm leading-tight">{t.title}</p>
-                <p className="text-gray-500 text-xs mt-0.5 truncate">{t.message}</p>
+                <p className="text-[#060C1A] font-semibold text-sm leading-tight">{t.title}</p>
+                <p className="text-[#4a6a8a] text-xs mt-0.5 truncate">{t.message}</p>
               </div>
               <button
                 onClick={(e) => { e.preventDefault(); remove(t.id) }}
-                className="text-gray-400 hover:text-gray-500 flex-shrink-0 p-1"
+                className="text-[#7a9ab8] hover:text-[#4a6a8a] flex-shrink-0 p-1"
               >
                 <X size={15} />
               </button>

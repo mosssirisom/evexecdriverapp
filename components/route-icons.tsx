@@ -29,7 +29,7 @@ export function PickupIcon({
 
 /** Dropoff icon — flag marker for destination */
 export function DropoffIcon({ size = 12 }: { size?: number }) {
-  return <Flag size={size} className="flex-shrink-0 text-gray-400" />
+  return <Flag size={size} className="flex-shrink-0 text-[#7a9ab8]" />
 }
 
 /**
@@ -63,16 +63,16 @@ export function RouteDisplay({
         )}
         {dropoff && (
           <>
-            <div className="w-px flex-1 min-h-[10px] bg-gray-200 my-[2px]" />
-            <Flag size={10} className="flex-shrink-0 text-gray-400" />
+            <div className="w-px flex-1 min-h-[10px] bg-[#cad8e8] my-[2px]" />
+            <Flag size={10} className="flex-shrink-0 text-[#7a9ab8]" />
           </>
         )}
       </div>
       {/* Right: addresses */}
       <div className="flex-1 min-w-0">
-        <p className="text-gray-500 text-xs leading-tight truncate">{pickup}</p>
+        <p className="text-[#4a6a8a] text-xs leading-tight truncate">{pickup}</p>
         {dropoff && (
-          <p className="text-gray-400 text-xs leading-tight truncate mt-[7px]">{dropoff}</p>
+          <p className="text-[#7a9ab8] text-xs leading-tight truncate mt-[7px]">{dropoff}</p>
         )}
       </div>
     </div>
