@@ -150,7 +150,7 @@ function SwipeToConfirm({
     <div
       ref={containerRef}
       className="relative w-full h-16 rounded-2xl select-none overflow-hidden"
-      style={{ background: `rgba(${rgb},0.10)`, border: `1px solid rgba(${rgb},0.25)` }}
+      style={{ background: `rgba(${rgb},0.18)`, border: `1px solid rgba(${rgb},0.55)` }}
     >
       <div
         className="absolute inset-y-0 left-0 rounded-2xl"
@@ -166,7 +166,7 @@ function SwipeToConfirm({
         ))}
       </div>
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none pl-16">
-        <span className="text-sm font-bold" style={{ color: `rgba(255,255,255,${0.45 + progress * 0.4})` }}>
+        <span className="text-sm font-bold" style={{ color: `rgba(6,12,26,${0.55 + progress * 0.35})` }}>
           {label}
         </span>
       </div>
