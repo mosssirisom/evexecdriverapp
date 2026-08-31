@@ -80,10 +80,13 @@ export function JobMap({ pickup, dropoff }: Props) {
       const map = L.map(mapRef.current, { zoomControl: false, attributionControl: false })
       mapInstanceRef.current = map
 
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
-        subdomains: 'abcd',
       }).addTo(map)
+
+      // Dark theme overlay — inverts OSM light tiles to match the app's dark UI
+      const tilePane = map.getPane('tilePane')
+      if (tilePane) tilePane.style.filter = 'invert(100%) hue-rotate(180deg)'
 
       const greenDot = L.divIcon({
         className: '',
