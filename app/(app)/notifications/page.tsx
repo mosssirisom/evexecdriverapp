@@ -77,12 +77,12 @@ export default function NotificationsPage() {
   useEffect(() => { loadActivity() }, [loadActivity])
 
   return (
-    <div className="min-h-screen bg-[#060C1A] px-4 pt-12 pb-6">
+    <div className="min-h-screen bg-[#f8fafc] px-4 pt-12 pb-6">
       <div className="flex items-center gap-3 mb-6">
-        <button onClick={() => router.back()} className="text-white/40 active:text-white/70">
+        <button onClick={() => router.back()} className="text-gray-400 active:text-gray-600">
           <ChevronLeft size={22} />
         </button>
-        <h1 className="text-white font-bold text-xl">Activity</h1>
+        <h1 className="text-gray-900 font-bold text-xl">Activity</h1>
       </div>
 
       {loading ? (
@@ -90,10 +90,10 @@ export default function NotificationsPage() {
           <div className="w-7 h-7 rounded-full border-2 border-[#d5a538] border-t-transparent animate-spin" />
         </div>
       ) : bookings.length === 0 ? (
-        <div className="bg-[#0B1525] border border-white/8 rounded-2xl p-12 text-center">
-          <Bell size={32} className="mx-auto mb-3 text-white/20" />
-          <p className="text-white/40 text-sm">No activity yet</p>
-          <p className="text-white/20 text-xs mt-1">Your job history will appear here</p>
+        <div className="bg-white border border-gray-200 rounded-2xl p-12 text-center">
+          <Bell size={32} className="mx-auto mb-3 text-gray-300" />
+          <p className="text-gray-400 text-sm">No activity yet</p>
+          <p className="text-gray-300 text-xs mt-1">Your job history will appear here</p>
         </div>
       ) : (
         <div className="space-y-2.5">
@@ -104,7 +104,7 @@ export default function NotificationsPage() {
             const pickup = booking.pickup_location ?? booking.airport ?? 'See job details'
             return (
               <Link key={booking.id} href={`/jobs/${booking.id}`}>
-                <div className="bg-[#0B1525] border border-white/8 rounded-2xl p-4 active:opacity-80 transition-opacity">
+                <div className="bg-white border border-gray-200 rounded-2xl p-4 active:opacity-80 transition-opacity">
                   <div className="flex items-start gap-3">
                     {/* Status icon */}
                     <div
@@ -118,24 +118,24 @@ export default function NotificationsPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
-                          <p className="text-white font-semibold text-sm leading-tight">{booking.customer_name}</p>
-                          <p className="text-white/40 text-[11px] mt-0.5">{label}</p>
+                          <p className="text-gray-900 font-semibold text-sm leading-tight">{booking.customer_name}</p>
+                          <p className="text-gray-400 text-[11px] mt-0.5">{label}</p>
                         </div>
                         <div className="flex items-center gap-1.5 flex-shrink-0">
-                          <span className="text-white/25 text-[10px]">{timeAgo(booking.updated_at)}</span>
-                          <ChevronRight size={13} className="text-white/25" />
+                          <span className="text-gray-400 text-[10px]">{timeAgo(booking.updated_at)}</span>
+                          <ChevronRight size={13} className="text-gray-400" />
                         </div>
                       </div>
 
                       {/* Route */}
                       <div className="flex items-center gap-1.5 mt-2">
                         <PickupIcon booking={booking} size={11} />
-                        <p className="text-white/50 text-xs truncate">{pickup}</p>
+                        <p className="text-gray-500 text-xs truncate">{pickup}</p>
                       </div>
 
                       {/* Date/time */}
                       {booking.travel_date && (
-                        <p className="text-white/20 text-[10px] mt-1">
+                        <p className="text-gray-300 text-[10px] mt-1">
                           {formatDate(booking.travel_date)}{booking.travel_time ? ` · ${formatTime(booking.travel_time)}` : ''}
                         </p>
                       )}

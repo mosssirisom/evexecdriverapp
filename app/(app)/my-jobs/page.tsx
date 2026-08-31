@@ -57,10 +57,10 @@ export default function MyJobsPage() {
   }, [])
 
   return (
-    <div className="min-h-screen bg-[#060C1A] px-4 pt-12 pb-4">
+    <div className="min-h-screen bg-[#f8fafc] px-4 pt-12 pb-4">
       <div className="mb-6">
-        <h1 className="text-white font-bold text-xl">Active</h1>
-        <p className="text-white/40 text-xs mt-1">Jobs currently in progress</p>
+        <h1 className="text-gray-900 font-bold text-xl">Active</h1>
+        <p className="text-gray-400 text-xs mt-1">Jobs currently in progress</p>
       </div>
 
       {loading ? (
@@ -68,10 +68,10 @@ export default function MyJobsPage() {
           <div className="w-7 h-7 rounded-full border-2 border-[#d5a538] border-t-transparent animate-spin" />
         </div>
       ) : bookings.length === 0 ? (
-        <div className="bg-[#0B1525] border border-white/8 rounded-2xl p-12 text-center">
-          <Car size={32} className="mx-auto mb-3 text-white/20" />
-          <p className="text-white/40 text-sm">No active jobs right now</p>
-          <p className="text-white/20 text-xs mt-1">Jobs appear here once you start them</p>
+        <div className="bg-white border border-gray-200 rounded-2xl p-12 text-center">
+          <Car size={32} className="mx-auto mb-3 text-gray-300" />
+          <p className="text-gray-400 text-sm">No active jobs right now</p>
+          <p className="text-gray-300 text-xs mt-1">Jobs appear here once you start them</p>
         </div>
       ) : (
         <div className="space-y-4">
@@ -79,7 +79,7 @@ export default function MyJobsPage() {
             const pickupAddress = booking.pickup_location ?? booking.airport ?? '—'
             const dropoffAddress = booking.dropoff_address ?? '—'
             return (
-              <div key={booking.id} className="bg-[#0B1525] border border-white/8 rounded-2xl overflow-hidden">
+              <div key={booking.id} className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
                 <div
                   className="px-4 py-2.5 flex items-center justify-between"
                   style={{
@@ -102,13 +102,13 @@ export default function MyJobsPage() {
                 <div className="p-4">
                   <div className="flex items-center justify-between mb-3">
                     <div>
-                      <p className="text-white font-semibold text-sm">{booking.customer_name}</p>
-                      <p className="text-white/40 text-xs mt-0.5">{formatTime(booking.travel_time)}</p>
+                      <p className="text-gray-900 font-semibold text-sm">{booking.customer_name}</p>
+                      <p className="text-gray-400 text-xs mt-0.5">{formatTime(booking.travel_time)}</p>
                     </div>
                     {booking.customer_phone && (
                       <a
                         href={`tel:${booking.customer_phone}`}
-                        className="w-9 h-9 rounded-xl flex items-center justify-center border border-white/10 bg-white/5 active:opacity-70"
+                        className="w-9 h-9 rounded-xl flex items-center justify-center border border-gray-200 bg-gray-100 active:opacity-70"
                       >
                         <Phone size={15} className="text-[#d5a538]" />
                       </a>
@@ -123,13 +123,13 @@ export default function MyJobsPage() {
                       ) : (
                         <MapPin size={11} className="flex-shrink-0 text-[#d5a538]" />
                       )}
-                      <div className="w-px flex-1 min-h-[12px] bg-white/10 my-[3px]" />
-                      <Flag size={11} className="flex-shrink-0 text-white/30" />
+                      <div className="w-px flex-1 min-h-[12px] bg-gray-200 my-[3px]" />
+                      <Flag size={11} className="flex-shrink-0 text-gray-400" />
                     </div>
                     {/* Addresses with nav buttons */}
                     <div className="flex-1 min-w-0 space-y-[7px]">
                       <div className="flex items-center gap-2">
-                        <p className="flex-1 text-white/50 text-xs leading-tight truncate">{pickupAddress}</p>
+                        <p className="flex-1 text-gray-500 text-xs leading-tight truncate">{pickupAddress}</p>
                         <button onClick={() => navigateTo(pickupAddress)} className="text-[#d5a538] flex-shrink-0 active:opacity-70">
                           <Navigation2 size={14} />
                         </button>

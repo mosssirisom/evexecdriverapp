@@ -84,10 +84,6 @@ export function JobMap({ pickup, dropoff }: Props) {
         maxZoom: 19,
       }).addTo(map)
 
-      // Dark theme overlay — inverts OSM light tiles to match the app's dark UI
-      const tilePane = map.getPane('tilePane')
-      if (tilePane) tilePane.style.filter = 'invert(100%) hue-rotate(180deg)'
-
       const greenDot = L.divIcon({
         className: '',
         html: '<div style="width:14px;height:14px;border-radius:50%;background:#10b981;border:2.5px solid white;box-shadow:0 1px 6px rgba(0,0,0,0.5)"></div>',
@@ -130,24 +126,24 @@ export function JobMap({ pickup, dropoff }: Props) {
   if (failed) return null
 
   return (
-    <div className="bg-[#0B1525] border border-white/8 rounded-2xl overflow-hidden">
+    <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
       <div className="relative" style={{ height: 200 }}>
         {loading && (
-          <div className="absolute inset-0 flex items-center justify-center bg-[#0B1525] z-10">
+          <div className="absolute inset-0 flex items-center justify-center bg-white z-10">
             <div className="w-6 h-6 rounded-full border-2 border-[#d5a538] border-t-transparent animate-spin" />
           </div>
         )}
-        <div ref={mapRef} className="h-full w-full" style={{ background: '#0d1b2e' }} />
+        <div ref={mapRef} className="h-full w-full" style={{ background: '#e5e7eb' }} />
       </div>
       {(eta || dist) && (
-        <div className="flex items-center gap-4 px-4 py-3 border-t border-white/5">
+        <div className="flex items-center gap-4 px-4 py-3 border-t border-gray-100">
           {eta && (
-            <span className="flex items-center gap-1.5 text-white/50 text-xs">
+            <span className="flex items-center gap-1.5 text-gray-500 text-xs">
               <Clock size={11} className="text-[#d5a538]" /> {eta}
             </span>
           )}
           {dist && (
-            <span className="flex items-center gap-1.5 text-white/50 text-xs">
+            <span className="flex items-center gap-1.5 text-gray-500 text-xs">
               <Route size={11} className="text-[#d5a538]" /> {dist}
             </span>
           )}

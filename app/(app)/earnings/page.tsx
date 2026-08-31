@@ -157,20 +157,20 @@ function EarningsContent() {
   }
 
   return (
-    <div className="min-h-screen bg-[#060C1A] px-4 pt-12 pb-4">
+    <div className="min-h-screen bg-[#f8fafc] px-4 pt-12 pb-4">
       <div className="mb-6">
-        <h1 className="text-white font-bold text-xl">Earnings</h1>
-        <p className="text-white/40 text-xs mt-1">Your payment summary</p>
+        <h1 className="text-gray-900 font-bold text-xl">Earnings</h1>
+        <p className="text-gray-400 text-xs mt-1">Your payment summary</p>
       </div>
 
       {/* View Switcher */}
-      <div className="flex gap-1 bg-white/5 rounded-xl p-1 mb-5">
+      <div className="flex gap-1 bg-gray-100 rounded-xl p-1 mb-5">
         {(['overview', 'report'] as View[]).map((v) => (
           <button
             key={v}
             onClick={() => setView(v)}
             className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all ${
-              view === v ? 'text-[#020813]' : 'text-white/40 hover:text-white/60'
+              view === v ? 'text-[#020813]' : 'text-gray-400 hover:text-gray-500'
             }`}
             style={view === v ? { background: 'linear-gradient(135deg, #f1c56a, #d5a538 55%, #a97918)' } : {}}
           >
@@ -192,7 +192,7 @@ function EarningsContent() {
                 key={p}
                 onClick={() => setPeriod(p)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border ${
-                  period === p ? 'border-[#d5a538]/40 text-[#d5a538] bg-[#d5a538]/8' : 'border-white/8 text-white/40'
+                  period === p ? 'border-[#d5a538]/40 text-[#d5a538] bg-[#d5a538]/8' : 'border-gray-200 text-gray-400'
                 }`}
               >
                 {PERIOD_LABELS[p]}
@@ -213,7 +213,7 @@ function EarningsContent() {
             </p>
             <div className="flex items-end gap-1">
               <PoundSterling size={24} className="text-[#d5a538] mb-1" />
-              <span className="text-white font-bold text-4xl">
+              <span className="text-gray-900 font-bold text-4xl">
                 {periodTotal.toLocaleString('en-GB', { minimumFractionDigits: 2 })}
               </span>
             </div>
@@ -221,34 +221,34 @@ function EarningsContent() {
 
           {/* Stats */}
           <div className="grid grid-cols-2 gap-3 mb-4">
-            <div className="bg-[#0B1525] border border-white/8 rounded-xl p-3 text-center">
+            <div className="bg-white border border-gray-200 rounded-xl p-3 text-center">
               <Briefcase size={16} className="mx-auto mb-1 text-[#d5a538]" />
-              <p className="text-white font-bold text-lg">{periodTrips}</p>
-              <p className="text-white/30 text-[10px] uppercase tracking-wide">Jobs</p>
+              <p className="text-gray-900 font-bold text-lg">{periodTrips}</p>
+              <p className="text-gray-400 text-[10px] uppercase tracking-wide">Jobs</p>
             </div>
-            <div className="bg-[#0B1525] border border-white/8 rounded-xl p-3 text-center">
+            <div className="bg-white border border-gray-200 rounded-xl p-3 text-center">
               <TrendingUp size={16} className="mx-auto mb-1 text-[#d5a538]" />
-              <p className="text-white font-bold text-lg">£{perJob.toFixed(0)}</p>
-              <p className="text-white/30 text-[10px] uppercase tracking-wide">Per Job avg</p>
+              <p className="text-gray-900 font-bold text-lg">£{perJob.toFixed(0)}</p>
+              <p className="text-gray-400 text-[10px] uppercase tracking-wide">Per Job avg</p>
             </div>
           </div>
 
           {/* Performance */}
           {(completionRate !== null || onTimeRate !== null) && (
-            <div className="bg-[#0B1525] border border-white/8 rounded-2xl p-4 mb-5">
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-white/25 mb-3">Performance</p>
+            <div className="bg-white border border-gray-200 rounded-2xl p-4 mb-5">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 mb-3">Performance</p>
               <div className="grid grid-cols-2 gap-4">
                 {completionRate !== null && (
                   <div>
                     <div className="flex items-center gap-1.5 mb-1.5">
                       <CheckCircle2 size={13} className="text-[#10b981]" />
-                      <p className="text-white/40 text-[10px] uppercase tracking-wide">Completion</p>
+                      <p className="text-gray-400 text-[10px] uppercase tracking-wide">Completion</p>
                     </div>
                     <p className={`text-2xl font-bold ${completionRate >= 90 ? 'text-[#10b981]' : completionRate >= 75 ? 'text-amber-400' : 'text-red-400'}`}>
                       {completionRate}%
                     </p>
-                    <p className="text-white/20 text-[10px] mt-0.5">{completedCount} of {finalisedCount} jobs</p>
-                    <div className="h-1 bg-white/5 rounded-full mt-2 overflow-hidden">
+                    <p className="text-gray-300 text-[10px] mt-0.5">{completedCount} of {finalisedCount} jobs</p>
+                    <div className="h-1 bg-gray-100 rounded-full mt-2 overflow-hidden">
                       <div
                         className="h-full rounded-full"
                         style={{
@@ -263,13 +263,13 @@ function EarningsContent() {
                   <div>
                     <div className="flex items-center gap-1.5 mb-1.5">
                       <Clock size={13} className="text-[#d5a538]" />
-                      <p className="text-white/40 text-[10px] uppercase tracking-wide">On Time</p>
+                      <p className="text-gray-400 text-[10px] uppercase tracking-wide">On Time</p>
                     </div>
                     <p className={`text-2xl font-bold ${onTimeRate >= 90 ? 'text-[#10b981]' : onTimeRate >= 75 ? 'text-amber-400' : 'text-red-400'}`}>
                       {onTimeRate}%
                     </p>
-                    <p className="text-white/20 text-[10px] mt-0.5">{onTimeCount} of {trackedJobs.length} tracked</p>
-                    <div className="h-1 bg-white/5 rounded-full mt-2 overflow-hidden">
+                    <p className="text-gray-300 text-[10px] mt-0.5">{onTimeCount} of {trackedJobs.length} tracked</p>
+                    <div className="h-1 bg-gray-100 rounded-full mt-2 overflow-hidden">
                       <div
                         className="h-full rounded-full"
                         style={{
@@ -286,25 +286,25 @@ function EarningsContent() {
 
           {/* Jobs list */}
           {periodBookings.length === 0 ? (
-            <div className="bg-[#0B1525] border border-white/8 rounded-2xl p-12 text-center">
-              <PoundSterling size={28} className="mx-auto mb-3 text-white/20" />
-              <p className="text-white/40 text-sm">
+            <div className="bg-white border border-gray-200 rounded-2xl p-12 text-center">
+              <PoundSterling size={28} className="mx-auto mb-3 text-gray-300" />
+              <p className="text-gray-400 text-sm">
                 No completed jobs {period === 'today' ? 'today' : `this ${period}`}
               </p>
             </div>
           ) : (
             <>
-              <h2 className="text-white font-semibold text-sm mb-3">Completed Jobs</h2>
+              <h2 className="text-gray-900 font-semibold text-sm mb-3">Completed Jobs</h2>
               <div className="space-y-3">
                 {periodBookings.map((booking) => {
                   const pickup = booking.pickup_location ?? booking.airport ?? '—'
                   const dropoff = booking.dropoff_address ?? '—'
                   return (
-                    <div key={booking.id} className="bg-[#0B1525] border border-white/8 rounded-2xl p-4">
+                    <div key={booking.id} className="bg-white border border-gray-200 rounded-2xl p-4">
                       <div className="flex items-start justify-between mb-2">
                         <div>
-                          <p className="text-white font-medium text-sm">{booking.customer_name}</p>
-                          <p className="text-white/30 text-xs mt-0.5">
+                          <p className="text-gray-900 font-medium text-sm">{booking.customer_name}</p>
+                          <p className="text-gray-400 text-xs mt-0.5">
                             {formatDate(booking.travel_date)}
                             {booking.travel_time ? ` · ${formatTime(booking.travel_time)}` : ''}
                           </p>
@@ -313,10 +313,10 @@ function EarningsContent() {
                           <p className="text-[#d5a538] font-bold">£{booking.quoted_price.toFixed(2)}</p>
                         )}
                       </div>
-                      <div className="flex items-center gap-1.5 text-xs text-white/30 min-w-0">
+                      <div className="flex items-center gap-1.5 text-xs text-gray-400 min-w-0">
                         <PickupIcon booking={booking} size={11} />
                         <span className="truncate">{pickup}</span>
-                        <span className="text-white/20 mx-0.5 flex-shrink-0">→</span>
+                        <span className="text-gray-300 mx-0.5 flex-shrink-0">→</span>
                         <DropoffIcon size={11} />
                         <span className="truncate">{dropoff}</span>
                       </div>
@@ -333,35 +333,35 @@ function EarningsContent() {
           <div className="flex items-center justify-between mb-4">
             <button
               onClick={prevMonth}
-              className="w-9 h-9 rounded-xl bg-white/5 flex items-center justify-center active:opacity-70"
+              className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center active:opacity-70"
             >
-              <ChevronLeft size={18} className="text-white/60" />
+              <ChevronLeft size={18} className="text-gray-500" />
             </button>
-            <span className="text-white font-semibold text-base">{MONTHS[month]} {year}</span>
+            <span className="text-gray-900 font-semibold text-base">{MONTHS[month]} {year}</span>
             <button
               onClick={nextMonth}
-              className="w-9 h-9 rounded-xl bg-white/5 flex items-center justify-center active:opacity-70"
+              className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center active:opacity-70"
             >
-              <ChevronRight size={18} className="text-white/60" />
+              <ChevronRight size={18} className="text-gray-500" />
             </button>
           </div>
 
           {/* Stats */}
           <div className="grid grid-cols-3 gap-3 mb-4">
-            <div className="bg-[#0B1525] border border-white/8 rounded-2xl p-3 text-center">
-              <p className="text-white/30 text-[9px] uppercase tracking-wide">This Month</p>
-              <p className="text-white font-bold text-xl mt-0.5">{monthBookings.length}</p>
-              <p className="text-white/20 text-[9px] mt-0.5">trips</p>
+            <div className="bg-white border border-gray-200 rounded-2xl p-3 text-center">
+              <p className="text-gray-400 text-[9px] uppercase tracking-wide">This Month</p>
+              <p className="text-gray-900 font-bold text-xl mt-0.5">{monthBookings.length}</p>
+              <p className="text-gray-300 text-[9px] mt-0.5">trips</p>
             </div>
-            <div className="bg-[#0B1525] border border-white/8 rounded-2xl p-3 text-center">
-              <p className="text-white/30 text-[9px] uppercase tracking-wide">Earned</p>
+            <div className="bg-white border border-gray-200 rounded-2xl p-3 text-center">
+              <p className="text-gray-400 text-[9px] uppercase tracking-wide">Earned</p>
               <p className="text-[#d5a538] font-bold text-xl mt-0.5">£{monthEarnings.toFixed(0)}</p>
-              <p className="text-white/20 text-[9px] mt-0.5">this month</p>
+              <p className="text-gray-300 text-[9px] mt-0.5">this month</p>
             </div>
-            <div className="bg-[#0B1525] border border-white/8 rounded-2xl p-3 text-center">
-              <p className="text-white/30 text-[9px] uppercase tracking-wide">All Time</p>
+            <div className="bg-white border border-gray-200 rounded-2xl p-3 text-center">
+              <p className="text-gray-400 text-[9px] uppercase tracking-wide">All Time</p>
               <p className="text-[#d5a538] font-bold text-xl mt-0.5">£{allEarnings.toFixed(0)}</p>
-              <p className="text-white/20 text-[9px] mt-0.5">{bookings.length} trips</p>
+              <p className="text-gray-300 text-[9px] mt-0.5">{bookings.length} trips</p>
             </div>
           </div>
 
@@ -382,13 +382,13 @@ function EarningsContent() {
             }
             const maxEarn = Math.max(...weeks.map(w => w.earn), 1)
             return (
-              <div className="bg-[#0B1525] border border-white/8 rounded-2xl p-4 mb-4">
-                <p className="text-[10px] font-semibold uppercase tracking-widest text-white/25 mb-3">Weekly Breakdown</p>
+              <div className="bg-white border border-gray-200 rounded-2xl p-4 mb-4">
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 mb-3">Weekly Breakdown</p>
                 <div className="space-y-2">
                   {weeks.map(w => (
                     <div key={w.label} className="flex items-center gap-3">
-                      <span className="text-white/30 text-[10px] w-20 flex-shrink-0">{w.label}</span>
-                      <div className="flex-1 h-1.5 rounded-full bg-white/5 overflow-hidden">
+                      <span className="text-gray-400 text-[10px] w-20 flex-shrink-0">{w.label}</span>
+                      <div className="flex-1 h-1.5 rounded-full bg-gray-100 overflow-hidden">
                         <div
                           className="h-full rounded-full"
                           style={{ width: `${(w.earn / maxEarn) * 100}%`, background: 'linear-gradient(90deg, #f1c56a, #d5a538)' }}
@@ -417,9 +417,9 @@ function EarningsContent() {
 
           {/* Job list */}
           {monthBookings.length === 0 ? (
-            <div className="bg-[#0B1525] border border-white/8 rounded-2xl p-12 text-center">
-              <ClipboardList size={32} className="mx-auto mb-3 text-white/20" />
-              <p className="text-white/40 text-sm">No completed trips in {MONTHS[month]}</p>
+            <div className="bg-white border border-gray-200 rounded-2xl p-12 text-center">
+              <ClipboardList size={32} className="mx-auto mb-3 text-gray-300" />
+              <p className="text-gray-400 text-sm">No completed trips in {MONTHS[month]}</p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -427,11 +427,11 @@ function EarningsContent() {
                 const pickup = job.pickup_location ?? job.airport ?? '—'
                 const dropoff = job.dropoff_address ?? '—'
                 return (
-                  <div key={job.id} className="bg-[#0B1525] border border-white/8 rounded-2xl p-4">
+                  <div key={job.id} className="bg-white border border-gray-200 rounded-2xl p-4">
                     <div className="flex items-start justify-between gap-2 mb-3">
                       <div>
-                        <p className="text-white font-semibold text-sm">{job.customer_name}</p>
-                        <p className="text-white/30 text-xs mt-0.5">
+                        <p className="text-gray-900 font-semibold text-sm">{job.customer_name}</p>
+                        <p className="text-gray-400 text-xs mt-0.5">
                           {formatDate(job.travel_date)}{job.travel_time ? ` · ${formatTime(job.travel_time)}` : ''}
                         </p>
                       </div>
@@ -456,7 +456,7 @@ function EarningsContent() {
 export default function EarningsPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-[#060C1A] flex items-center justify-center">
+      <div className="min-h-screen bg-[#f8fafc] flex items-center justify-center">
         <div className="w-7 h-7 rounded-full border-2 border-[#d5a538] border-t-transparent animate-spin" />
       </div>
     }>

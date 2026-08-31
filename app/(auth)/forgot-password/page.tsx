@@ -31,20 +31,20 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-6 bg-[#060C1A]">
+    <div className="min-h-screen flex flex-col items-center justify-center px-6 bg-[#f8fafc]">
       <div className="mb-8 text-center">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/logo.png" alt="EV Exec" width={160} height={160} className="mx-auto" />
-        <p className="text-white/40 mt-2 tracking-widest uppercase text-xs">Driver Portal</p>
+        <p className="text-gray-400 mt-2 tracking-widest uppercase text-xs">Driver Portal</p>
       </div>
 
-      <div className="w-full max-w-sm bg-[#0B1525] border border-white/8 rounded-2xl p-6 shadow-2xl">
+      <div className="w-full max-w-sm bg-white border border-gray-200 rounded-2xl p-6 shadow-2xl">
         {sent ? (
           <div className="text-center py-2">
             <MailCheck size={32} className="mx-auto mb-3 text-[#d5a538]" />
-            <h2 className="text-lg font-semibold text-white mb-2">Check your email</h2>
-            <p className="text-white/50 text-sm">
-              If an account exists for <span className="text-white/80">{email}</span>, we&apos;ve sent a link to reset your password.
+            <h2 className="text-lg font-semibold text-gray-900 mb-2">Check your email</h2>
+            <p className="text-gray-500 text-sm">
+              If an account exists for <span className="text-gray-700">{email}</span>, we&apos;ve sent a link to reset your password.
             </p>
             <Link
               href="/login"
@@ -56,14 +56,14 @@ export default function ForgotPasswordPage() {
           </div>
         ) : (
           <>
-            <h2 className="text-lg font-semibold text-white mb-2">Reset your password</h2>
-            <p className="text-white/40 text-sm mb-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-2">Reset your password</h2>
+            <p className="text-gray-400 text-sm mb-6">
               Enter the email associated with your driver account and we&apos;ll send you a link to reset your password.
             </p>
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-[10px] font-semibold text-white/40 mb-2 uppercase tracking-widest">
+                <label className="block text-[10px] font-semibold text-gray-400 mb-2 uppercase tracking-widest">
                   Email
                 </label>
                 <input
@@ -73,7 +73,7 @@ export default function ForgotPasswordPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@evexec.co.uk"
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/20 text-sm focus:outline-none focus:border-[#d5a538] focus:ring-1 focus:ring-[#d5a538] transition-colors"
+                  className="w-full bg-gray-100 border border-gray-200 rounded-xl px-4 py-3 text-gray-900 placeholder-gray-400 text-sm focus:outline-none focus:border-[#d5a538] focus:ring-1 focus:ring-[#d5a538] transition-colors"
                 />
               </div>
 
@@ -96,7 +96,7 @@ export default function ForgotPasswordPage() {
 
             <Link
               href="/login"
-              className="inline-flex items-center gap-1.5 text-white/40 hover:text-white/60 text-xs font-medium mt-6"
+              className="inline-flex items-center gap-1.5 text-gray-400 hover:text-gray-500 text-xs font-medium mt-6"
             >
               <ArrowLeft size={14} />
               Back to sign in

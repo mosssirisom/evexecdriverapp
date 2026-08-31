@@ -25,34 +25,34 @@ function sortNearestFirst(list: Booking[]) {
 function BookingCard({ booking }: { booking: Booking }) {
   return (
     <Link href={`/jobs/${booking.id}`}>
-      <div className="bg-[#0B1525] border border-white/8 rounded-2xl p-4 active:opacity-80 transition-opacity">
+      <div className="bg-white border border-gray-200 rounded-2xl p-4 active:opacity-80 transition-opacity">
         <div className="flex items-start justify-between mb-3">
           <div className="flex items-center gap-2">
             <span className="text-[#d5a538] font-semibold text-sm">{formatTime(booking.travel_time)}</span>
-            <span className="text-white/20 text-xs">{formatDate(booking.travel_date)}</span>
+            <span className="text-gray-300 text-xs">{formatDate(booking.travel_date)}</span>
           </div>
           <div className="flex items-center gap-2">
             <BookingStatusBadge status={booking.status} />
-            <ChevronRight size={14} className="text-white/30" />
+            <ChevronRight size={14} className="text-gray-400" />
           </div>
         </div>
 
         <div className="flex items-baseline justify-between gap-2 mb-0.5">
-          <p className="text-white font-medium text-sm">{booking.customer_name}</p>
+          <p className="text-gray-900 font-medium text-sm">{booking.customer_name}</p>
           {booking.ref && (
-            <span className="text-white/25 text-[10px] font-mono flex-shrink-0">{booking.ref}</span>
+            <span className="text-gray-400 text-[10px] font-mono flex-shrink-0">{booking.ref}</span>
           )}
         </div>
         {booking.journey_type && (
-          <p className="text-white/30 text-xs mb-3 capitalize">{booking.journey_type.replace(/_/g, ' ')}</p>
+          <p className="text-gray-400 text-xs mb-3 capitalize">{booking.journey_type.replace(/_/g, ' ')}</p>
         )}
 
         <RouteDisplay booking={booking} />
 
         {(booking.quoted_price || booking.payment_method || booking.payment_status) && (
-          <div className="flex items-center gap-2 mt-3 pt-3 border-t border-white/5">
+          <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-100">
             {booking.passengers > 0 && (
-              <span className="text-white/40 text-xs flex items-center gap-1">
+              <span className="text-gray-400 text-xs flex items-center gap-1">
                 <Users size={11} /> {booking.passengers}
               </span>
             )}
@@ -134,24 +134,24 @@ export default function JobsPage() {
   const today = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
 
   return (
-    <div className="min-h-screen bg-[#060C1A] px-4 pt-12 pb-4">
+    <div className="min-h-screen bg-[#f8fafc] px-4 pt-12 pb-4">
       <div className="mb-4">
-        <h1 className="text-white font-bold text-xl">Jobs</h1>
-        <p className="text-white/40 text-xs mt-1">{today}</p>
+        <h1 className="text-gray-900 font-bold text-xl">Jobs</h1>
+        <p className="text-gray-400 text-xs mt-1">{today}</p>
       </div>
 
       {/* Search */}
       <div className="relative mb-4">
-        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none" />
+        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
         <input
           type="text"
           placeholder="Search by name or ref (EVX-…)"
           value={search}
           onChange={e => setSearch(e.target.value)}
-          className="w-full bg-white/5 border border-white/8 rounded-xl pl-8 pr-8 py-2.5 text-white text-sm placeholder-white/20 focus:outline-none focus:border-[#d5a538]/50"
+          className="w-full bg-gray-100 border border-gray-200 rounded-xl pl-8 pr-8 py-2.5 text-gray-900 text-sm placeholder-gray-400 focus:outline-none focus:border-[#d5a538]/50"
         />
         {search && (
-          <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30">
+          <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
             <X size={14} />
           </button>
         )}
@@ -178,7 +178,7 @@ export default function JobsPage() {
         ))}
       </div>
 
-      <div className="flex gap-1 bg-white/5 rounded-xl p-1 mb-5">
+      <div className="flex gap-1 bg-gray-100 rounded-xl p-1 mb-5">
         {([
           { key: 'active' as Tab, label: `Active (${active.length})` },
           { key: 'upcoming' as Tab, label: `Upcoming (${upcoming.length})` },
@@ -188,7 +188,7 @@ export default function JobsPage() {
             key={key}
             onClick={() => setTab(key)}
             className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all ${
-              tab === key ? 'text-[#020813]' : 'text-white/40 hover:text-white/60'
+              tab === key ? 'text-[#020813]' : 'text-gray-400 hover:text-gray-500'
             }`}
             style={tab === key ? { background: 'linear-gradient(135deg, #f1c56a, #d5a538 55%, #a97918)' } : {}}
           >
@@ -202,9 +202,9 @@ export default function JobsPage() {
           <div className="w-7 h-7 rounded-full border-2 border-[#d5a538] border-t-transparent animate-spin" />
         </div>
       ) : currentList.length === 0 ? (
-        <div className="bg-[#0B1525] border border-white/8 rounded-2xl p-10 text-center">
-          <Car size={28} className="mx-auto mb-2 text-white/20" />
-          <p className="text-white/30 text-sm">No {tab} jobs</p>
+        <div className="bg-white border border-gray-200 rounded-2xl p-10 text-center">
+          <Car size={28} className="mx-auto mb-2 text-gray-300" />
+          <p className="text-gray-400 text-sm">No {tab} jobs</p>
         </div>
       ) : (
         <div className="space-y-3">
