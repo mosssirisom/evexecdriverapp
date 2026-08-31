@@ -103,6 +103,35 @@ export default function JobsPage() {
 
   useEffect(() => { loadBookings() }, [loadBookings])
 
+  // Live updates — patch the board in-place without requiring a page refresh
+  useEffect(() => {
+    let channel: ReturnType<typeof supabase.channel> | null = null
+    const setup = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      channel = supabase
+        .channel('jobs-board-live')
+        .on('postgres_changes', {
+          event: 'INSERT', schema: 'public', table: 'bookings',
+          filter: `assigned_driver_id=eq.${user.id}`,
+        }, (payload) => {
+          const b = payload.new as Booking
+          setBookings(prev => sortNearestFirst([...prev.filter(x => x.id !== b.id), b]))
+        })
+        .on('postgres_changes', {
+          event: 'UPDATE', schema: 'public', table: 'bookings',
+          filter: `assigned_driver_id=eq.${user.id}`,
+        }, (payload) => {
+          const b = payload.new as Booking
+          setBookings(prev => sortNearestFirst(prev.map(x => x.id === b.id ? b : x)))
+        })
+        .subscribe()
+    }
+    setup()
+    return () => { if (channel) supabase.removeChannel(channel) }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const upcoming = sortNearestFirst(bookings.filter((b) => ['accepted', 'confirmed', 'Dispatched'].includes(b.status)))
   const active = sortNearestFirst(bookings.filter((b) => ['En Route', 'en_route', 'Passenger On Board', 'Arrived', 'arrived', 'Active', 'active'].includes(b.status)))
   const completed = sortNearestFirst(bookings.filter((b) => ['completed', 'Completed', 'cancelled', 'Cancelled', 'No Show'].includes(b.status)))
