@@ -890,8 +890,9 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
   const progressIndex = PROGRESS_STEPS.findIndex(s => s === booking.status)
   const showProgress = progressIndex >= 0 || isCompleted
   const currentPaymentMethod = (localPaymentMethod ?? booking.payment_method) as 'Cash' | 'Card' | 'Bank Transfer' | 'TBC' | null
+  const noPaymentRequired = booking.quoted_price == null || booking.quoted_price === 0
   const cashReceivedValid = currentPaymentMethod !== 'Cash' || (parseFloat(cashReceived) > 0)
-  const canCompleteJourney = cashReceivedValid
+  const canCompleteJourney = noPaymentRequired || cashReceivedValid
 
   // Only allow initial dispatch transitions within 24 h of pickup;
   // mid-job statuses (En Route and beyond) are always unlocked.
@@ -1045,7 +1046,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
                       <span className="text-[#7a9ab8] text-sm font-semibold">Available 24 h before pickup</span>
                     </div>
                   )}
-                  {nextStep.to === 'Completed' && !canCompleteJourney && (
+                  {nextStep.to === 'Completed' && !canCompleteJourney && !noPaymentRequired && (
                     <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 rounded-xl px-3 py-2.5 mt-2">
                       <Banknote size={14} className="text-amber-400 flex-shrink-0" />
                       <p className="text-amber-400 text-xs font-semibold">Enter cash received above before completing</p>
