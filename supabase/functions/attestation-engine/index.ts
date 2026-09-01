@@ -6,11 +6,11 @@
 // State machine (bookings.attestation_status):
 //
 //   not_required ──(check_time reached)──> awaiting_first_attestation
-//        │  push + SMS/WhatsApp "confirm your pickup"
+//        │  push "confirm your pickup"
 //        │  wait attestation_first_gate_minutes (default 10)
 //        ▼
 //   awaiting_second_attestation ──(driver confirms anytime)──> confirmed (terminal)
-//        │  urgent push + SMS + voice call "confirm NOW"
+//        │  urgent push "confirm NOW"
 //        │  wait attestation_second_gate_minutes (default 5)
 //        ▼
 //   reallocating
@@ -32,7 +32,7 @@
 
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
 import { createClient, type SupabaseClient } from 'jsr:@supabase/supabase-js@2'
-import { sendSms, sendWhatsApp, makeVoiceCall } from '../_shared/twilio.ts'
+import { sendSms, makeVoiceCall } from '../_shared/twilio.ts'
 import { pushToDriver, recordNotification, type NotificationType } from '../_shared/notify.ts'
 import { findNextAvailableDriver } from '../_shared/dispatch.ts'
 
@@ -95,19 +95,13 @@ function pickupSummary(booking: AttestationBooking): string {
   return `${booking.customer_name} at ${time} (${place})`
 }
 
-/** Sends the push + SMS/WhatsApp(/voice) bundle for a given gate to the currently assigned driver. */
+/** Sends a push notification for a given gate to the currently assigned driver. */
 async function sendGateNotification(
   supabase: SupabaseClient,
   booking: AttestationBooking,
-  opts: { type: NotificationType; title: string; pushBody: string; smsBody: string; includeVoice: boolean }
+  opts: { type: NotificationType; title: string; pushBody: string }
 ): Promise<void> {
   if (!booking.assigned_driver_id) return
-
-  const { data: driver } = await supabase
-    .from('drivers')
-    .select('id, full_name, phone')
-    .eq('id', booking.assigned_driver_id)
-    .maybeSingle()
 
   await pushToDriver(supabase, {
     driverId: booking.assigned_driver_id,
@@ -117,50 +111,6 @@ async function sendGateNotification(
     body: opts.pushBody,
     url: `/jobs/${booking.id}`,
   })
-
-  const phone = driver?.phone
-  if (!phone) return
-
-  const sms = await sendSms(phone, opts.smsBody)
-  await recordNotification(supabase, {
-    bookingId: booking.id,
-    type: opts.type,
-    channel: 'sms',
-    recipient: phone,
-    body: opts.smsBody,
-    delivered: sms.ok,
-    providerMessageId: sms.sid,
-    error: sms.error,
-  })
-
-  // Fall back to WhatsApp if plain SMS failed to send.
-  if (!sms.ok) {
-    const wa = await sendWhatsApp(phone, opts.smsBody)
-    await recordNotification(supabase, {
-      bookingId: booking.id,
-      type: opts.type,
-      channel: 'whatsapp',
-      recipient: phone,
-      body: opts.smsBody,
-      delivered: wa.ok,
-      providerMessageId: wa.sid,
-      error: wa.error,
-    })
-  }
-
-  if (opts.includeVoice) {
-    const call = await makeVoiceCall(phone, opts.smsBody)
-    await recordNotification(supabase, {
-      bookingId: booking.id,
-      type: opts.type,
-      channel: 'voice',
-      recipient: phone,
-      body: opts.smsBody,
-      delivered: call.ok,
-      providerMessageId: call.sid,
-      error: call.error,
-    })
-  }
 }
 
 async function triggerOperatorPanic(supabase: SupabaseClient, booking: AttestationBooking): Promise<void> {
@@ -241,8 +191,6 @@ async function runFirstGate(supabase: SupabaseClient, now: Date, summary: RunSum
       type: 'attestation_first',
       title: 'Confirm your pickup',
       pushBody: `Tap to confirm you're on track for ${pickupSummary(booking)}`,
-      smsBody: `EV Exec: Please confirm in the driver app that you're ready for ${pickupSummary(booking)}. Reply is required within ${booking.attestation_first_gate_minutes} minutes.`,
-      includeVoice: false,
     })
 
     summary.first_gate += 1
@@ -292,8 +240,6 @@ async function runSecondGate(supabase: SupabaseClient, now: Date, summary: RunSu
       type: 'attestation_second_urgent',
       title: 'URGENT: Confirm your pickup now',
       pushBody: `FINAL WARNING — confirm now or this job will be reassigned: ${pickupSummary(booking)}`,
-      smsBody: `EV Exec URGENT: You have NOT confirmed ${pickupSummary(booking)}. Confirm in the app within ${booking.attestation_second_gate_minutes} minutes or the job will be reassigned.`,
-      includeVoice: true,
     })
 
     summary.second_gate += 1
@@ -395,8 +341,6 @@ async function runReallocation(supabase: SupabaseClient, now: Date, summary: Run
           type: 'attestation_reallocated',
           title: 'New job — confirm immediately',
           pushBody: `You've been assigned a pickup that needs confirming now: ${pickupSummary(booking)}`,
-          smsBody: `EV Exec: A pickup has been reassigned to you - ${pickupSummary(booking)}. Confirm in the driver app within ${COMPRESSED_GATE_MINUTES} minutes.`,
-          includeVoice: false,
         }
       )
 
