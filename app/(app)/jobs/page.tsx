@@ -106,6 +106,7 @@ export default function JobsPage() {
   // Live updates — patch the board in-place without requiring a page refresh
   useEffect(() => {
     let channel: ReturnType<typeof supabase.channel> | null = null
+    let unassignChannel: ReturnType<typeof supabase.channel> | null = null
     const setup = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
@@ -126,9 +127,27 @@ export default function JobsPage() {
           setBookings(prev => sortNearestFirst(prev.map(x => x.id === b.id ? b : x)))
         })
         .subscribe()
+
+      // Remove booking from board when operator unassigns this driver.
+      // Requires REPLICA IDENTITY FULL on bookings (already applied via migration).
+      unassignChannel = supabase
+        .channel('jobs-board-unassignment')
+        .on('postgres_changes', {
+          event: 'UPDATE', schema: 'public', table: 'bookings',
+        }, (payload) => {
+          const b = payload.new as Booking
+          const old = payload.old as { assigned_driver_id?: string }
+          if (old.assigned_driver_id === user.id && b.assigned_driver_id !== user.id) {
+            setBookings(prev => prev.filter(x => x.id !== b.id))
+          }
+        })
+        .subscribe()
     }
     setup()
-    return () => { if (channel) supabase.removeChannel(channel) }
+    return () => {
+      if (channel) supabase.removeChannel(channel)
+      if (unassignChannel) supabase.removeChannel(unassignChannel)
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

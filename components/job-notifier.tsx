@@ -50,7 +50,10 @@ async function registerPush(userId: string) {
 }
 
 const CANCELLED_STATUSES = new Set(['cancelled', 'Cancelled', 'canceled', 'Canceled', 'No Show', 'no show'])
-const DETAIL_FIELDS = ['travel_date', 'travel_time', 'pickup_location', 'airport', 'dropoff_address'] as const
+const DETAIL_FIELDS = [
+  'travel_date', 'travel_time', 'pickup_location', 'airport', 'dropoff_address',
+  'quoted_price', 'payment_method', 'payment_status',
+] as const
 
 type BookingRow = Record<string, string | number | boolean | null>
 
@@ -67,6 +70,7 @@ export function JobNotifier() {
 
   useEffect(() => {
     let channel: ReturnType<typeof supabase.channel> | null = null
+    let unassignChannel: ReturnType<typeof supabase.channel> | null = null
 
     const setup = async () => {
       const { data: { user } } = await supabase.auth.getUser()
@@ -97,7 +101,7 @@ export function JobNotifier() {
             showNativeNotification(`New job — ${customer}`, `${customer} · ${pickup}`, 'new-job')
           }
         )
-        // Job updated or cancelled
+        // Job updated, status changed, or cancelled
         .on(
           'postgres_changes',
           { event: 'UPDATE', schema: 'public', table: 'bookings', filter: `assigned_driver_id=eq.${user.id}` },
@@ -124,8 +128,25 @@ export function JobNotifier() {
               return
             }
 
+            // Status change (progress bar update)
+            if (b.status !== old.status) {
+              const label = String(b.status ?? '').replace(/_/g, ' ')
+              addToast({
+                title: `Status updated — ${ref}`,
+                message: `${customer} · Now: ${label}`,
+                href: `/jobs/${b.id}`,
+              })
+              showNativeNotification(
+                `Status updated — ${ref}`,
+                `${customer} · Now: ${label}`,
+                `status-${b.id}`
+              )
+              return
+            }
+
+            // Detail or payment field changes
             const changed = DETAIL_FIELDS.filter(f => b[f] !== old[f])
-            if (changed.length > 0 && !isCancelled) {
+            if (changed.length > 0) {
               addToast({
                 title: `Job updated — ${ref}`,
                 message: `${customer} · Details have changed. Tap to view.`,
@@ -140,10 +161,40 @@ export function JobNotifier() {
           }
         )
         .subscribe()
+
+      // Unassignment detection — catches when operator removes this driver from a booking.
+      // Requires REPLICA IDENTITY FULL on the bookings table so old.assigned_driver_id is available.
+      unassignChannel = supabase
+        .channel('driver-unassignment')
+        .on(
+          'postgres_changes',
+          { event: 'UPDATE', schema: 'public', table: 'bookings' },
+          (payload) => {
+            const b = payload.new as BookingRow
+            const old = payload.old as BookingRow
+            if (old.assigned_driver_id === user.id && b.assigned_driver_id !== user.id) {
+              const ref = (b.ref ?? String(b.id).slice(0, 8).toUpperCase()) as string
+              const customer = (b.customer_name ?? 'A booking') as string
+              addToast({
+                title: `Job removed — ${ref}`,
+                message: `${customer} has been removed from your schedule.`,
+              })
+              showNativeNotification(
+                `Job removed — ${ref}`,
+                `${customer} has been removed from your schedule.`,
+                `unassigned-${b.id}`
+              )
+            }
+          }
+        )
+        .subscribe()
     }
 
     setup()
-    return () => { if (channel) supabase.removeChannel(channel) }
+    return () => {
+      if (channel) supabase.removeChannel(channel)
+      if (unassignChannel) supabase.removeChannel(unassignChannel)
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
