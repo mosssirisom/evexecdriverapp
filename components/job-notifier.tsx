@@ -128,22 +128,6 @@ export function JobNotifier() {
               return
             }
 
-            // Status change (progress bar update)
-            if (b.status !== old.status) {
-              const label = String(b.status ?? '').replace(/_/g, ' ')
-              addToast({
-                title: `Status updated — ${ref}`,
-                message: `${customer} · Now: ${label}`,
-                href: `/jobs/${b.id}`,
-              })
-              showNativeNotification(
-                `Status updated — ${ref}`,
-                `${customer} · Now: ${label}`,
-                `status-${b.id}`
-              )
-              return
-            }
-
             // Detail or payment field changes
             const changed = DETAIL_FIELDS.filter(f => b[f] !== old[f])
             if (changed.length > 0) {
