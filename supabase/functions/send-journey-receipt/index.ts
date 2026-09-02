@@ -3,13 +3,15 @@
 // Triggered by the driver app after marking a journey Completed.
 // Sends:
 //   1. A passenger receipt to customer_email (branded, journey summary)
+//      — falls back to SMS if no customer_email is on file
 //   2. A corporate invoice to corporate_email (expenses breakdown, totals)
 //
-// Uses Resend (https://resend.com) for delivery.
+// Email is the primary channel; SMS is the fallback for the passenger receipt
+// when no customer_email exists.
 //
 // Required secrets:
-//   RESEND_API_KEY  — Resend API key
-//   RECEIPT_FROM    — "From" address, e.g. "EV Exec <receipts@evexec.co.uk>"
+//   RESEND_API_KEY, RECEIPT_FROM  — email (primary)
+//   TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER — SMS (fallback)
 //
 // POST body: { bookingId: string }
 // Returns:   { ok: boolean; sent: string[]; error?: string }
@@ -17,12 +19,32 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 
-const SUPABASE_URL             = Deno.env.get('SUPABASE_URL') ?? ''
+const SUPABASE_URL              = Deno.env.get('SUPABASE_URL') ?? ''
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-const RESEND_API_KEY           = Deno.env.get('RESEND_API_KEY') ?? ''
-const RECEIPT_FROM             = Deno.env.get('RECEIPT_FROM') ?? 'EV Exec <receipts@evexec.co.uk>'
-const APP_URL                  = Deno.env.get('APP_URL') ?? 'https://evexec.co.uk'
-const LOGO_URL                 = `${APP_URL}/logo.png`
+const RESEND_API_KEY            = Deno.env.get('RESEND_API_KEY') ?? ''
+const RECEIPT_FROM              = Deno.env.get('RECEIPT_FROM') ?? 'EV Exec <receipts@evexec.co.uk>'
+const APP_URL                   = Deno.env.get('APP_URL') ?? 'https://evexec.co.uk'
+const LOGO_URL                  = `${APP_URL}/logo.png`
+const TWILIO_ACCOUNT_SID        = Deno.env.get('TWILIO_ACCOUNT_SID') ?? ''
+const TWILIO_AUTH_TOKEN         = Deno.env.get('TWILIO_AUTH_TOKEN') ?? ''
+const TWILIO_FROM_NUMBER        = Deno.env.get('TWILIO_FROM_NUMBER') ?? ''
+
+async function sendSms(to: string, body: string): Promise<boolean> {
+  if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN || !TWILIO_FROM_NUMBER) return false
+  const res = await fetch(
+    `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Basic ${btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`)}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({ To: to, From: TWILIO_FROM_NUMBER, Body: body }).toString(),
+    }
+  )
+  if (!res.ok) console.error('[send-journey-receipt] Twilio error:', await res.text())
+  return res.ok
+}
 
 // ─── Email helpers ────────────────────────────────────────────────────────────
 
@@ -305,14 +327,22 @@ Deno.serve(async (req) => {
 
   const sent: string[] = []
 
-  // Send passenger receipt
+  // Send passenger receipt (email primary, SMS fallback)
   if (booking.customer_email) {
     const ok = await sendEmail(
       booking.customer_email,
       `Your EV Exec journey receipt — ${ref}`,
       passengerReceiptHtml(booking, ref),
     )
-    if (ok) sent.push('customer')
+    if (ok) sent.push('customer_email')
+  }
+
+  // SMS fallback — only if no email or email send failed
+  if (!sent.includes('customer_email') && booking.customer_phone) {
+    const price = booking.quoted_price != null ? ` Total: £${(booking.quoted_price as number).toFixed(2)}.` : ''
+    const smsBody = `Your EV Exec journey is complete. Booking ref: ${ref}.${price} Thank you for travelling with us.`
+    const ok = await sendSms(booking.customer_phone, smsBody)
+    if (ok) sent.push('customer_sms')
   }
 
   // Send corporate invoice
