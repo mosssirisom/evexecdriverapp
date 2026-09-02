@@ -4,12 +4,12 @@
 // 20260622000000_driver_reminder_cron.sql for the scheduling setup).
 //
 // Notifies the assigned driver:
-//   - 24 h before pickup_time  → type 'driver_reminder_24h'
-//   - 1 h before pickup_time   → type 'driver_reminder_1h'
+//   - 24 h before pickup_time  → type 'driver_reminder_24h' (push AND email)
+//   - 1 h before pickup_time   → type 'driver_reminder_1h'  (push, email fallback)
 //
-// Delivery order:
-//   1. Web push (free, instant) — uses the driver's registered push subscription.
-//   2. Email fallback via Resend — used when no push subscription is registered.
+// 24h reminder: both push and email are sent simultaneously so the driver
+// receives the reminder in the live app AND their inbox.
+// 1h reminder: push is primary; email is sent only when push fails.
 //
 // Deduplication: checks notification_log before sending so that an extra
 // invocation inside the same ±1-minute window never fires twice.
@@ -123,7 +123,11 @@ Deno.serve(async (_req) => {
         ? `${customer} · pickup at ${time}. Ensure your vehicle is clean and ready.`
         : `${customer} · pickup at ${time}. Make your way to the collection point now.`
 
-      // 1. Try push notification first
+      // 24h reminders: push AND email simultaneously
+      // 1h reminders: push first, email fallback only if push fails
+      const is24h = reminder.type === 'driver_reminder_24h'
+
+      // Always send push
       const pushed = await pushToDriver(supabase, {
         driverId:  booking.assigned_driver_id,
         bookingId: booking.id,
@@ -133,51 +137,53 @@ Deno.serve(async (_req) => {
         url:       `/jobs/${booking.id}`,
       })
 
-      if (pushed) {
-        summary.pushed++
+      if (pushed) summary.pushed++
+
+      // For 24h: always send email too. For 1h: email only if push failed.
+      if (is24h || !pushed) {
+        const { data: driver } = await supabase
+          .from('drivers')
+          .select('email, full_name')
+          .eq('id', booking.assigned_driver_id)
+          .maybeSingle()
+
+        if (!driver?.email) {
+          if (!pushed) {
+            console.warn(`[${reminder.type}] no email for driver on booking ${booking.id}`)
+            summary.skipped++
+          }
+          continue
+        }
+
+        const { subject, html } = reminderEmail({
+          driverName: driver.full_name ?? 'Driver',
+          ref,
+          customer,
+          pickup,
+          dropoff,
+          date,
+          time,
+          passengers,
+          type: reminderType,
+          bookingUrl,
+        })
+
+        const result = await sendEmail({ to: driver.email, subject, html })
+
+        await recordNotification(supabase, {
+          bookingId: booking.id,
+          type:      reminder.type,
+          channel:   'email',
+          recipient: driver.email,
+          body:      pushBody,
+          delivered: result.ok,
+          providerMessageId: result.id,
+          error:     result.error,
+        })
+
+        result.ok ? summary.emailed++ : summary.failed++
         continue
       }
-
-      // 2. Email fallback — fetch driver email
-      const { data: driver } = await supabase
-        .from('drivers')
-        .select('email, full_name')
-        .eq('id', booking.assigned_driver_id)
-        .maybeSingle()
-
-      if (!driver?.email) {
-        console.warn(`[${reminder.type}] no email for driver on booking ${booking.id}`)
-        summary.skipped++
-        continue
-      }
-
-      const { subject, html } = reminderEmail({
-        driverName: driver.full_name ?? 'Driver',
-        ref,
-        customer,
-        pickup,
-        dropoff,
-        date,
-        time,
-        passengers,
-        type: reminderType,
-        bookingUrl,
-      })
-
-      const result = await sendEmail({ to: driver.email, subject, html })
-
-      await recordNotification(supabase, {
-        bookingId: booking.id,
-        type:      reminder.type,
-        channel:   'email',
-        recipient: driver.email,
-        body:      pushBody,
-        delivered: result.ok,
-        providerMessageId: result.id,
-        error:     result.error,
-      })
-
-      result.ok ? summary.emailed++ : summary.failed++
     }
   }
 
