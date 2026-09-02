@@ -92,7 +92,10 @@ function pickupSummary(booking: AttestationBooking): string {
   const place = booking.pickup_location ?? booking.airport ?? 'pickup'
   const time = booking.travel_time
     ?? (booking.pickup_time ? new Date(booking.pickup_time).toISOString().slice(11, 16) : 'the scheduled time')
-  return `${booking.customer_name} at ${time} (${place})`
+  const date = booking.travel_date
+    ? new Date(booking.travel_date).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Europe/London' })
+    : ''
+  return `${booking.customer_name} at ${time}${date ? ` on ${date}` : ''} (${place})`
 }
 
 /** Sends a push notification for a given gate to the currently assigned driver. */

@@ -22,7 +22,7 @@ const CANCELLED_STATUSES = ['cancelled', 'Cancelled', 'canceled', 'Canceled']
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return ''
   return new Date(dateStr).toLocaleDateString('en-GB', {
-    weekday: 'short', day: 'numeric', month: 'short',
+    day: '2-digit', month: '2-digit', year: 'numeric',
     timeZone: 'Europe/London',
   })
 }
@@ -84,8 +84,9 @@ Deno.serve(async (req) => {
     notifType = 'job_updated'
     // Use travel_time directly to avoid BST/UTC offset issues
     const time = formatTime(newRecord.travel_time as string | null)
+    const date = formatDate(newRecord.travel_date as string | null)
     pushTitle = `Job updated — ${ref}`
-    pushBody  = `${customer}${time ? ` · pickup at ${time}` : ''}. Tap to view updated details.`
+    pushBody  = `${customer}${time ? ` · pickup at ${time}${date ? ` on ${date}` : ''}` : ''}. Tap to view updated details.`
   }
 
   // 1. Try push notification first

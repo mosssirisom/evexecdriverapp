@@ -141,8 +141,8 @@ export function reminderEmail(opts: {
 
   const rows = [
     { label: 'Passenger', value: opts.customer },
-    { label: 'Date', value: opts.date },
     { label: 'Pickup time', value: opts.time },
+    { label: 'Date', value: opts.date },
     { label: 'Pickup', value: opts.pickup },
     ...(opts.dropoff ? [{ label: 'Drop-off', value: opts.dropoff }] : []),
     ...(opts.passengers ? [{ label: 'Passengers', value: opts.passengers }] : []),
@@ -174,8 +174,8 @@ export function cancellationEmail(opts: {
 
   const rows = [
     { label: 'Passenger', value: opts.customer },
-    ...(opts.date ? [{ label: 'Date', value: opts.date }] : []),
     ...(opts.time ? [{ label: 'Pickup time', value: opts.time }] : []),
+    ...(opts.date ? [{ label: 'Date', value: opts.date }] : []),
     ...(opts.pickup ? [{ label: 'Pickup', value: opts.pickup }] : []),
   ]
 
@@ -208,8 +208,8 @@ export function updateEmail(opts: {
 
   const rows = [
     { label: 'Passenger', value: opts.customer },
-    { label: 'Date', value: opts.date },
     { label: 'Pickup time', value: opts.time },
+    { label: 'Date', value: opts.date },
     { label: 'Pickup', value: opts.pickup },
     ...(opts.dropoff ? [{ label: 'Drop-off', value: opts.dropoff }] : []),
   ]

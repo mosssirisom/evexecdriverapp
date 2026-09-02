@@ -43,7 +43,7 @@ const REMINDERS: ReminderConfig[] = [
 function formatDate(isoOrDate: string | null): string {
   if (!isoOrDate) return ''
   return new Date(isoOrDate).toLocaleDateString('en-GB', {
-    weekday: 'short', day: 'numeric', month: 'short',
+    day: '2-digit', month: '2-digit', year: 'numeric',
     timeZone: 'Europe/London',
   })
 }
@@ -118,8 +118,8 @@ Deno.serve(async (_req) => {
         ? `Reminder: job tomorrow — ${ref}`
         : `1-hour reminder — ${ref}`
       const pushBody = reminder.type === 'driver_reminder_24h'
-        ? `${customer} · pickup at ${time}. Ensure your vehicle is clean and ready.`
-        : `${customer} · pickup at ${time}. Make your way to the collection point now.`
+        ? `${customer} · pickup at ${time} on ${date}. Ensure your vehicle is clean and ready.`
+        : `${customer} · pickup at ${time} on ${date}. Make your way to the collection point now.`
 
       // Push primary; email fallback if push fails or no subscription
       const pushed = await pushToDriver(supabase, {
