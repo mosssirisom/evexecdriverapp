@@ -56,27 +56,27 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-6 bg-[#060C1A]">
+    <div className="min-h-screen flex flex-col items-center justify-center px-6 bg-[#eaeff7]">
       <div className="mb-8 text-center">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/logo.png" alt="EV Exec" width={160} height={160} className="mx-auto" />
-        <p className="text-white/40 mt-2 tracking-widest uppercase text-xs">Driver Portal</p>
+        <p className="text-[#7a9ab8] mt-2 tracking-widest uppercase text-xs">Driver Portal</p>
       </div>
 
-      <div className="w-full max-w-sm bg-[#0B1525] border border-white/8 rounded-2xl p-6 shadow-2xl">
+      <div className="w-full max-w-sm bg-white border border-[#c4d4e4] rounded-2xl p-6 shadow-2xl">
         {success ? (
           <div className="text-center py-2">
             <CheckCircle2 size={32} className="mx-auto mb-3 text-green-400" />
-            <h2 className="text-lg font-semibold text-white mb-2">Password updated</h2>
-            <p className="text-white/50 text-sm">Taking you to your dashboard…</p>
+            <h2 className="text-lg font-semibold text-[#060C1A] mb-2">Password updated</h2>
+            <p className="text-[#4a6a8a] text-sm">Taking you to your dashboard…</p>
           </div>
         ) : (
           <>
-            <h2 className="text-lg font-semibold text-white mb-6">Set a new password</h2>
+            <h2 className="text-lg font-semibold text-[#060C1A] mb-6">Set a new password</h2>
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-[10px] font-semibold text-white/40 mb-2 uppercase tracking-widest">
+                <label className="block text-[10px] font-semibold text-[#7a9ab8] mb-2 uppercase tracking-widest">
                   New Password
                 </label>
                 <div className="relative">
@@ -87,12 +87,12 @@ export default function ResetPasswordPage() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 pr-12 text-white placeholder-white/20 text-sm focus:outline-none focus:border-[#d5a538] focus:ring-1 focus:ring-[#d5a538] transition-colors"
+                    className="w-full bg-[#dce8f2] border border-[#c4d4e4] rounded-xl px-4 py-3 pr-12 text-[#060C1A] placeholder-[#7a9ab8] text-sm focus:outline-none focus:border-[#d5a538] focus:ring-1 focus:ring-[#d5a538] transition-colors"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#7a9ab8] hover:text-[#4a6a8a] transition-colors"
                     tabIndex={-1}
                   >
                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
@@ -101,7 +101,7 @@ export default function ResetPasswordPage() {
               </div>
 
               <div>
-                <label className="block text-[10px] font-semibold text-white/40 mb-2 uppercase tracking-widest">
+                <label className="block text-[10px] font-semibold text-[#7a9ab8] mb-2 uppercase tracking-widest">
                   Confirm Password
                 </label>
                 <input
@@ -111,7 +111,7 @@ export default function ResetPasswordPage() {
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/20 text-sm focus:outline-none focus:border-[#d5a538] focus:ring-1 focus:ring-[#d5a538] transition-colors"
+                  className="w-full bg-[#dce8f2] border border-[#c4d4e4] rounded-xl px-4 py-3 text-[#060C1A] placeholder-[#7a9ab8] text-sm focus:outline-none focus:border-[#d5a538] focus:ring-1 focus:ring-[#d5a538] transition-colors"
                 />
               </div>
 

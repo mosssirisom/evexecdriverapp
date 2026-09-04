@@ -10,8 +10,8 @@
 
 html,
 body {
-  background-color: #060C1A;
-  color: white;
+  background-color: #eaeff7;
+  color: #060C1A;
   -webkit-font-smoothing: antialiased;
   overscroll-behavior: none;
 }

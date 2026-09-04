@@ -115,23 +115,23 @@ export default function ChatPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#020813] flex items-center justify-center">
+      <div className="min-h-screen bg-[#eaeff7] flex items-center justify-center">
         <div className="w-8 h-8 rounded-full border-2 border-[#d5a538] border-t-transparent animate-spin" />
       </div>
     )
   }
 
   return (
-    <div className="flex flex-col h-screen bg-[#020813]">
+    <div className="flex flex-col h-screen bg-[#eaeff7]">
       {/* Header */}
-      <div className="flex-shrink-0 px-4 pt-12 pb-4 border-b border-white/5 bg-[#020813]">
+      <div className="flex-shrink-0 px-4 pt-12 pb-4 border-b border-[#d8e6f0] bg-[#eaeff7]">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-[#d5a538]/15 border border-[#d5a538]/30 flex items-center justify-center">
             <MessageSquare size={18} className="text-[#d5a538]" />
           </div>
           <div>
-            <h1 className="text-white font-bold text-base">EV Exec Dispatch</h1>
-            <p className="text-white/30 text-xs">Operations team</p>
+            <h1 className="text-[#060C1A] font-bold text-base">EV Exec Dispatch</h1>
+            <p className="text-[#7a9ab8] text-xs">Operations team</p>
           </div>
         </div>
       </div>
@@ -141,8 +141,8 @@ export default function ChatPage() {
         {messages.length === 0 ? (
           <div className="text-center pt-16">
             <MessageSquare size={36} className="mx-auto mb-3 text-white/15" />
-            <p className="text-white/30 text-sm">No messages yet</p>
-            <p className="text-white/20 text-xs mt-1">Send a message to the operations team</p>
+            <p className="text-[#7a9ab8] text-sm">No messages yet</p>
+            <p className="text-[#a8c0d4] text-xs mt-1">Send a message to the operations team</p>
           </div>
         ) : (
           <div className="space-y-1">
@@ -152,7 +152,7 @@ export default function ChatPage() {
                 <div key={msg.id}>
                   {showDate && (
                     <div className="text-center my-4">
-                      <span className="text-white/20 text-[10px] bg-white/5 px-3 py-1 rounded-full">
+                      <span className="text-[#a8c0d4] text-[10px] bg-[#dce8f2] px-3 py-1 rounded-full">
                         {new Date(msg.created_at).toLocaleDateString('en-GB', {
                           weekday: 'short', day: 'numeric', month: 'short',
                         })}
@@ -162,16 +162,16 @@ export default function ChatPage() {
                   <div className={`flex mb-1 ${msg.from_driver ? 'justify-end' : 'justify-start'}`}>
                     <div className={`flex flex-col gap-0.5 max-w-[78%] ${msg.from_driver ? 'items-end' : 'items-start'}`}>
                       {!msg.from_driver && i > 0 && !messages[i - 1].from_driver === false && (
-                        <span className="text-[10px] text-white/25 px-1 mb-0.5">EV Exec Ops</span>
+                        <span className="text-[10px] text-[#7a9ab8] px-1 mb-0.5">EV Exec Ops</span>
                       )}
                       {!msg.from_driver && (i === 0 || messages[i - 1].from_driver) && (
-                        <span className="text-[10px] text-white/25 px-1 mb-0.5">EV Exec Ops</span>
+                        <span className="text-[10px] text-[#7a9ab8] px-1 mb-0.5">EV Exec Ops</span>
                       )}
                       <div
                         className={`px-4 py-2.5 text-sm leading-relaxed ${
                           msg.from_driver
                             ? 'text-[#020813] font-medium rounded-2xl rounded-br-sm'
-                            : 'bg-[#0B1525] border border-white/8 text-white/80 rounded-2xl rounded-bl-sm'
+                            : 'bg-white border border-[#c4d4e4] text-[#1e3a5f] rounded-2xl rounded-bl-sm'
                         }`}
                         style={msg.from_driver
                           ? { background: 'linear-gradient(135deg, #f1c56a, #d5a538 55%, #a97918)' }
@@ -179,7 +179,7 @@ export default function ChatPage() {
                       >
                         {msg.body}
                       </div>
-                      <span className="text-[10px] text-white/20 px-1">{formatMsgTime(msg.created_at)}</span>
+                      <span className="text-[10px] text-[#a8c0d4] px-1">{formatMsgTime(msg.created_at)}</span>
                     </div>
                   </div>
                 </div>
@@ -191,8 +191,8 @@ export default function ChatPage() {
       </div>
 
       {/* Input bar */}
-      <div className="fixed bottom-[88px] left-0 right-0 px-4 bg-[#020813] pb-3 pt-2 border-t border-white/5">
-        <div className="flex items-end gap-2 bg-[#0B1525] border border-white/10 rounded-2xl px-3 py-2">
+      <div className="fixed bottom-[88px] left-0 right-0 px-4 bg-[#eaeff7] pb-3 pt-2 border-t border-[#d8e6f0]">
+        <div className="flex items-end gap-2 bg-white border border-[#c4d4e4] rounded-2xl px-3 py-2">
           <textarea
             value={input}
             onChange={e => setInput(e.target.value)}
@@ -204,7 +204,7 @@ export default function ChatPage() {
             }}
             placeholder="Message dispatch..."
             rows={1}
-            className="flex-1 bg-transparent text-white text-sm placeholder:text-white/25 resize-none outline-none py-1.5 max-h-28"
+            className="flex-1 bg-transparent text-[#060C1A] text-sm placeholder:text-[#7a9ab8] resize-none outline-none py-1.5 max-h-28"
             style={{ lineHeight: '1.5' }}
           />
           <button

@@ -50,7 +50,10 @@ async function registerPush(userId: string) {
 }
 
 const CANCELLED_STATUSES = new Set(['cancelled', 'Cancelled', 'canceled', 'Canceled', 'No Show', 'no show'])
-const DETAIL_FIELDS = ['travel_date', 'travel_time', 'pickup_location', 'airport', 'dropoff_address'] as const
+const DETAIL_FIELDS = [
+  'travel_date', 'travel_time', 'pickup_location', 'airport', 'dropoff_address',
+  'quoted_price', 'payment_method', 'payment_status',
+] as const
 
 type BookingRow = Record<string, string | number | boolean | null>
 type DriverEventRow = { event_type: string; payload: Record<string, string | null> | null }
@@ -99,7 +102,7 @@ export function JobNotifier() {
             showNativeNotification(`New job — ${customer}`, `${customer} · ${pickup}`, 'new-job')
           }
         )
-        // Job updated or cancelled
+        // Job updated, status changed, or cancelled
         .on(
           'postgres_changes',
           { event: 'UPDATE', schema: 'public', table: 'bookings', filter: `assigned_driver_id=eq.${user.id}` },
@@ -126,8 +129,9 @@ export function JobNotifier() {
               return
             }
 
+            // Detail or payment field changes
             const changed = DETAIL_FIELDS.filter(f => b[f] !== old[f])
-            if (changed.length > 0 && !isCancelled) {
+            if (changed.length > 0) {
               addToast({
                 title: `Job updated — ${ref}`,
                 message: `${customer} · Details have changed. Tap to view.`,

@@ -3,13 +3,15 @@
 // Triggered by the driver app after marking a journey Completed.
 // Sends:
 //   1. A passenger receipt to customer_email (branded, journey summary)
+//      — falls back to SMS if no customer_email is on file
 //   2. A corporate invoice to corporate_email (expenses breakdown, totals)
 //
-// Uses Resend (https://resend.com) for delivery.
+// Email is the primary channel; SMS is the fallback for the passenger receipt
+// when no customer_email exists.
 //
 // Required secrets:
-//   RESEND_API_KEY  — Resend API key
-//   RECEIPT_FROM    — "From" address, e.g. "EV Exec <receipts@evexec.co.uk>"
+//   RESEND_API_KEY, RECEIPT_FROM  — email (primary)
+//   TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER — SMS (fallback)
 //
 // POST body: { bookingId: string }
 // Returns:   { ok: boolean; sent: string[]; error?: string }
@@ -18,10 +20,32 @@ import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { CORS_HEADERS, corsPreflightResponse } from '../_shared/cors.ts'
 
-const SUPABASE_URL             = Deno.env.get('SUPABASE_URL') ?? ''
+const SUPABASE_URL              = Deno.env.get('SUPABASE_URL') ?? ''
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-const RESEND_API_KEY           = Deno.env.get('RESEND_API_KEY') ?? ''
-const RECEIPT_FROM             = Deno.env.get('RECEIPT_FROM') ?? 'EV Exec <receipts@evexec.co.uk>'
+const RESEND_API_KEY            = Deno.env.get('RESEND_API_KEY') ?? ''
+const RECEIPT_FROM              = Deno.env.get('RECEIPT_FROM') ?? 'EV Exec <receipts@evexec.co.uk>'
+const APP_URL                   = Deno.env.get('APP_URL') ?? 'https://evexec.co.uk'
+const LOGO_URL                  = `${APP_URL}/logo.png`
+const TWILIO_ACCOUNT_SID        = Deno.env.get('TWILIO_ACCOUNT_SID') ?? ''
+const TWILIO_AUTH_TOKEN         = Deno.env.get('TWILIO_AUTH_TOKEN') ?? ''
+const TWILIO_FROM_NUMBER        = Deno.env.get('TWILIO_FROM_NUMBER') ?? ''
+
+async function sendSms(to: string, body: string): Promise<boolean> {
+  if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN || !TWILIO_FROM_NUMBER) return false
+  const res = await fetch(
+    `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Basic ${btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`)}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({ To: to, From: TWILIO_FROM_NUMBER, Body: body }).toString(),
+    }
+  )
+  if (!res.ok) console.error('[send-journey-receipt] Twilio error:', await res.text())
+  return res.ok
+}
 
 // ─── Email helpers ────────────────────────────────────────────────────────────
 
@@ -69,11 +93,13 @@ function passengerReceiptHtml(b: Record<string, unknown>, ref: string): string {
   return `<!DOCTYPE html>
 <html lang="en">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
-  <div style="max-width:600px;margin:32px auto;background:#ffffff;border-radius:12px;overflow:hidden">
+<body style="margin:0;padding:0;background:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+  <div style="max-width:600px;margin:32px auto;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08)">
     <!-- Header -->
-    <div style="background:#060C1A;padding:32px 32px 24px;text-align:center">
-      <div style="color:#d5a538;font-size:22px;font-weight:700;letter-spacing:2px">EV EXEC</div>
+    <div style="background:#060C1A;padding:28px 32px;text-align:center">
+      <img src="${LOGO_URL}" alt="EV Exec" width="56" height="56"
+           style="display:block;margin:0 auto 12px;border-radius:8px" />
+      <div style="color:#d5a538;font-size:20px;font-weight:700;letter-spacing:2px">EV EXEC</div>
       <div style="color:rgba(255,255,255,0.4);font-size:11px;letter-spacing:3px;margin-top:4px;text-transform:uppercase">Journey Receipt</div>
     </div>
     <!-- Body -->
@@ -84,24 +110,30 @@ function passengerReceiptHtml(b: Record<string, unknown>, ref: string): string {
         <div style="color:#6b7280;font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">Booking Reference</div>
         <div style="color:#111827;font-size:18px;font-weight:700">${ref}</div>
       </div>
-      <!-- Route -->
-      <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px">
+      <!-- Journey details -->
+      <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;border-collapse:collapse">
         <tr>
-          <td style="padding:8px 0;border-bottom:1px solid #f3f4f6">
+          <td style="padding:12px 16px;width:36%;background:#f9fafb;border-bottom:1px solid #f3f4f6">
             <div style="color:#6b7280;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px">Pick-up</div>
-            <div style="color:#111827;font-size:14px;margin-top:4px">${pickup}</div>
+          </td>
+          <td style="padding:12px 16px;border-bottom:1px solid #f3f4f6">
+            <div style="color:#111827;font-size:13px;font-weight:500">${pickup}</div>
           </td>
         </tr>
         <tr>
-          <td style="padding:8px 0;border-bottom:1px solid #f3f4f6">
+          <td style="padding:12px 16px;background:#f9fafb;border-bottom:1px solid #f3f4f6">
             <div style="color:#6b7280;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px">Drop-off</div>
-            <div style="color:#111827;font-size:14px;margin-top:4px">${dropoff}</div>
+          </td>
+          <td style="padding:12px 16px;border-bottom:1px solid #f3f4f6">
+            <div style="color:#111827;font-size:13px;font-weight:500">${dropoff}</div>
           </td>
         </tr>
         <tr>
-          <td style="padding:8px 0">
+          <td style="padding:12px 16px;background:#f9fafb">
             <div style="color:#6b7280;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px">Completed</div>
-            <div style="color:#111827;font-size:14px;margin-top:4px">${doneAt}</div>
+          </td>
+          <td style="padding:12px 16px">
+            <div style="color:#111827;font-size:13px;font-weight:500">${doneAt}</div>
           </td>
         </tr>
       </table>
@@ -136,68 +168,87 @@ function corporateInvoiceHtml(
   const expRows = expenses.length > 0
     ? expenses.map(e => `
       <tr>
-        <td style="padding:8px 0;border-bottom:1px solid #f3f4f6;color:#374151;font-size:13px;text-transform:capitalize">${e.type.replace(/_/g, ' ')}</td>
-        <td style="padding:8px 0;border-bottom:1px solid #f3f4f6;color:#374151;font-size:13px;text-align:right">£${e.amount.toFixed(2)}</td>
+        <td style="padding:10px 16px;border-bottom:1px solid #f3f4f6;color:#374151;font-size:13px;text-transform:capitalize">${e.type.replace(/_/g, ' ')}</td>
+        <td style="padding:10px 16px;border-bottom:1px solid #f3f4f6;color:#374151;font-size:13px;text-align:right">£${e.amount.toFixed(2)}</td>
       </tr>`).join('')
-    : `<tr><td colspan="2" style="padding:8px 0;color:#9ca3af;font-size:13px">No additional expenses</td></tr>`
+    : `<tr><td colspan="2" style="padding:10px 16px;color:#9ca3af;font-size:13px">No additional expenses</td></tr>`
 
   return `<!DOCTYPE html>
 <html lang="en">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:0;background:#f4f4f5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
-  <div style="max-width:640px;margin:32px auto;background:#ffffff;border-radius:12px;overflow:hidden">
-    <div style="background:#060C1A;padding:32px;display:flex;align-items:center;justify-content:space-between">
-      <div>
-        <div style="color:#d5a538;font-size:22px;font-weight:700;letter-spacing:2px">EV EXEC</div>
-        <div style="color:rgba(255,255,255,0.4);font-size:11px;letter-spacing:3px;text-transform:uppercase;margin-top:4px">Journey Invoice</div>
-      </div>
-      <div style="text-align:right">
-        <div style="color:rgba(255,255,255,0.4);font-size:11px;text-transform:uppercase;letter-spacing:1px">Ref</div>
-        <div style="color:#ffffff;font-size:16px;font-weight:700">${ref}</div>
-      </div>
+<body style="margin:0;padding:0;background:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+  <div style="max-width:640px;margin:32px auto;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08)">
+    <!-- Header -->
+    <div style="background:#060C1A;padding:24px 32px">
+      <table width="100%" cellpadding="0" cellspacing="0">
+        <tr>
+          <td style="vertical-align:middle">
+            <img src="${LOGO_URL}" alt="EV Exec" width="48" height="48"
+                 style="display:inline-block;border-radius:6px;vertical-align:middle;margin-right:12px" />
+            <span style="color:#d5a538;font-size:20px;font-weight:700;letter-spacing:2px;vertical-align:middle">EV EXEC</span>
+            <div style="color:rgba(255,255,255,0.4);font-size:10px;letter-spacing:3px;text-transform:uppercase;margin-top:4px">Journey Invoice</div>
+          </td>
+          <td style="text-align:right;vertical-align:middle">
+            <div style="color:rgba(255,255,255,0.4);font-size:11px;text-transform:uppercase;letter-spacing:1px">Ref</div>
+            <div style="color:#ffffff;font-size:16px;font-weight:700">${ref}</div>
+          </td>
+        </tr>
+      </table>
     </div>
+    <!-- Body -->
     <div style="padding:32px">
-      <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px">
+      <!-- Journey summary -->
+      <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:28px;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;border-collapse:collapse">
         <tr>
-          <td style="padding:6px 0;border-bottom:1px solid #f3f4f6">
-            <span style="color:#6b7280;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:1px">Driver</span>
-            <span style="float:right;color:#111827;font-size:13px">${driverName}</span>
+          <td style="padding:10px 16px;width:36%;background:#f9fafb;border-bottom:1px solid #f3f4f6">
+            <span style="color:#6b7280;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px">Driver</span>
+          </td>
+          <td style="padding:10px 16px;border-bottom:1px solid #f3f4f6">
+            <span style="color:#111827;font-size:13px;font-weight:500">${driverName}</span>
           </td>
         </tr>
         <tr>
-          <td style="padding:6px 0;border-bottom:1px solid #f3f4f6">
-            <span style="color:#6b7280;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:1px">Pick-up</span>
-            <span style="float:right;color:#111827;font-size:13px">${pickup}</span>
+          <td style="padding:10px 16px;background:#f9fafb;border-bottom:1px solid #f3f4f6">
+            <span style="color:#6b7280;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px">Pick-up</span>
+          </td>
+          <td style="padding:10px 16px;border-bottom:1px solid #f3f4f6">
+            <span style="color:#111827;font-size:13px;font-weight:500">${pickup}</span>
           </td>
         </tr>
         <tr>
-          <td style="padding:6px 0;border-bottom:1px solid #f3f4f6">
-            <span style="color:#6b7280;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:1px">Drop-off</span>
-            <span style="float:right;color:#111827;font-size:13px">${dropoff}</span>
+          <td style="padding:10px 16px;background:#f9fafb;border-bottom:1px solid #f3f4f6">
+            <span style="color:#6b7280;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px">Drop-off</span>
+          </td>
+          <td style="padding:10px 16px;border-bottom:1px solid #f3f4f6">
+            <span style="color:#111827;font-size:13px;font-weight:500">${dropoff}</span>
           </td>
         </tr>
         <tr>
-          <td style="padding:6px 0">
-            <span style="color:#6b7280;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:1px">Completed</span>
-            <span style="float:right;color:#111827;font-size:13px">${doneAt}</span>
+          <td style="padding:10px 16px;background:#f9fafb">
+            <span style="color:#6b7280;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px">Completed</span>
+          </td>
+          <td style="padding:10px 16px">
+            <span style="color:#111827;font-size:13px;font-weight:500">${doneAt}</span>
           </td>
         </tr>
       </table>
 
+      <!-- Journey charge -->
       <div style="margin-bottom:8px;color:#6b7280;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px">Journey Charge</div>
-      <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px">
+      <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;border-collapse:collapse">
         <tr>
-          <td style="padding:8px 0;border-bottom:1px solid #f3f4f6;color:#374151;font-size:13px">Transfer</td>
-          <td style="padding:8px 0;border-bottom:1px solid #f3f4f6;color:#374151;font-size:13px;text-align:right">${fmtPrice(price)}</td>
+          <td style="padding:10px 16px;color:#374151;font-size:13px">Transfer</td>
+          <td style="padding:10px 16px;color:#374151;font-size:13px;text-align:right">${fmtPrice(price)}</td>
         </tr>
       </table>
 
       ${expenses.length > 0 ? `
       <div style="margin-bottom:8px;color:#6b7280;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px">Additional Expenses</div>
-      <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px">
+      <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;border-collapse:collapse">
         ${expRows}
       </table>` : ''}
 
+      <!-- Total -->
       <div style="background:#060C1A;border-radius:8px;padding:20px">
         <table width="100%" cellpadding="0" cellspacing="0">
           <tr>
@@ -207,6 +258,7 @@ function corporateInvoiceHtml(
         </table>
       </div>
     </div>
+    <!-- Footer -->
     <div style="background:#f9fafb;padding:20px 32px;border-top:1px solid #e5e7eb">
       <p style="color:#9ca3af;font-size:12px;margin:0;text-align:center">EV Exec · support@evexec.co.uk · +44 7721 070370</p>
     </div>
@@ -277,14 +329,22 @@ Deno.serve(async (req) => {
 
   const sent: string[] = []
 
-  // Send passenger receipt
+  // Send passenger receipt (email primary, SMS fallback)
   if (booking.customer_email) {
     const ok = await sendEmail(
       booking.customer_email,
       `Your EV Exec journey receipt — ${ref}`,
       passengerReceiptHtml(booking, ref),
     )
-    if (ok) sent.push('customer')
+    if (ok) sent.push('customer_email')
+  }
+
+  // SMS fallback — only if no email or email send failed
+  if (!sent.includes('customer_email') && booking.customer_phone) {
+    const price = booking.quoted_price != null ? ` Total: £${(booking.quoted_price as number).toFixed(2)}.` : ''
+    const smsBody = `Your EV Exec journey is complete. Booking ref: ${ref}.${price} Thank you for travelling with us.`
+    const ok = await sendSms(booking.customer_phone, smsBody)
+    if (ok) sent.push('customer_sms')
   }
 
   // Send corporate invoice

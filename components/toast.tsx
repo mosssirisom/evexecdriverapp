@@ -27,7 +27,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       <div className="fixed top-4 left-4 right-4 z-[200] space-y-2 pointer-events-none">
         {toasts.map((t) => {
           const content = (
-            <div className="pointer-events-auto flex items-center gap-3 bg-[#0B1525] border border-[#d5a538]/50 rounded-2xl px-4 py-3 shadow-2xl toast-enter">
+            <div className="pointer-events-auto flex items-center gap-3 bg-white border border-[#d5a538]/50 rounded-2xl px-4 py-3 shadow-2xl toast-enter">
               <div
                 className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
                 style={{ background: 'linear-gradient(135deg, #f1c56a, #d5a538)' }}
@@ -35,12 +35,12 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                 <Bell size={15} className="text-[#020813]" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-white font-semibold text-sm leading-tight">{t.title}</p>
-                <p className="text-white/50 text-xs mt-0.5 truncate">{t.message}</p>
+                <p className="text-[#060C1A] font-semibold text-sm leading-tight">{t.title}</p>
+                <p className="text-[#4a6a8a] text-xs mt-0.5 truncate">{t.message}</p>
               </div>
               <button
                 onClick={(e) => { e.preventDefault(); remove(t.id) }}
-                className="text-white/30 hover:text-white/60 flex-shrink-0 p-1"
+                className="text-[#7a9ab8] hover:text-[#4a6a8a] flex-shrink-0 p-1"
               >
                 <X size={15} />
               </button>

@@ -80,9 +80,8 @@ export function JobMap({ pickup, dropoff }: Props) {
       const map = L.map(mapRef.current, { zoomControl: false, attributionControl: false })
       mapInstanceRef.current = map
 
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
-        subdomains: 'abcd',
       }).addTo(map)
 
       const greenDot = L.divIcon({
@@ -127,24 +126,24 @@ export function JobMap({ pickup, dropoff }: Props) {
   if (failed) return null
 
   return (
-    <div className="bg-[#0B1525] border border-white/8 rounded-2xl overflow-hidden">
+    <div className="bg-white border border-[#c4d4e4] rounded-2xl overflow-hidden">
       <div className="relative" style={{ height: 200 }}>
         {loading && (
-          <div className="absolute inset-0 flex items-center justify-center bg-[#0B1525] z-10">
+          <div className="absolute inset-0 flex items-center justify-center bg-white z-10">
             <div className="w-6 h-6 rounded-full border-2 border-[#d5a538] border-t-transparent animate-spin" />
           </div>
         )}
-        <div ref={mapRef} className="h-full w-full" style={{ background: '#0d1b2e' }} />
+        <div ref={mapRef} className="h-full w-full" style={{ background: '#e5e7eb' }} />
       </div>
       {(eta || dist) && (
-        <div className="flex items-center gap-4 px-4 py-3 border-t border-white/5">
+        <div className="flex items-center gap-4 px-4 py-3 border-t border-[#d8e6f0]">
           {eta && (
-            <span className="flex items-center gap-1.5 text-white/50 text-xs">
+            <span className="flex items-center gap-1.5 text-[#4a6a8a] text-xs">
               <Clock size={11} className="text-[#d5a538]" /> {eta}
             </span>
           )}
           {dist && (
-            <span className="flex items-center gap-1.5 text-white/50 text-xs">
+            <span className="flex items-center gap-1.5 text-[#4a6a8a] text-xs">
               <Route size={11} className="text-[#d5a538]" /> {dist}
             </span>
           )}

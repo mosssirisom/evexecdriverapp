@@ -40,7 +40,7 @@ export default function ReceiptPage({ params }: { params: Promise<{ id: string }
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#060C1A] flex items-center justify-center">
+      <div className="min-h-screen bg-[#eaeff7] flex items-center justify-center">
         <div className="w-7 h-7 rounded-full border-2 border-[#d5a538] border-t-transparent animate-spin" />
       </div>
     )
@@ -95,10 +95,10 @@ export default function ReceiptPage({ params }: { params: Promise<{ id: string }
         }
       `}</style>
 
-      <div className="min-h-screen bg-[#060C1A] px-4 pt-12 pb-8">
+      <div className="min-h-screen bg-[#eaeff7] px-4 pt-12 pb-8">
         {/* Top bar */}
         <div className="flex items-center justify-between mb-4 no-print">
-          <button onClick={() => router.back()} className="flex items-center gap-1.5 text-white/50 text-sm">
+          <button onClick={() => router.back()} className="flex items-center gap-1.5 text-[#4a6a8a] text-sm">
             <ArrowLeft size={16} /> Back
           </button>
           <button
@@ -117,7 +117,7 @@ export default function ReceiptPage({ params }: { params: Promise<{ id: string }
             {booking.customer_phone && (
               <a
                 href={smsHref}
-                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-[#0B1525] border border-white/10 text-white/70 text-sm font-medium active:opacity-70"
+                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-white border border-[#c4d4e4] text-[#2d4c6d] text-sm font-medium active:opacity-70"
               >
                 <MessageSquare size={14} className="text-[#10b981]" />
                 Send via SMS
@@ -126,7 +126,7 @@ export default function ReceiptPage({ params }: { params: Promise<{ id: string }
             {emailHref && (
               <a
                 href={emailHref}
-                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-[#0B1525] border border-white/10 text-white/70 text-sm font-medium active:opacity-70"
+                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-white border border-[#c4d4e4] text-[#2d4c6d] text-sm font-medium active:opacity-70"
               >
                 <Mail size={14} className="text-[#d5a538]" />
                 Send via Email
@@ -136,12 +136,12 @@ export default function ReceiptPage({ params }: { params: Promise<{ id: string }
         )}
 
         {/* Receipt card */}
-        <div className="receipt-card bg-[#0B1525] border border-white/8 rounded-2xl p-6 max-w-md mx-auto">
+        <div className="receipt-card bg-white border border-[#c4d4e4] rounded-2xl p-6 max-w-md mx-auto">
           {/* Header */}
-          <div className="text-center mb-6 pb-5 border-b border-white/8 print-divider">
+          <div className="text-center mb-6 pb-5 border-b border-[#c4d4e4] print-divider">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/logo.png" alt="EV Exec" width={64} height={64} className="mx-auto mb-3" />
-            <p className="text-white/40 text-[10px] uppercase tracking-widest print-gray">Journey Receipt</p>
+            <p className="text-[#7a9ab8] text-[10px] uppercase tracking-widest print-gray">Journey Receipt</p>
             <h1 className="text-[#d5a538] font-bold text-2xl mt-1 tracking-wide print-black" style={{ fontFamily: 'monospace' }}>
               {ref}
             </h1>
@@ -152,7 +152,7 @@ export default function ReceiptPage({ params }: { params: Promise<{ id: string }
             <CheckCircle2 size={16} className="text-green-400" />
             <span className="text-green-400 text-sm font-semibold">Journey Completed</span>
             {booking.completed_at && (
-              <span className="text-white/30 text-xs print-label">
+              <span className="text-[#7a9ab8] text-xs print-label">
                 {new Date(booking.completed_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
               </span>
             )}
@@ -171,21 +171,21 @@ export default function ReceiptPage({ params }: { params: Promise<{ id: string }
           </div>
 
           {/* Route */}
-          <div className="bg-white/4 rounded-xl p-3 mb-5 border border-white/5">
+          <div className="bg-[#f0f5fa] rounded-xl p-3 mb-5 border border-[#d8e6f0]">
             {booking.pickup_location && (
               <div className="flex gap-2 mb-2.5">
                 <span className="text-[#d5a538] text-xs font-bold w-12 pt-0.5 print-black flex-shrink-0">FROM</span>
-                <span className="text-white text-sm print-black flex-1">{booking.pickup_location}</span>
+                <span className="text-[#060C1A] text-sm print-black flex-1">{booking.pickup_location}</span>
               </div>
             )}
             {dropoff && (
               <div className="flex gap-2">
-                <span className="text-white/40 text-xs font-bold w-12 pt-0.5 print-gray flex-shrink-0">TO</span>
-                <span className="text-white text-sm print-black flex-1">{dropoff}</span>
+                <span className="text-[#7a9ab8] text-xs font-bold w-12 pt-0.5 print-gray flex-shrink-0">TO</span>
+                <span className="text-[#060C1A] text-sm print-black flex-1">{dropoff}</span>
               </div>
             )}
             {!booking.pickup_location && !dropoff && (
-              <p className="text-white/30 text-xs">Route not recorded</p>
+              <p className="text-[#7a9ab8] text-xs">Route not recorded</p>
             )}
           </div>
 
@@ -193,7 +193,7 @@ export default function ReceiptPage({ params }: { params: Promise<{ id: string }
           {driverName && <Row label="Driver" value={driverName} />}
 
           {/* Financials */}
-          <div className="mt-4 pt-4 border-t border-white/8 print-divider space-y-2">
+          <div className="mt-4 pt-4 border-t border-[#c4d4e4] print-divider space-y-2">
             {booking.quoted_price != null && (
               <Row
                 label="Journey fare"
@@ -204,19 +204,19 @@ export default function ReceiptPage({ params }: { params: Promise<{ id: string }
               <Row key={e.id} label={e.type.charAt(0).toUpperCase() + e.type.slice(1).replace(/_/g, ' ')} value={`£${e.amount.toFixed(2)}`} />
             ))}
             {totalCharged > 0 && (
-              <div className="flex items-center justify-between pt-2 border-t border-white/8 print-divider">
-                <span className="text-white font-bold text-sm print-black">Total</span>
+              <div className="flex items-center justify-between pt-2 border-t border-[#c4d4e4] print-divider">
+                <span className="text-[#060C1A] font-bold text-sm print-black">Total</span>
                 <span className="text-[#d5a538] font-bold text-lg print-black">£{totalCharged.toFixed(2)}</span>
               </div>
             )}
             <div className="flex items-center justify-between">
-              <span className="text-white/40 text-xs print-label">Payment</span>
+              <span className="text-[#7a9ab8] text-xs print-label">Payment</span>
               <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${p.className}`}>{p.text}</span>
             </div>
           </div>
 
           {/* Footer */}
-          <p className="text-center text-white/20 text-[10px] mt-6 print-label">
+          <p className="text-center text-[#a8c0d4] text-[10px] mt-6 print-label">
             EV Exec Chauffeur Services · evexec.co.uk
           </p>
         </div>
@@ -228,8 +228,8 @@ export default function ReceiptPage({ params }: { params: Promise<{ id: string }
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-start justify-between gap-4">
-      <span className="text-white/40 text-xs print-label flex-shrink-0 pt-0.5">{label}</span>
-      <span className="text-white text-sm font-medium print-black text-right">{value}</span>
+      <span className="text-[#7a9ab8] text-xs print-label flex-shrink-0 pt-0.5">{label}</span>
+      <span className="text-[#060C1A] text-sm font-medium print-black text-right">{value}</span>
     </div>
   )
 }

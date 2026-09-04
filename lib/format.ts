@@ -5,7 +5,7 @@ export function paymentInfo(method: string | null | undefined, status: string | 
   if (m.includes('cash')) return { text: 'Collect Cash', className: 'bg-amber-500/15 text-amber-400' }
   if (m.includes('card') || m.includes('stripe')) return { text: 'Card on Arrival', className: 'bg-blue-500/15 text-blue-400' }
   if (m.includes('account')) return { text: 'On Account', className: 'bg-purple-500/15 text-purple-400' }
-  if (method) return { text: method, className: 'bg-white/8 text-white/40' }
+  if (method) return { text: method, className: 'bg-[#dce8f2] text-[#7a9ab8]' }
   return { text: 'Cash/Card TBC', className: 'bg-amber-500/15 text-amber-400' }
 }
 

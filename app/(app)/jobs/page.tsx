@@ -25,34 +25,34 @@ function sortNearestFirst(list: Booking[]) {
 function BookingCard({ booking }: { booking: Booking }) {
   return (
     <Link href={`/jobs/${booking.id}`}>
-      <div className="bg-[#0B1525] border border-white/8 rounded-2xl p-4 active:opacity-80 transition-opacity">
+      <div className="bg-white border border-[#c4d4e4] rounded-2xl p-4 active:opacity-80 transition-opacity">
         <div className="flex items-start justify-between mb-3">
           <div className="flex items-center gap-2">
             <span className="text-[#d5a538] font-semibold text-sm">{formatTime(booking.travel_time)}</span>
-            <span className="text-white/20 text-xs">{formatDate(booking.travel_date)}</span>
+            <span className="text-[#a8c0d4] text-xs">{formatDate(booking.travel_date)}</span>
           </div>
           <div className="flex items-center gap-2">
             <BookingStatusBadge status={booking.status} />
-            <ChevronRight size={14} className="text-white/30" />
+            <ChevronRight size={14} className="text-[#7a9ab8]" />
           </div>
         </div>
 
         <div className="flex items-baseline justify-between gap-2 mb-0.5">
-          <p className="text-white font-medium text-sm">{booking.customer_name}</p>
+          <p className="text-[#060C1A] font-medium text-sm">{booking.customer_name}</p>
           {booking.ref && (
-            <span className="text-white/25 text-[10px] font-mono flex-shrink-0">{booking.ref}</span>
+            <span className="text-[#7a9ab8] text-[10px] font-mono flex-shrink-0">{booking.ref}</span>
           )}
         </div>
         {booking.journey_type && (
-          <p className="text-white/30 text-xs mb-3 capitalize">{booking.journey_type.replace(/_/g, ' ')}</p>
+          <p className="text-[#7a9ab8] text-xs mb-3 capitalize">{booking.journey_type.replace(/_/g, ' ')}</p>
         )}
 
         <RouteDisplay booking={booking} />
 
         {(booking.quoted_price || booking.payment_method || booking.payment_status) && (
-          <div className="flex items-center gap-2 mt-3 pt-3 border-t border-white/5">
+          <div className="flex items-center gap-2 mt-3 pt-3 border-t border-[#d8e6f0]">
             {booking.passengers > 0 && (
-              <span className="text-white/40 text-xs flex items-center gap-1">
+              <span className="text-[#7a9ab8] text-xs flex items-center gap-1">
                 <Users size={11} /> {booking.passengers}
               </span>
             )}
@@ -103,6 +103,54 @@ export default function JobsPage() {
 
   useEffect(() => { loadBookings() }, [loadBookings])
 
+  // Live updates — patch the board in-place without requiring a page refresh
+  useEffect(() => {
+    let channel: ReturnType<typeof supabase.channel> | null = null
+    let unassignChannel: ReturnType<typeof supabase.channel> | null = null
+    const setup = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      channel = supabase
+        .channel('jobs-board-live')
+        .on('postgres_changes', {
+          event: 'INSERT', schema: 'public', table: 'bookings',
+          filter: `assigned_driver_id=eq.${user.id}`,
+        }, (payload) => {
+          const b = payload.new as Booking
+          setBookings(prev => sortNearestFirst([...prev.filter(x => x.id !== b.id), b]))
+        })
+        .on('postgres_changes', {
+          event: 'UPDATE', schema: 'public', table: 'bookings',
+          filter: `assigned_driver_id=eq.${user.id}`,
+        }, (payload) => {
+          const b = payload.new as Booking
+          setBookings(prev => sortNearestFirst(prev.map(x => x.id === b.id ? b : x)))
+        })
+        .subscribe()
+
+      // Remove booking from board when operator unassigns this driver.
+      // Requires REPLICA IDENTITY FULL on bookings (already applied via migration).
+      unassignChannel = supabase
+        .channel('jobs-board-unassignment')
+        .on('postgres_changes', {
+          event: 'UPDATE', schema: 'public', table: 'bookings',
+        }, (payload) => {
+          const b = payload.new as Booking
+          const old = payload.old as { assigned_driver_id?: string }
+          if (old.assigned_driver_id === user.id && b.assigned_driver_id !== user.id) {
+            setBookings(prev => prev.filter(x => x.id !== b.id))
+          }
+        })
+        .subscribe()
+    }
+    setup()
+    return () => {
+      if (channel) supabase.removeChannel(channel)
+      if (unassignChannel) supabase.removeChannel(unassignChannel)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const upcoming = sortNearestFirst(bookings.filter((b) => ['accepted', 'confirmed', 'Dispatched'].includes(b.status)))
   const active = sortNearestFirst(bookings.filter((b) => ['En Route', 'en_route', 'Passenger On Board', 'Arrived', 'arrived', 'Active', 'active'].includes(b.status)))
   const completed = sortNearestFirst(bookings.filter((b) => ['completed', 'Completed', 'cancelled', 'Cancelled', 'No Show'].includes(b.status)))
@@ -134,24 +182,24 @@ export default function JobsPage() {
   const today = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
 
   return (
-    <div className="min-h-screen bg-[#060C1A] px-4 pt-12 pb-4">
+    <div className="min-h-screen bg-[#eaeff7] px-4 pt-12 pb-4">
       <div className="mb-4">
-        <h1 className="text-white font-bold text-xl">Jobs</h1>
-        <p className="text-white/40 text-xs mt-1">{today}</p>
+        <h1 className="text-[#060C1A] font-bold text-xl">Jobs</h1>
+        <p className="text-[#7a9ab8] text-xs mt-1">{today}</p>
       </div>
 
       {/* Search */}
       <div className="relative mb-4">
-        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none" />
+        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#7a9ab8] pointer-events-none" />
         <input
           type="text"
           placeholder="Search by name or ref (EVX-…)"
           value={search}
           onChange={e => setSearch(e.target.value)}
-          className="w-full bg-white/5 border border-white/8 rounded-xl pl-8 pr-8 py-2.5 text-white text-sm placeholder-white/20 focus:outline-none focus:border-[#d5a538]/50"
+          className="w-full bg-[#dce8f2] border border-[#c4d4e4] rounded-xl pl-8 pr-8 py-2.5 text-[#060C1A] text-sm placeholder-[#7a9ab8] focus:outline-none focus:border-[#d5a538]/50"
         />
         {search && (
-          <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30">
+          <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-[#7a9ab8]">
             <X size={14} />
           </button>
         )}
@@ -178,7 +226,7 @@ export default function JobsPage() {
         ))}
       </div>
 
-      <div className="flex gap-1 bg-white/5 rounded-xl p-1 mb-5">
+      <div className="flex gap-1 bg-[#dce8f2] rounded-xl p-1 mb-5">
         {([
           { key: 'active' as Tab, label: `Active (${active.length})` },
           { key: 'upcoming' as Tab, label: `Upcoming (${upcoming.length})` },
@@ -188,7 +236,7 @@ export default function JobsPage() {
             key={key}
             onClick={() => setTab(key)}
             className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all ${
-              tab === key ? 'text-[#020813]' : 'text-white/40 hover:text-white/60'
+              tab === key ? 'text-[#020813]' : 'text-[#7a9ab8] hover:text-[#4a6a8a]'
             }`}
             style={tab === key ? { background: 'linear-gradient(135deg, #f1c56a, #d5a538 55%, #a97918)' } : {}}
           >
@@ -202,9 +250,9 @@ export default function JobsPage() {
           <div className="w-7 h-7 rounded-full border-2 border-[#d5a538] border-t-transparent animate-spin" />
         </div>
       ) : currentList.length === 0 ? (
-        <div className="bg-[#0B1525] border border-white/8 rounded-2xl p-10 text-center">
-          <Car size={28} className="mx-auto mb-2 text-white/20" />
-          <p className="text-white/30 text-sm">No {tab} jobs</p>
+        <div className="bg-white border border-[#c4d4e4] rounded-2xl p-10 text-center">
+          <Car size={28} className="mx-auto mb-2 text-[#a8c0d4]" />
+          <p className="text-[#7a9ab8] text-sm">No {tab} jobs</p>
         </div>
       ) : (
         <div className="space-y-3">

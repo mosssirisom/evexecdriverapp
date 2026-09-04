@@ -29,7 +29,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-6 bg-[#060C1A]">
+    <div className="min-h-screen flex flex-col items-center justify-center px-6 bg-[#eaeff7]">
       {/* Logo */}
       <div className="mb-8 text-center">
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -40,16 +40,16 @@ export default function LoginPage() {
           height={160}
           className="mx-auto"
         />
-        <p className="text-white/40 mt-2 tracking-widest uppercase text-xs">Driver Portal</p>
+        <p className="text-[#7a9ab8] mt-2 tracking-widest uppercase text-xs">Driver Portal</p>
       </div>
 
       {/* Card */}
-      <div className="w-full max-w-sm bg-[#0B1525] border border-white/8 rounded-2xl p-6 shadow-2xl">
-        <h2 className="text-lg font-semibold text-white mb-6">Sign in</h2>
+      <div className="w-full max-w-sm bg-white border border-[#c4d4e4] rounded-2xl p-6 shadow-2xl">
+        <h2 className="text-lg font-semibold text-[#060C1A] mb-6">Sign in</h2>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-[10px] font-semibold text-white/40 mb-2 uppercase tracking-widest">
+            <label className="block text-[10px] font-semibold text-[#7a9ab8] mb-2 uppercase tracking-widest">
               Email
             </label>
             <input
@@ -57,12 +57,12 @@ export default function LoginPage() {
               name="email"
               required
               placeholder={LOGIN_EMAIL_PLACEHOLDER}
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/20 text-sm focus:outline-none focus:border-[#d5a538] focus:ring-1 focus:ring-[#d5a538] transition-colors"
+              className="w-full bg-[#dce8f2] border border-[#c4d4e4] rounded-xl px-4 py-3 text-[#060C1A] placeholder-[#7a9ab8] text-sm focus:outline-none focus:border-[#d5a538] focus:ring-1 focus:ring-[#d5a538] transition-colors"
             />
           </div>
 
           <div>
-            <label className="block text-[10px] font-semibold text-white/40 mb-2 uppercase tracking-widest">
+            <label className="block text-[10px] font-semibold text-[#7a9ab8] mb-2 uppercase tracking-widest">
               Password
             </label>
             <div className="relative">
@@ -71,12 +71,12 @@ export default function LoginPage() {
                 name="password"
                 required
                 placeholder="••••••••"
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 pr-12 text-white placeholder-white/20 text-sm focus:outline-none focus:border-[#d5a538] focus:ring-1 focus:ring-[#d5a538] transition-colors"
+                className="w-full bg-[#dce8f2] border border-[#c4d4e4] rounded-xl px-4 py-3 pr-12 text-[#060C1A] placeholder-[#7a9ab8] text-sm focus:outline-none focus:border-[#d5a538] focus:ring-1 focus:ring-[#d5a538] transition-colors"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#7a9ab8] hover:text-[#4a6a8a] transition-colors"
                 tabIndex={-1}
               >
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
@@ -106,7 +106,7 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <p className="text-center text-xs text-white/20 mt-6">
+        <p className="text-center text-xs text-[#a8c0d4] mt-6">
           Account access is managed by EV Exec
         </p>
       </div>
