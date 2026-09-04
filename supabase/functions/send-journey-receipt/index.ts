@@ -18,6 +18,7 @@
 
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
 import { createClient } from 'jsr:@supabase/supabase-js@2'
+import { CORS_HEADERS, corsPreflightResponse } from '../_shared/cors.ts'
 
 const SUPABASE_URL              = Deno.env.get('SUPABASE_URL') ?? ''
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -270,10 +271,11 @@ function corporateInvoiceHtml(
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, {
-      headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization,content-type' },
-    })
+    return corsPreflightResponse()
   }
+
+  const json = (body: unknown, init?: ResponseInit) =>
+    Response.json(body, { ...init, headers: { ...(init?.headers ?? {}), ...CORS_HEADERS } })
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
@@ -281,12 +283,12 @@ Deno.serve(async (req) => {
   try {
     body = await req.json()
   } catch {
-    return Response.json({ ok: false, error: 'Invalid JSON' }, { status: 400 })
+    return json({ ok: false, error: 'Invalid JSON' }, { status: 400 })
   }
 
   const { bookingId } = body
   if (!bookingId) {
-    return Response.json({ ok: false, error: 'bookingId required' }, { status: 400 })
+    return json({ ok: false, error: 'bookingId required' }, { status: 400 })
   }
 
   // Fetch booking
@@ -297,11 +299,11 @@ Deno.serve(async (req) => {
     .single()
 
   if (bErr || !booking) {
-    return Response.json({ ok: false, error: 'Booking not found' }, { status: 404 })
+    return json({ ok: false, error: 'Booking not found' }, { status: 404 })
   }
 
   if (booking.receipt_sent_at) {
-    return Response.json({ ok: true, sent: [], cached: true })
+    return json({ ok: true, sent: [], cached: true })
   }
 
   const ref = (booking.ref as string | null) ?? booking.id.slice(0, 8).toUpperCase()
@@ -363,5 +365,5 @@ Deno.serve(async (req) => {
       .eq('id', bookingId)
   }
 
-  return Response.json({ ok: true, sent })
+  return json({ ok: true, sent })
 })

@@ -56,6 +56,7 @@ const DETAIL_FIELDS = [
 ] as const
 
 type BookingRow = Record<string, string | number | boolean | null>
+type DriverEventRow = { event_type: string; payload: Record<string, string | null> | null }
 
 function showNativeNotification(title: string, body: string, tag: string) {
   if ('Notification' in window && Notification.permission === 'granted') {
@@ -70,7 +71,7 @@ export function JobNotifier() {
 
   useEffect(() => {
     let channel: ReturnType<typeof supabase.channel> | null = null
-    let unassignChannel: ReturnType<typeof supabase.channel> | null = null
+    let eventsChannel: ReturnType<typeof supabase.channel> | null = null
 
     const setup = async () => {
       const { data: { user } } = await supabase.auth.getUser()
@@ -146,29 +147,34 @@ export function JobNotifier() {
         )
         .subscribe()
 
-      // Unassignment detection — catches when operator removes this driver from a booking.
-      // Requires REPLICA IDENTITY FULL on the bookings table so old.assigned_driver_id is available.
-      unassignChannel = supabase
-        .channel('driver-unassignment')
+      // Unassignment detection — the DB trigger trg_notify_driver_unassigned
+      // writes a row to driver_events when this driver is removed from a booking.
+      // Filtered subscription means only this driver's own events are delivered.
+      eventsChannel = supabase
+        .channel('driver-events')
         .on(
           'postgres_changes',
-          { event: 'UPDATE', schema: 'public', table: 'bookings' },
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'driver_events',
+            filter: `driver_id=eq.${user.id}`,
+          },
           (payload) => {
-            const b = payload.new as BookingRow
-            const old = payload.old as BookingRow
-            if (old.assigned_driver_id === user.id && b.assigned_driver_id !== user.id) {
-              const ref = (b.ref ?? String(b.id).slice(0, 8).toUpperCase()) as string
-              const customer = (b.customer_name ?? 'A booking') as string
-              addToast({
-                title: `Job removed — ${ref}`,
-                message: `${customer} has been removed from your schedule.`,
-              })
-              showNativeNotification(
-                `Job removed — ${ref}`,
-                `${customer} has been removed from your schedule.`,
-                `unassigned-${b.id}`
-              )
-            }
+            const ev = payload.new as DriverEventRow
+            if (ev.event_type !== 'booking_unassigned') return
+            const p = ev.payload ?? {}
+            const ref = (p.ref ?? String(p.booking_id ?? '').slice(0, 8).toUpperCase())
+            const customer = p.customer_name ?? 'A booking'
+            addToast({
+              title: `Job removed — ${ref}`,
+              message: `${customer} has been removed from your schedule.`,
+            })
+            showNativeNotification(
+              `Job removed — ${ref}`,
+              `${customer} has been removed from your schedule.`,
+              `unassigned-${p.booking_id}`
+            )
           }
         )
         .subscribe()
@@ -177,7 +183,7 @@ export function JobNotifier() {
     setup()
     return () => {
       if (channel) supabase.removeChannel(channel)
-      if (unassignChannel) supabase.removeChannel(unassignChannel)
+      if (eventsChannel) supabase.removeChannel(eventsChannel)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])

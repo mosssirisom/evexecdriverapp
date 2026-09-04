@@ -9,6 +9,7 @@ import {
   UserX, X, Plus, Car, MapPin, RefreshCw, Camera, Trash2, ArrowLeftRight, Banknote, Clock,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { useToast } from '@/components/toast'
 import { BookingStatusBadge } from '@/components/badges'
 import { PickupIcon, DropoffIcon } from '@/components/route-icons'
 import { JobMap } from '@/components/job-map'
@@ -581,6 +582,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
   const { id } = use(params)
   const router = useRouter()
   const supabase = createClient()
+  const { addToast } = useToast()
 
   const [booking, setBooking] = useState<Booking | null>(null)
   const [loading, setLoading] = useState(true)
@@ -606,10 +608,22 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
   const [savingPayment, setSavingPayment] = useState(false)
 
   // Photo / damage reports
+  // `url` in state is always a short-lived signed URL (bucket is private).
+  // `booking_photos.url` in the DB stores the storage path (new uploads) or
+  // the legacy public URL (old rows — path is extracted on load).
   interface BookingPhoto { id: string; url: string; caption: string | null; created_at: string }
   const [photos, setPhotos] = useState<BookingPhoto[]>([])
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const photoInputRef = useRef<HTMLInputElement>(null)
+
+  // Extract the storage path from either a raw path or a legacy public URL.
+  const extractPhotoPath = (urlOrPath: string): string | null => {
+    if (urlOrPath.startsWith('http')) {
+      const part = urlOrPath.split('/job-photos/')[1]
+      return part ?? null
+    }
+    return urlOrPath || null
+  }
 
   const loadBooking = useCallback(async () => {
     const [bookingRes, photosRes] = await Promise.all([
@@ -620,8 +634,17 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
       setBooking(bookingRes.data as Booking)
       setDriverNote(bookingRes.data.driver_notes ?? '')
     }
-    if (photosRes.data) setPhotos(photosRes.data)
+    if (photosRes.data && photosRes.data.length > 0) {
+      const paths = photosRes.data.map(p => extractPhotoPath(p.url)).filter(Boolean) as string[]
+      const { data: signed } = await supabase.storage.from('job-photos').createSignedUrls(paths, 3600)
+      const signedMap = new Map((signed ?? []).map(s => [s.path, s.signedUrl]))
+      setPhotos(photosRes.data.map((p, i) => ({
+        ...p,
+        url: signedMap.get(paths[i]) ?? p.url,
+      })))
+    }
     setLoading(false)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, supabase])
 
   useEffect(() => { loadBooking() }, [loadBooking])
@@ -682,17 +705,6 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
     }
   }, [booking?.status, booking?.assigned_driver_id, supabase])
 
-  const fireCustomerNotification = (bookingId: string, status: string) => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) return
-      fetch('https://evexec.co.uk/api/booking/notify-status', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({ bookingId, status }),
-      }).catch(() => {})
-    })
-  }
-
   const fireArrivedSms = (bookingId: string) => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' }
@@ -737,7 +749,6 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
     } else {
       const updated = { ...booking, status: nextStatus, ...(tsField ? { [tsField]: now } : {}) } as Booking
       setBooking(updated)
-      fireCustomerNotification(booking.id, nextStatus)
       if (nextStatus === 'Arrived') fireArrivedSms(booking.id)
 
       if (nextStatus === 'Passenger On Board' && triggerUndo) {
@@ -783,7 +794,6 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
       setUpdateError(error.message ?? 'Failed to complete. Please try again.')
     } else {
       setBooking({ ...booking, status: 'Completed', completed_at: now })
-      fireCustomerNotification(booking.id, 'Completed')
       // Fire-and-forget receipt emails
       triggerReceiptEmail(booking.id)
     }
@@ -805,7 +815,6 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
     } else {
       setBooking({ ...booking, status: 'Cancelled', driver_notes: noShowNote })
       setDriverNote(noShowNote)
-      fireCustomerNotification(booking.id, 'No Show')
     }
     setUpdating(false)
   }
@@ -817,22 +826,44 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
     const ext = file.name.split('.').pop() ?? 'jpg'
     const path = `${user.id}/${booking.id}/${crypto.randomUUID()}.${ext}`
     const { error: upErr } = await supabase.storage.from('job-photos').upload(path, file, { upsert: false })
-    if (!upErr) {
-      const { data: urlData } = supabase.storage.from('job-photos').getPublicUrl(path)
-      const { data: row } = await supabase.from('booking_photos')
-        .insert({ booking_id: booking.id, driver_id: user.id, url: urlData.publicUrl })
+    if (upErr) {
+      addToast({ title: 'Upload failed', message: upErr.message })
+    } else {
+      // Store the storage path (not a public URL) — bucket is private.
+      const { data: row, error: rowErr } = await supabase.from('booking_photos')
+        .insert({ booking_id: booking.id, driver_id: user.id, url: path })
         .select('id, url, caption, created_at').single()
-      if (row) setPhotos(prev => [...prev, row])
+      if (rowErr) {
+        addToast({ title: 'Photo saved but record failed', message: rowErr.message })
+      } else if (row) {
+        // Generate a signed URL for immediate display
+        const { data: signed } = await supabase.storage.from('job-photos').createSignedUrl(path, 3600)
+        setPhotos(prev => [...prev, { ...row, url: signed?.signedUrl ?? row.url }])
+      }
     }
     setUploadingPhoto(false)
   }
 
-  const deletePhoto = async (photoId: string, url: string) => {
+  const deletePhoto = async (photoId: string) => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-    const path = url.split('/job-photos/')[1]
-    if (path) await supabase.storage.from('job-photos').remove([path])
-    await supabase.from('booking_photos').delete().eq('id', photoId)
+    // Fetch the DB row to get the stored path (state `url` is a signed URL).
+    const { data: row } = await supabase.from('booking_photos').select('url').eq('id', photoId).single()
+    const storedUrl = row?.url ?? ''
+    const rawPath = storedUrl.split('/job-photos/')[1]?.split('?')[0] ?? ''
+    const path = storedUrl.startsWith('http') ? rawPath : storedUrl
+    if (path) {
+      const { error: storageErr } = await supabase.storage.from('job-photos').remove([path])
+      if (storageErr) {
+        addToast({ title: 'Delete failed', message: storageErr.message })
+        return
+      }
+    }
+    const { error: dbErr } = await supabase.from('booking_photos').delete().eq('id', photoId)
+    if (dbErr) {
+      addToast({ title: 'Delete failed', message: dbErr.message })
+      return
+    }
     setPhotos(prev => prev.filter(p => p.id !== photoId))
   }
 
@@ -842,22 +873,31 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
     setSavingPayment(true)
     const patch: Record<string, string> = { payment_method: method }
     if (method === 'Card' || method === 'Bank Transfer') patch.payment_status = 'paid'
-    await supabase.from('bookings').update(patch).eq('id', booking.id)
-    setBooking(prev => prev ? {
-      ...prev,
-      payment_method: method,
-      ...((method === 'Card' || method === 'Bank Transfer') ? { payment_status: 'paid' } : {}),
-    } : prev)
+    const { error } = await supabase.from('bookings').update(patch).eq('id', booking.id)
+    if (error) {
+      addToast({ title: 'Save failed', message: error.message })
+      setLocalPaymentMethod((booking.payment_method ?? null) as 'Cash' | 'Card' | 'Bank Transfer' | 'TBC' | null)
+    } else {
+      setBooking(prev => prev ? {
+        ...prev,
+        payment_method: method,
+        ...((method === 'Card' || method === 'Bank Transfer') ? { payment_status: 'paid' } : {}),
+      } : prev)
+    }
     setSavingPayment(false)
   }
 
   const saveNote = async () => {
     if (!booking) return
     setSavingNote(true)
-    await supabase.from('bookings').update({ driver_notes: driverNote }).eq('id', booking.id)
+    const { error } = await supabase.from('bookings').update({ driver_notes: driverNote }).eq('id', booking.id)
     setSavingNote(false)
-    setNoteSaved(true)
-    setTimeout(() => setNoteSaved(false), 2500)
+    if (error) {
+      addToast({ title: 'Note not saved', message: error.message })
+    } else {
+      setNoteSaved(true)
+      setTimeout(() => setNoteSaved(false), 2500)
+    }
   }
 
   if (loading) {
@@ -1453,7 +1493,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
                     <img src={photo.url} alt="" className="w-full h-full object-cover" />
                     {!isDone && (
                       <button
-                        onClick={() => deletePhoto(photo.id, photo.url)}
+                        onClick={() => deletePhoto(photo.id)}
                         className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/60 flex items-center justify-center active:opacity-70"
                       >
                         <Trash2 size={11} className="text-red-400" />

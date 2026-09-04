@@ -14,6 +14,7 @@
 
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
 import { createClient } from 'jsr:@supabase/supabase-js@2'
+import { CORS_HEADERS, corsPreflightResponse } from '../_shared/cors.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -87,21 +88,24 @@ async function fetchFromFlightAware(flightNumber: string): Promise<FlightData | 
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization,content-type' } })
+    return corsPreflightResponse()
   }
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+
+  const json = (body: unknown, init?: ResponseInit) =>
+    Response.json(body, { ...init, headers: { ...(init?.headers ?? {}), ...CORS_HEADERS } })
 
   let body: { bookingId?: string }
   try {
     body = await req.json()
   } catch {
-    return Response.json({ ok: false, error: 'Invalid JSON' }, { status: 400 })
+    return json({ ok: false, error: 'Invalid JSON' }, { status: 400 })
   }
 
   const { bookingId } = body
   if (!bookingId) {
-    return Response.json({ ok: false, error: 'bookingId required' }, { status: 400 })
+    return json({ ok: false, error: 'bookingId required' }, { status: 400 })
   }
 
   // Fetch the booking
@@ -112,18 +116,18 @@ Deno.serve(async (req) => {
     .single()
 
   if (bookingErr || !booking) {
-    return Response.json({ ok: false, error: 'Booking not found' }, { status: 404 })
+    return json({ ok: false, error: 'Booking not found' }, { status: 404 })
   }
 
   if (!booking.flight_number) {
-    return Response.json({ ok: false, error: 'No flight number on booking' }, { status: 422 })
+    return json({ ok: false, error: 'No flight number on booking' }, { status: 422 })
   }
 
   // Return cached data if fresh enough
   if (booking.flight_checked_at && booking.flight_status) {
     const age = Date.now() - new Date(booking.flight_checked_at).getTime()
     if (age < CACHE_TTL_MS) {
-      return Response.json({ ok: true, data: booking.flight_status, cached: true })
+      return json({ ok: true, data: booking.flight_status, cached: true })
     }
   }
 
@@ -133,9 +137,9 @@ Deno.serve(async (req) => {
   if (!data) {
     // Return stale cache rather than nothing if FlightAware call failed
     if (booking.flight_status) {
-      return Response.json({ ok: true, data: booking.flight_status, cached: true, stale: true })
+      return json({ ok: true, data: booking.flight_status, cached: true, stale: true })
     }
-    return Response.json({ ok: false, error: FLIGHTAWARE_API_KEY ? 'FlightAware returned no results' : 'FLIGHTAWARE_API_KEY not configured' })
+    return json({ ok: false, error: FLIGHTAWARE_API_KEY ? 'FlightAware returned no results' : 'FLIGHTAWARE_API_KEY not configured' })
   }
 
   // Persist to cache
@@ -144,5 +148,5 @@ Deno.serve(async (req) => {
     flight_checked_at: new Date().toISOString(),
   }).eq('id', bookingId)
 
-  return Response.json({ ok: true, data })
+  return json({ ok: true, data })
 })
