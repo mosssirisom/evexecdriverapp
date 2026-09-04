@@ -53,6 +53,7 @@ const CANCELLED_STATUSES = new Set(['cancelled', 'Cancelled', 'canceled', 'Cance
 const DETAIL_FIELDS = ['travel_date', 'travel_time', 'pickup_location', 'airport', 'dropoff_address'] as const
 
 type BookingRow = Record<string, string | number | boolean | null>
+type DriverEventRow = { event_type: string; payload: Record<string, string | null> | null }
 
 function showNativeNotification(title: string, body: string, tag: string) {
   if ('Notification' in window && Notification.permission === 'granted') {
@@ -67,6 +68,7 @@ export function JobNotifier() {
 
   useEffect(() => {
     let channel: ReturnType<typeof supabase.channel> | null = null
+    let eventsChannel: ReturnType<typeof supabase.channel> | null = null
 
     const setup = async () => {
       const { data: { user } } = await supabase.auth.getUser()
@@ -140,10 +142,45 @@ export function JobNotifier() {
           }
         )
         .subscribe()
+
+      // Unassignment detection — the DB trigger trg_notify_driver_unassigned
+      // writes a row to driver_events when this driver is removed from a booking.
+      // Filtered subscription means only this driver's own events are delivered.
+      eventsChannel = supabase
+        .channel('driver-events')
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'driver_events',
+            filter: `driver_id=eq.${user.id}`,
+          },
+          (payload) => {
+            const ev = payload.new as DriverEventRow
+            if (ev.event_type !== 'booking_unassigned') return
+            const p = ev.payload ?? {}
+            const ref = (p.ref ?? String(p.booking_id ?? '').slice(0, 8).toUpperCase())
+            const customer = p.customer_name ?? 'A booking'
+            addToast({
+              title: `Job removed — ${ref}`,
+              message: `${customer} has been removed from your schedule.`,
+            })
+            showNativeNotification(
+              `Job removed — ${ref}`,
+              `${customer} has been removed from your schedule.`,
+              `unassigned-${p.booking_id}`
+            )
+          }
+        )
+        .subscribe()
     }
 
     setup()
-    return () => { if (channel) supabase.removeChannel(channel) }
+    return () => {
+      if (channel) supabase.removeChannel(channel)
+      if (eventsChannel) supabase.removeChannel(eventsChannel)
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 

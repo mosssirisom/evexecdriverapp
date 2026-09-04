@@ -95,7 +95,7 @@ Deno.serve(async (_req) => {
 
     const { data: bookings, error } = await supabase
       .from('bookings')
-      .select('id, ref, customer_name, pickup_location, airport, dropoff_address, journey_type, pickup_time, travel_date, assigned_driver_id')
+      .select('id, ref, customer_name, pickup_location, airport, dropoff_address, journey_type, pickup_time, travel_date, travel_time, passengers, assigned_driver_id')
       .in('status', ACTIVE_STATUSES)
       .not('assigned_driver_id', 'is', null)
       .not('pickup_time', 'is', null)
@@ -108,16 +108,29 @@ Deno.serve(async (_req) => {
     }
 
     for (const booking of (bookings ?? [])) {
-      // Deduplication guard
-      const { data: alreadySent } = await supabase
-        .from('notification_log')
-        .select('id')
-        .eq('booking_id', booking.id)
-        .eq('type', reminder.type)
-        .limit(1)
-        .maybeSingle()
+      // Deduplication guard — check notification_log (successful deliveries) AND
+      // notification_queue (any attempt in the last 90 min, including failures).
+      // Without the queue check, a failed push+email attempt leaves no log entry
+      // and the reminder would re-fire every cron tick until one eventually succeeds.
+      const [{ data: logEntry }, { data: queueEntry }] = await Promise.all([
+        supabase
+          .from('notification_log')
+          .select('id')
+          .eq('booking_id', booking.id)
+          .eq('type', reminder.type)
+          .limit(1)
+          .maybeSingle(),
+        supabase
+          .from('notification_queue')
+          .select('id')
+          .eq('booking_id', booking.id)
+          .eq('type', reminder.type)
+          .gte('created_at', new Date(Date.now() - 90 * 60_000).toISOString())
+          .limit(1)
+          .maybeSingle(),
+      ])
 
-      if (alreadySent) {
+      if (logEntry || queueEntry) {
         summary.skipped++
         continue
       }

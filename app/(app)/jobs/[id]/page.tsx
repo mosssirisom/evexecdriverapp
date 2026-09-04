@@ -9,6 +9,7 @@ import {
   UserX, X, Plus, Car, MapPin, RefreshCw, Camera, Trash2, ArrowLeftRight, Banknote, Clock,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { useToast } from '@/components/toast'
 import { BookingStatusBadge } from '@/components/badges'
 import { PickupIcon, DropoffIcon } from '@/components/route-icons'
 import { JobMap } from '@/components/job-map'
@@ -581,6 +582,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
   const { id } = use(params)
   const router = useRouter()
   const supabase = createClient()
+  const { addToast } = useToast()
 
   const [booking, setBooking] = useState<Booking | null>(null)
   const [loading, setLoading] = useState(true)
@@ -682,17 +684,6 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
     }
   }, [booking?.status, booking?.assigned_driver_id, supabase])
 
-  const fireCustomerNotification = (bookingId: string, status: string) => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) return
-      fetch('https://evexec.co.uk/api/booking/notify-status', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({ bookingId, status }),
-      }).catch(() => {})
-    })
-  }
-
   const fireArrivedSms = (bookingId: string) => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' }
@@ -737,7 +728,6 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
     } else {
       const updated = { ...booking, status: nextStatus, ...(tsField ? { [tsField]: now } : {}) } as Booking
       setBooking(updated)
-      fireCustomerNotification(booking.id, nextStatus)
       if (nextStatus === 'Arrived') fireArrivedSms(booking.id)
 
       if (nextStatus === 'Passenger On Board' && triggerUndo) {
@@ -783,7 +773,6 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
       setUpdateError(error.message ?? 'Failed to complete. Please try again.')
     } else {
       setBooking({ ...booking, status: 'Completed', completed_at: now })
-      fireCustomerNotification(booking.id, 'Completed')
       // Fire-and-forget receipt emails
       triggerReceiptEmail(booking.id)
     }
@@ -805,7 +794,6 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
     } else {
       setBooking({ ...booking, status: 'Cancelled', driver_notes: noShowNote })
       setDriverNote(noShowNote)
-      fireCustomerNotification(booking.id, 'No Show')
     }
     setUpdating(false)
   }
@@ -817,11 +805,14 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
     const ext = file.name.split('.').pop() ?? 'jpg'
     const path = `${user.id}/${booking.id}/${crypto.randomUUID()}.${ext}`
     const { error: upErr } = await supabase.storage.from('job-photos').upload(path, file, { upsert: false })
-    if (!upErr) {
+    if (upErr) {
+      addToast({ title: 'Upload failed', message: upErr.message })
+    } else {
       const { data: urlData } = supabase.storage.from('job-photos').getPublicUrl(path)
-      const { data: row } = await supabase.from('booking_photos')
+      const { data: row, error: rowErr } = await supabase.from('booking_photos')
         .insert({ booking_id: booking.id, driver_id: user.id, url: urlData.publicUrl })
         .select('id, url, caption, created_at').single()
+      if (rowErr) addToast({ title: 'Photo saved but record failed', message: rowErr.message })
       if (row) setPhotos(prev => [...prev, row])
     }
     setUploadingPhoto(false)
@@ -831,8 +822,18 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
     const path = url.split('/job-photos/')[1]
-    if (path) await supabase.storage.from('job-photos').remove([path])
-    await supabase.from('booking_photos').delete().eq('id', photoId)
+    if (path) {
+      const { error: storageErr } = await supabase.storage.from('job-photos').remove([path])
+      if (storageErr) {
+        addToast({ title: 'Delete failed', message: storageErr.message })
+        return
+      }
+    }
+    const { error: dbErr } = await supabase.from('booking_photos').delete().eq('id', photoId)
+    if (dbErr) {
+      addToast({ title: 'Delete failed', message: dbErr.message })
+      return
+    }
     setPhotos(prev => prev.filter(p => p.id !== photoId))
   }
 
@@ -842,22 +843,31 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
     setSavingPayment(true)
     const patch: Record<string, string> = { payment_method: method }
     if (method === 'Card' || method === 'Bank Transfer') patch.payment_status = 'paid'
-    await supabase.from('bookings').update(patch).eq('id', booking.id)
-    setBooking(prev => prev ? {
-      ...prev,
-      payment_method: method,
-      ...((method === 'Card' || method === 'Bank Transfer') ? { payment_status: 'paid' } : {}),
-    } : prev)
+    const { error } = await supabase.from('bookings').update(patch).eq('id', booking.id)
+    if (error) {
+      addToast({ title: 'Save failed', message: error.message })
+      setLocalPaymentMethod((booking.payment_method ?? null) as 'Cash' | 'Card' | 'Bank Transfer' | 'TBC' | null)
+    } else {
+      setBooking(prev => prev ? {
+        ...prev,
+        payment_method: method,
+        ...((method === 'Card' || method === 'Bank Transfer') ? { payment_status: 'paid' } : {}),
+      } : prev)
+    }
     setSavingPayment(false)
   }
 
   const saveNote = async () => {
     if (!booking) return
     setSavingNote(true)
-    await supabase.from('bookings').update({ driver_notes: driverNote }).eq('id', booking.id)
+    const { error } = await supabase.from('bookings').update({ driver_notes: driverNote }).eq('id', booking.id)
     setSavingNote(false)
-    setNoteSaved(true)
-    setTimeout(() => setNoteSaved(false), 2500)
+    if (error) {
+      addToast({ title: 'Note not saved', message: error.message })
+    } else {
+      setNoteSaved(true)
+      setTimeout(() => setNoteSaved(false), 2500)
+    }
   }
 
   if (loading) {
