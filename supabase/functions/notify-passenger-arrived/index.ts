@@ -11,6 +11,7 @@
 
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
 import { createClient } from 'jsr:@supabase/supabase-js@2'
+import { CORS_HEADERS, corsPreflightResponse } from '../_shared/cors.ts'
 
 const SUPABASE_URL             = Deno.env.get('SUPABASE_URL') ?? ''
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -20,13 +21,11 @@ const TWILIO_FROM_NUMBER       = Deno.env.get('TWILIO_FROM_NUMBER') ?? ''
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, {
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'authorization,content-type',
-      },
-    })
+    return corsPreflightResponse()
   }
+
+  const json = (body: unknown, init?: ResponseInit) =>
+    Response.json(body, { ...init, headers: { ...(init?.headers ?? {}), ...CORS_HEADERS } })
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
@@ -34,12 +33,12 @@ Deno.serve(async (req) => {
   try {
     body = await req.json()
   } catch {
-    return Response.json({ ok: false, error: 'Invalid JSON' }, { status: 400 })
+    return json({ ok: false, error: 'Invalid JSON' }, { status: 400 })
   }
 
   const { bookingId } = body
   if (!bookingId) {
-    return Response.json({ ok: false, error: 'bookingId required' }, { status: 400 })
+    return json({ ok: false, error: 'bookingId required' }, { status: 400 })
   }
 
   const { data: booking } = await supabase
@@ -49,12 +48,12 @@ Deno.serve(async (req) => {
     .single()
 
   if (!booking?.customer_phone) {
-    return Response.json({ ok: true, skipped: 'no_phone' })
+    return json({ ok: true, skipped: 'no_phone' })
   }
 
   if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN || !TWILIO_FROM_NUMBER) {
     console.warn('[notify-passenger-arrived] Twilio not configured — skipping SMS')
-    return Response.json({ ok: true, skipped: 'twilio_not_configured' })
+    return json({ ok: true, skipped: 'twilio_not_configured' })
   }
 
   const ref = booking.ref ?? bookingId.slice(0, 8).toUpperCase()
@@ -82,8 +81,8 @@ Deno.serve(async (req) => {
   if (!res.ok) {
     const err = await res.text()
     console.error('[notify-passenger-arrived] Twilio error:', err)
-    return Response.json({ ok: false, error: 'SMS send failed' })
+    return json({ ok: false, error: 'SMS send failed' })
   }
 
-  return Response.json({ ok: true })
+  return json({ ok: true })
 })

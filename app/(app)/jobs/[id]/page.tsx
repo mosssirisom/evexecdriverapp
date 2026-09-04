@@ -608,10 +608,22 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
   const [savingPayment, setSavingPayment] = useState(false)
 
   // Photo / damage reports
+  // `url` in state is always a short-lived signed URL (bucket is private).
+  // `booking_photos.url` in the DB stores the storage path (new uploads) or
+  // the legacy public URL (old rows — path is extracted on load).
   interface BookingPhoto { id: string; url: string; caption: string | null; created_at: string }
   const [photos, setPhotos] = useState<BookingPhoto[]>([])
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const photoInputRef = useRef<HTMLInputElement>(null)
+
+  // Extract the storage path from either a raw path or a legacy public URL.
+  const extractPhotoPath = (urlOrPath: string): string | null => {
+    if (urlOrPath.startsWith('http')) {
+      const part = urlOrPath.split('/job-photos/')[1]
+      return part ?? null
+    }
+    return urlOrPath || null
+  }
 
   const loadBooking = useCallback(async () => {
     const [bookingRes, photosRes] = await Promise.all([
@@ -622,8 +634,17 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
       setBooking(bookingRes.data as Booking)
       setDriverNote(bookingRes.data.driver_notes ?? '')
     }
-    if (photosRes.data) setPhotos(photosRes.data)
+    if (photosRes.data && photosRes.data.length > 0) {
+      const paths = photosRes.data.map(p => extractPhotoPath(p.url)).filter(Boolean) as string[]
+      const { data: signed } = await supabase.storage.from('job-photos').createSignedUrls(paths, 3600)
+      const signedMap = new Map((signed ?? []).map(s => [s.path, s.signedUrl]))
+      setPhotos(photosRes.data.map((p, i) => ({
+        ...p,
+        url: signedMap.get(paths[i]) ?? p.url,
+      })))
+    }
     setLoading(false)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, supabase])
 
   useEffect(() => { loadBooking() }, [loadBooking])
@@ -808,20 +829,29 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
     if (upErr) {
       addToast({ title: 'Upload failed', message: upErr.message })
     } else {
-      const { data: urlData } = supabase.storage.from('job-photos').getPublicUrl(path)
+      // Store the storage path (not a public URL) — bucket is private.
       const { data: row, error: rowErr } = await supabase.from('booking_photos')
-        .insert({ booking_id: booking.id, driver_id: user.id, url: urlData.publicUrl })
+        .insert({ booking_id: booking.id, driver_id: user.id, url: path })
         .select('id, url, caption, created_at').single()
-      if (rowErr) addToast({ title: 'Photo saved but record failed', message: rowErr.message })
-      if (row) setPhotos(prev => [...prev, row])
+      if (rowErr) {
+        addToast({ title: 'Photo saved but record failed', message: rowErr.message })
+      } else if (row) {
+        // Generate a signed URL for immediate display
+        const { data: signed } = await supabase.storage.from('job-photos').createSignedUrl(path, 3600)
+        setPhotos(prev => [...prev, { ...row, url: signed?.signedUrl ?? row.url }])
+      }
     }
     setUploadingPhoto(false)
   }
 
-  const deletePhoto = async (photoId: string, url: string) => {
+  const deletePhoto = async (photoId: string) => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-    const path = url.split('/job-photos/')[1]
+    // Fetch the DB row to get the stored path (state `url` is a signed URL).
+    const { data: row } = await supabase.from('booking_photos').select('url').eq('id', photoId).single()
+    const storedUrl = row?.url ?? ''
+    const rawPath = storedUrl.split('/job-photos/')[1]?.split('?')[0] ?? ''
+    const path = storedUrl.startsWith('http') ? rawPath : storedUrl
     if (path) {
       const { error: storageErr } = await supabase.storage.from('job-photos').remove([path])
       if (storageErr) {
@@ -1462,7 +1492,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
                     <img src={photo.url} alt="" className="w-full h-full object-cover" />
                     {!isDone && (
                       <button
-                        onClick={() => deletePhoto(photo.id, photo.url)}
+                        onClick={() => deletePhoto(photo.id)}
                         className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/60 flex items-center justify-center active:opacity-70"
                       >
                         <Trash2 size={11} className="text-red-400" />
