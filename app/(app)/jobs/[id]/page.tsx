@@ -80,21 +80,6 @@ function formatPref(pref: string): string {
   return PREF_LABELS[pref] ?? pref.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
 }
 
-// ─── Expense types ────────────────────────────────────────────────────────────
-
-type ExpenseKey = 'parking' | 'ulez' | 'congestion' | 'toll' | 'airport_fee' | 'other'
-
-const EXPENSE_DEFS: { key: ExpenseKey; label: string }[] = [
-  { key: 'parking',     label: 'Parking' },
-  { key: 'ulez',        label: 'ULEZ' },
-  { key: 'congestion',  label: 'Congestion' },
-  { key: 'toll',        label: 'Toll' },
-  { key: 'airport_fee', label: 'Airport Fee' },
-  { key: 'other',       label: 'Other' },
-]
-
-interface ExpenseEntry { type: ExpenseKey; label: string; amount: number }
-
 // ─── SwipeToConfirm ───────────────────────────────────────────────────────────
 
 function SwipeToConfirm({
@@ -238,127 +223,63 @@ function WaitTimer({ since, graceMinutes }: { since: string | null; graceMinutes
   )
 }
 
-// ─── Expense modal ────────────────────────────────────────────────────────────
+// ─── Completion overlay ───────────────────────────────────────────────────────
 
-function ExpenseModal({
-  onConfirm,
-  onSkip,
-  loading,
-}: {
-  onConfirm: (expenses: ExpenseEntry[]) => void
-  onSkip: () => void
-  loading: boolean
-}) {
-  const [expenses, setExpenses] = useState<ExpenseEntry[]>([])
-  const [activeKey, setActiveKey] = useState<ExpenseKey | null>(null)
-  const [inputValue, setInputValue] = useState('')
-
-  const total = expenses.reduce((s, e) => s + e.amount, 0)
-
-  const addExpense = () => {
-    if (!activeKey) return
-    const amount = parseFloat(inputValue)
-    if (isNaN(amount) || amount <= 0) return
-    const def = EXPENSE_DEFS.find(d => d.key === activeKey)!
-    setExpenses(prev => [...prev, { type: activeKey, label: def.label, amount }])
-    setInputValue('')
-    setActiveKey(null)
-  }
+function CompletionOverlay({ ref: bookingRef, price, onDone }: { ref: string; price: number | null; onDone: () => void }) {
+  useEffect(() => {
+    const t = setTimeout(onDone, 3000)
+    return () => clearTimeout(t)
+  }, [onDone])
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col justify-end" style={{ background: 'rgba(2,8,19,0.85)' }}>
-      <div className="bg-white rounded-t-3xl px-5 pt-5 pb-10 max-h-[90vh] overflow-y-auto">
-        <div className="w-10 h-1 rounded-full bg-white/15 mx-auto mb-5" />
-        <h2 className="text-[#060C1A] font-bold text-lg mb-1">Log Journey Expenses</h2>
-        <p className="text-white/35 text-xs mb-5">Optional — record any out-of-pocket costs</p>
-
-        {/* Type buttons */}
-        <div className="grid grid-cols-3 gap-2 mb-4">
-          {EXPENSE_DEFS.map(({ key, label }) => (
-            <button
-              key={key}
-              onClick={() => { setActiveKey(activeKey === key ? null : key); setInputValue('') }}
-              className="py-2.5 px-2 rounded-xl text-xs font-semibold transition-all active:opacity-70"
-              style={
-                activeKey === key
-                  ? { background: 'rgba(213,165,56,0.2)', border: '1px solid rgba(213,165,56,0.5)', color: '#d5a538' }
-                  : { background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.6)' }
-              }
-            >
-              {label}
-            </button>
-          ))}
+    <>
+      <style>{`
+        @keyframes evx-pop { 0%{transform:scale(0.4);opacity:0} 60%{transform:scale(1.1)} 100%{transform:scale(1);opacity:1} }
+        @keyframes evx-draw { 0%{stroke-dashoffset:80} 100%{stroke-dashoffset:0} }
+        @keyframes evx-fade { 0%{opacity:0;transform:translateY(12px)} 100%{opacity:1;transform:translateY(0)} }
+        @keyframes evx-ring { 0%,100%{box-shadow:0 0 0 0 rgba(52,211,153,0.5)} 50%{box-shadow:0 0 0 24px rgba(52,211,153,0)} }
+        .evx-pop { animation: evx-pop 0.5s cubic-bezier(0.34,1.56,0.64,1) forwards }
+        .evx-draw { stroke-dasharray:80; stroke-dashoffset:80; animation: evx-draw 0.45s ease-out 0.45s forwards }
+        .evx-fade { opacity:0; animation: evx-fade 0.4s ease-out forwards }
+        .evx-ring { animation: evx-ring 1.5s ease-in-out 0.6s infinite }
+      `}</style>
+      <div
+        className="fixed inset-0 flex flex-col items-center justify-center"
+        style={{ background: '#060C1A', zIndex: 9999 }}
+      >
+        {/* Animated circle + check */}
+        <div className="evx-pop evx-ring mb-8 flex items-center justify-center rounded-full"
+          style={{ width: 120, height: 120, background: 'rgba(52,211,153,0.12)', border: '3px solid #34d399' }}>
+          <svg width="56" height="56" viewBox="0 0 56 56" fill="none">
+            <polyline
+              className="evx-draw"
+              points="14,29 24,39 42,18"
+              stroke="#34d399"
+              strokeWidth="4.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
         </div>
 
-        {/* Amount input */}
-        {activeKey && (
-          <div className="flex items-center gap-2 mb-4">
-            <div className="flex-1 relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#7a9ab8] font-semibold text-sm">£</span>
-              <input
-                type="number"
-                min="0"
-                step="0.50"
-                placeholder="0.00"
-                value={inputValue}
-                onChange={e => setInputValue(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && addExpense()}
-                autoFocus
-                className="w-full bg-[#dce8f2] border border-[#b0c4d8] rounded-xl pl-7 pr-3 py-3 text-[#060C1A] text-sm font-semibold focus:outline-none focus:border-[#d5a538]/50"
-              />
-            </div>
-            <button
-              onClick={addExpense}
-              className="px-4 py-3 rounded-xl font-semibold text-[#020813] text-sm flex items-center gap-1.5"
-              style={{ background: 'linear-gradient(135deg, #f1c56a, #d5a538)' }}
-            >
-              <Plus size={14} /> Add
-            </button>
-          </div>
+        {/* Text */}
+        <p className="evx-fade text-white font-bold text-2xl tracking-tight mb-1" style={{ animationDelay: '0.6s' }}>
+          Journey Complete
+        </p>
+        <p className="evx-fade text-emerald-400 text-sm font-semibold mb-6" style={{ animationDelay: '0.75s' }}>
+          {bookingRef}
+        </p>
+        {price != null && price > 0 && (
+          <p className="evx-fade font-bold text-3xl" style={{ color: '#d5a538', animationDelay: '0.85s' }}>
+            £{price.toFixed(2)}
+          </p>
         )}
 
-        {/* Expense list */}
-        {expenses.length > 0 && (
-          <div className="space-y-2 mb-5">
-            {expenses.map((exp, i) => (
-              <div key={i} className="flex items-center justify-between bg-[#dce8f2] rounded-xl px-3 py-2.5">
-                <span className="text-[#2d4c6d] text-sm">{exp.label}</span>
-                <div className="flex items-center gap-3">
-                  <span className="text-[#060C1A] font-semibold text-sm">£{exp.amount.toFixed(2)}</span>
-                  <button onClick={() => setExpenses(prev => prev.filter((_, idx) => idx !== i))} className="text-[#7a9ab8] hover:text-red-400 active:opacity-70 transition-colors">
-                    <X size={14} />
-                  </button>
-                </div>
-              </div>
-            ))}
-            <div className="flex items-center justify-between px-3 pt-1 border-t border-[#c4d4e4]">
-              <span className="text-[#7a9ab8] text-xs font-semibold uppercase tracking-wide">Total</span>
-              <span className="text-[#d5a538] font-bold text-base">£{total.toFixed(2)}</span>
-            </div>
-          </div>
-        )}
-
-        {/* Actions */}
-        <div className="flex gap-3">
-          <button
-            onClick={onSkip}
-            disabled={loading}
-            className="flex-1 py-3.5 rounded-xl text-sm font-semibold text-[#7a9ab8] border border-[#c4d4e4] bg-[#dce8f2] active:opacity-70 disabled:opacity-40"
-          >
-            Skip
-          </button>
-          <button
-            onClick={() => onConfirm(expenses)}
-            disabled={loading}
-            className="px-5 py-3.5 rounded-xl text-sm font-bold text-[#020813] flex items-center justify-center gap-2 disabled:opacity-50"
-            style={{ flex: 2, background: 'linear-gradient(135deg, #34d399, #10b981 55%, #059669)' }}
-          >
-            {loading ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
-            {loading ? 'Completing…' : 'Confirm & Complete'}
-          </button>
-        </div>
+        {/* EV Exec wordmark */}
+        <p className="evx-fade absolute bottom-14 text-[#d5a538] text-xs font-bold tracking-[4px] opacity-40"
+          style={{ animationDelay: '1s' }}>EV EXEC</p>
       </div>
-    </div>
+    </>
   )
 }
 
@@ -380,7 +301,7 @@ function PaymentModal({
   const cashReceivedValid = method !== 'Cash' || parseFloat(cashReceived) > 0
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col justify-end" style={{ background: 'rgba(2,8,19,0.85)' }}>
+    <div className="fixed inset-0 flex flex-col justify-end" style={{ background: 'rgba(2,8,19,0.85)', zIndex: 9999 }}>
       <div className="bg-white rounded-t-3xl px-5 pt-5 pb-10">
         <div className="w-10 h-1 rounded-full bg-[#c4d4e4] mx-auto mb-5" />
         <h2 className="text-[#060C1A] font-bold text-lg mb-1">How was payment made?</h2>
@@ -708,9 +629,9 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
   // Expense modal shown before completing journey
   const [showExpenseModal, setShowExpenseModal] = useState(false)
 
-  // Payment modal shown after expense modal during completion flow
+  // Payment modal + completion overlay
   const [showPaymentModal, setShowPaymentModal] = useState(false)
-  const [pendingExpenses, setPendingExpenses] = useState<ExpenseEntry[]>([])
+  const [showCompletion, setShowCompletion] = useState(false)
 
   // Photo / damage reports
   // `url` in state is always a short-lived signed URL (bucket is private).
@@ -878,17 +799,11 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
     await handleStatusUpdate('Arrived', false)
   }
 
-  const handleCompleteWithExpenses = async (expenses: ExpenseEntry[], paymentMethod: 'Cash' | 'Card' | 'Bank Transfer') => {
+  const handleComplete = async (paymentMethod: 'Cash' | 'Card' | 'Bank Transfer') => {
     if (!booking) return
     setShowPaymentModal(false)
     setUpdating(true)
     setUpdateError(null)
-
-    if (expenses.length > 0) {
-      await supabase.from('booking_expenses').insert(
-        expenses.map(e => ({ booking_id: booking.id, type: e.type, amount: e.amount }))
-      )
-    }
 
     const now = new Date().toISOString()
     const { error } = await supabase.from('bookings').update({
@@ -901,7 +816,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
       setUpdateError(error.message ?? 'Failed to complete. Please try again.')
     } else {
       setBooking({ ...booking, status: 'Completed', completed_at: now, payment_method: paymentMethod })
-      // Fire-and-forget receipt emails
+      setShowCompletion(true)
       triggerReceiptEmail(booking.id)
     }
     setUpdating(false)
@@ -1155,7 +1070,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
                       label={nextStep.label}
                       onConfirm={() => {
                         if (nextStep.to === 'Completed') {
-                          setShowExpenseModal(true)
+                          setShowPaymentModal(true)
                         } else {
                           handleStatusUpdate(nextStep.to)
                         }
@@ -1519,30 +1434,22 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
         </div>
       </div>
 
-      {/* ── Expense modal ──────────────────────────────────────────────────── */}
-      {showExpenseModal && (
-        <ExpenseModal
-          onConfirm={(expenses) => {
-            setShowExpenseModal(false)
-            setPendingExpenses(expenses)
-            setShowPaymentModal(true)
-          }}
-          onSkip={() => {
-            setShowExpenseModal(false)
-            setPendingExpenses([])
-            setShowPaymentModal(true)
-          }}
-          loading={updating}
-        />
-      )}
-
       {/* ── Payment modal ──────────────────────────────────────────────────── */}
       {showPaymentModal && (
         <PaymentModal
           quotedPrice={booking?.quoted_price ?? null}
-          onConfirm={(method) => handleCompleteWithExpenses(pendingExpenses, method)}
-          onBack={() => { setShowPaymentModal(false); setShowExpenseModal(true) }}
+          onConfirm={handleComplete}
+          onBack={() => setShowPaymentModal(false)}
           loading={updating}
+        />
+      )}
+
+      {/* ── Completion overlay ─────────────────────────────────────────────── */}
+      {showCompletion && booking && (
+        <CompletionOverlay
+          ref={booking.ref ?? booking.id.slice(0, 8).toUpperCase()}
+          price={booking.quoted_price ?? null}
+          onDone={() => setShowCompletion(false)}
         />
       )}
     </>
