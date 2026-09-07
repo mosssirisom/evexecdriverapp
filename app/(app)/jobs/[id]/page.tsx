@@ -603,7 +603,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
   const [showExpenseModal, setShowExpenseModal] = useState(false)
 
   // Payment method selection
-  const [localPaymentMethod, setLocalPaymentMethod] = useState<'Cash' | 'Card' | 'Bank Transfer' | 'TBC' | null>(null)
+  const [localPaymentMethod, setLocalPaymentMethod] = useState<'Cash' | 'Card' | 'Bank Transfer' | null>(null)
   const [cashReceived, setCashReceived] = useState('')
   const [savingPayment, setSavingPayment] = useState(false)
 
@@ -867,7 +867,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
     setPhotos(prev => prev.filter(p => p.id !== photoId))
   }
 
-  const handleSetPaymentMethod = async (method: 'Cash' | 'Card' | 'Bank Transfer' | 'TBC') => {
+  const handleSetPaymentMethod = async (method: 'Cash' | 'Card' | 'Bank Transfer') => {
     if (!booking) return
     setLocalPaymentMethod(method)
     setSavingPayment(true)
@@ -876,7 +876,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
     const { error } = await supabase.from('bookings').update(patch).eq('id', booking.id)
     if (error) {
       addToast({ title: 'Save failed', message: error.message })
-      setLocalPaymentMethod((booking.payment_method ?? null) as 'Cash' | 'Card' | 'Bank Transfer' | 'TBC' | null)
+      setLocalPaymentMethod((booking.payment_method ?? null) as 'Cash' | 'Card' | 'Bank Transfer' | null)
     } else {
       setBooking(prev => prev ? {
         ...prev,
@@ -929,7 +929,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
 
   const progressIndex = PROGRESS_STEPS.findIndex(s => s === booking.status)
   const showProgress = progressIndex >= 0 || isCompleted
-  const currentPaymentMethod = (localPaymentMethod ?? booking.payment_method) as 'Cash' | 'Card' | 'Bank Transfer' | 'TBC' | null
+  const currentPaymentMethod = (localPaymentMethod ?? booking.payment_method ?? 'Card') as 'Cash' | 'Card' | 'Bank Transfer'
   const noPaymentRequired = booking.quoted_price == null || booking.quoted_price === 0
   const cashReceivedValid = currentPaymentMethod !== 'Cash' || (parseFloat(cashReceived) > 0)
   const canCompleteJourney = noPaymentRequired || cashReceivedValid
@@ -1310,8 +1310,8 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
 
             <div className="mb-3">
               <p className="text-[#7a9ab8] text-[10px] uppercase tracking-wide mb-2">Payment Method</p>
-              <div className="grid grid-cols-2 gap-2">
-                {(['Cash', 'Card', 'Bank Transfer', 'TBC'] as const).map((method) => {
+              <div className="grid grid-cols-3 gap-2">
+                {(['Card', 'Cash', 'Bank Transfer'] as const).map((method) => {
                   const active = currentPaymentMethod === method
                   return (
                     <button
@@ -1323,16 +1323,14 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
                         active
                           ? (method === 'Card' || method === 'Bank Transfer')
                             ? { background: 'rgba(16,185,129,0.15)', border: '1px solid rgba(16,185,129,0.4)', color: '#10b981' }
-                            : method === 'Cash'
-                            ? { background: 'rgba(213,165,56,0.15)', border: '1px solid rgba(213,165,56,0.4)', color: '#d5a538' }
-                            : { background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.2)', color: 'rgba(255,255,255,0.7)' }
+                            : { background: 'rgba(213,165,56,0.15)', border: '1px solid rgba(213,165,56,0.4)', color: '#d5a538' }
                           : { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.3)' }
                       }
                     >
                       {method === 'Cash' && <Banknote size={12} />}
                       {method === 'Card' && <CreditCard size={12} />}
                       {method === 'Bank Transfer' && <ArrowLeftRight size={12} />}
-                      {method}
+                      {method === 'Bank Transfer' ? 'Transfer' : method}
                     </button>
                   )
                 })}
@@ -1366,15 +1364,8 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
               <div className="mt-3 flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-3 py-2.5">
                 <CheckCircle2 size={14} className="text-emerald-400 flex-shrink-0" />
                 <p className="text-emerald-400 text-xs font-semibold">
-                  {currentPaymentMethod === 'Bank Transfer' ? 'Bank transfer — marked as paid' : 'Marked as paid on operator system'}
+                  {currentPaymentMethod === 'Bank Transfer' ? 'Bank transfer — marked as paid' : 'Paid by card — no collection needed'}
                 </p>
-              </div>
-            )}
-
-            {currentPaymentMethod === 'TBC' && (
-              <div className="mt-3 flex items-center gap-2 bg-[#dce8f2] border border-[#c4d4e4] rounded-xl px-3 py-2.5">
-                <div className="w-3.5 h-3.5 rounded-full border-2 border-[#b0c4d8] flex-shrink-0" />
-                <p className="text-[#7a9ab8] text-xs">Payment to be confirmed</p>
               </div>
             )}
           </div>
