@@ -817,6 +817,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
     } else {
       setBooking({ ...booking, status: 'Completed', completed_at: now, payment_method: paymentMethod })
       setShowCompletion(true)
+      // Fire-and-forget receipt emails
       triggerReceiptEmail(booking.id)
     }
     setUpdating(false)
@@ -888,7 +889,6 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
     }
     setPhotos(prev => prev.filter(p => p.id !== photoId))
   }
-
 
   const saveNote = async () => {
     if (!booking) return
