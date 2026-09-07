@@ -894,7 +894,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
     const { error } = await supabase.from('bookings').update({
       status: 'Completed', completed_at: now, updated_at: now,
       payment_method: paymentMethod,
-      ...(paymentMethod !== 'Cash' ? { payment_status: 'paid' } : {}),
+      ...(paymentMethod !== 'Cash' ? { payment_status: 'Paid' } : {}),
     }).eq('id', booking.id)
 
     if (error) {
