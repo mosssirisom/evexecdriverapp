@@ -153,7 +153,7 @@ export default function ReceiptPage({ params }: { params: Promise<{ id: string }
             <span className="text-green-400 text-sm font-semibold">Journey Completed</span>
             {booking.completed_at && (
               <span className="text-[#7a9ab8] text-xs print-label">
-                {new Date(booking.completed_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                {new Date(booking.completed_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London' })}
               </span>
             )}
           </div>
