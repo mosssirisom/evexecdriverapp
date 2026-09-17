@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { Plane } from 'lucide-react'
+import { useCallback, useEffect, useState } from 'react'
+import { Plane, RefreshCw } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { useToast } from './toast'
 
 interface FlightVerification {
   flight_number: string
@@ -30,33 +31,79 @@ function formatFlightDateTime(iso: string | null): string {
 /**
  * Shows the operator-verified flight data (via AeroDataBox), not the raw
  * flight number the customer typed -- the driver sees what was actually
- * confirmed, including any mismatch/warning the operator saw.
+ * confirmed, including any mismatch/warning the operator saw. The refresh
+ * button lets the driver re-check status/landing time themselves rather
+ * than waiting on the operator or the day-before cron.
  */
 export function VerifiedFlightCard({ bookingId }: { bookingId: string }) {
   const [verification, setVerification] = useState<FlightVerification | null>(null)
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const { addToast } = useToast()
+
+  const load = useCallback(async () => {
+    const supabase = createClient()
+    const { data } = await supabase
+      .from('flight_verifications')
+      .select('*')
+      .eq('booking_id', bookingId)
+      .order('verified_at', { ascending: false })
+      .limit(1)
+    setVerification((data?.[0] as FlightVerification) ?? null)
+  }, [bookingId])
 
   useEffect(() => {
     let cancelled = false
-    const supabase = createClient()
-    async function load() {
-      const { data } = await supabase
-        .from('flight_verifications')
-        .select('*')
-        .eq('booking_id', bookingId)
-        .order('verified_at', { ascending: false })
-        .limit(1)
-      if (cancelled) return
-      setVerification((data?.[0] as FlightVerification) ?? null)
-      setLoading(false)
-    }
-    load()
+    ;(async () => {
+      await load()
+      if (!cancelled) setLoading(false)
+    })()
     return () => {
       cancelled = true
     }
-  }, [bookingId])
+  }, [load])
 
-  if (loading || !verification) return null
+  const reVerify = useCallback(async () => {
+    if (refreshing) return
+    setRefreshing(true)
+    try {
+      const supabase = createClient()
+      const { data, error } = await supabase.functions.invoke('verify-flight', {
+        body: { bookingId, source: 'manual' },
+      })
+      if (error) throw new Error(error.message || 'Verification request failed')
+      if (!data?.ok) throw new Error(data?.error || 'Verification failed')
+      setVerification(data.verification as FlightVerification)
+    } catch (err) {
+      addToast({
+        title: 'Flight check failed',
+        message: err instanceof Error ? err.message : 'Could not re-check the flight',
+      })
+    } finally {
+      setRefreshing(false)
+    }
+  }, [bookingId, refreshing, addToast])
+
+  if (loading) return null
+  if (!verification) {
+    return (
+      <div className="bg-white border border-[#c4d4e4] rounded-2xl p-4">
+        <div className="flex items-center justify-between mb-1">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-[#7a9ab8] flex items-center gap-1.5">
+            <Plane size={11} /> Flight (verified)
+          </p>
+          <button
+            onClick={reVerify}
+            disabled={refreshing}
+            className="w-8 h-8 rounded-xl bg-[#dce8f2] flex items-center justify-center active:opacity-70 disabled:opacity-40 flex-shrink-0"
+          >
+            <RefreshCw size={13} className={`text-[#7a9ab8] ${refreshing ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
+        <p className="text-[#7a9ab8] text-xs">Not yet verified. Tap refresh to check.</p>
+      </div>
+    )
+  }
 
   const severityColor =
     verification.severity === 'green' ? '#16a34a' : verification.severity === 'amber' ? '#d97706' : '#dc2626'
@@ -64,9 +111,18 @@ export function VerifiedFlightCard({ bookingId }: { bookingId: string }) {
 
   return (
     <div className="bg-white border border-[#c4d4e4] rounded-2xl p-4">
-      <p className="text-[10px] font-semibold uppercase tracking-widest text-[#7a9ab8] mb-3 flex items-center gap-1.5">
-        <Plane size={11} /> Flight (verified)
-      </p>
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-[10px] font-semibold uppercase tracking-widest text-[#7a9ab8] flex items-center gap-1.5">
+          <Plane size={11} /> Flight (verified)
+        </p>
+        <button
+          onClick={reVerify}
+          disabled={refreshing}
+          className="w-8 h-8 rounded-xl bg-[#dce8f2] flex items-center justify-center active:opacity-70 disabled:opacity-40 flex-shrink-0"
+        >
+          <RefreshCw size={13} className={`text-[#7a9ab8] ${refreshing ? 'animate-spin' : ''}`} />
+        </button>
+      </div>
       <div className="flex items-center justify-between mb-3">
         <p className="text-[#060C1A] text-base font-semibold">{verification.flight_number}</p>
         {(verification.departure_iata || verification.arrival_iata) && (
