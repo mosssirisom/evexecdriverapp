@@ -140,7 +140,7 @@ export function VerifiedFlightCard({ bookingId }: { bookingId: string }) {
         </div>
         {verification.recommended_pickup && (
           <div>
-            <p className="text-[#7a9ab8] text-[10px] uppercase tracking-wider mb-0.5">Recommended pickup</p>
+            <p className="text-[#7a9ab8] text-[10px] uppercase tracking-wider mb-0.5">Estimated arrival</p>
             <p className="text-[#060C1A] text-sm font-medium">{formatFlightDateTime(verification.recommended_pickup)}</p>
           </div>
         )}
