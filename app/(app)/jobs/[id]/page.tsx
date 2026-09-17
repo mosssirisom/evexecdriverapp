@@ -13,6 +13,7 @@ import { useToast } from '@/components/toast'
 import { BookingStatusBadge } from '@/components/badges'
 import { PickupIcon, DropoffIcon } from '@/components/route-icons'
 import { JobMap } from '@/components/job-map'
+import { VerifiedFlightCard } from '@/components/verified-flight-card'
 import { formatDate, formatTime, paymentInfo } from '@/lib/format'
 import { OPS_PHONE } from '@/lib/config'
 import type { Booking, BookingStatus } from '@/lib/types'
@@ -1286,6 +1287,9 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
             </div>
           </div>
 
+
+          {/* ── Verified flight (AeroDataBox, checked by the operator) ──────── */}
+          {booking.flight_number && <VerifiedFlightCard bookingId={booking.id} />}
 
           {/* ── Flight tracker ────────────────────────────────────────────── */}
           {booking.flight_number && (
