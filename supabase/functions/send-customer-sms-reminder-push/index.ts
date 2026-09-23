@@ -1,60 +1,59 @@
-// Notification helpers shared by the attestation engine.
+// Customer SMS reminder handoff — push notify the driver.
 //
-// Push delivery uses VAPID web-push. Email (Resend) is the fallback when the
-// driver has no push subscription or all push deliveries fail. Every attempt
-// is recorded in `notification_queue` for audit/retry visibility.
+// Invoked every minute by pg_cron + pg_net (see migration
+// 20260923000000_customer_sms_reminder_push_cron.sql).
+//
+// evexec's reminder cron (api/reminders/trigger.js) no longer sends the
+// customer's 7-day / 24-hour reminder SMS via Twilio when the customer has
+// no email on file. Instead it writes a row to driver_sms_reminders with
+// the fully generated message and status='pending'. This function's only
+// job is to notice new pending rows and push-notify the assigned driver,
+// deep-linking to the reminder screen where they review the message and
+// send it themselves from their own phone via the native Messages app.
+//
+// The message itself is generated once, by evexec, and stored on the row --
+// this function never regenerates or sends the SMS text; it only notifies.
+//
+// Push-sending logic below is intentionally identical to
+// supabase/functions/_shared/notify.ts's pushToDriver/recordNotification
+// (that shared module's relative import path doesn't bundle cleanly
+// through this deploy path, so it's inlined here rather than reworking the
+// shared module's resolution for every function that uses it).
 
-import type { SupabaseClient } from 'jsr:@supabase/supabase-js@2'
+import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
+import { createClient, type SupabaseClient } from 'jsr:@supabase/supabase-js@2'
 // @ts-ignore - no type declarations published for this package
 import webpush from 'npm:web-push@3.6.7'
 
-const VAPID_PUBLIC_KEY  = Deno.env.get('VAPID_PUBLIC_KEY') ?? ''
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+const VAPID_PUBLIC_KEY = Deno.env.get('VAPID_PUBLIC_KEY') ?? ''
 const VAPID_PRIVATE_KEY = Deno.env.get('VAPID_PRIVATE_KEY') ?? ''
-const RESEND_API_KEY    = Deno.env.get('RESEND_API_KEY') ?? ''
-const RECEIPT_FROM      = Deno.env.get('RECEIPT_FROM') ?? 'EV Exec <receipts@evexec.co.uk>'
-const APP_URL           = Deno.env.get('APP_URL') ?? 'https://evexec.co.uk'
-const LOGO_URL          = `${APP_URL}/logo.png`
+const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') ?? ''
+const RECEIPT_FROM = Deno.env.get('RECEIPT_FROM') ?? 'EV Exec <receipts@evexec.co.uk>'
+const APP_URL = Deno.env.get('APP_URL') ?? 'https://evexec.co.uk'
+const LOGO_URL = `${APP_URL}/logo.png`
 
 if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
   webpush.setVapidDetails('mailto:driver@evexec.co.uk', VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY)
 }
 
-export type NotificationType =
-  | 'attestation_first'
-  | 'attestation_second_urgent'
-  | 'attestation_reallocated'
-  | 'operator_panic'
-  | 'driver_reminder_24h'
-  | 'driver_reminder_1h'
-  | 'job_assigned'
-  | 'job_cancelled'
-  | 'job_updated'
-  | 'customer_sms_reminder'
-
-export type NotificationChannel = 'push' | 'sms' | 'whatsapp' | 'voice' | 'email'
-
-export interface RecordNotificationParams {
+async function recordNotification(supabase: SupabaseClient, params: {
   bookingId: string | null
-  type: NotificationType
-  channel: NotificationChannel
+  channel: 'push' | 'email'
   recipient: string
   body: string
   delivered: boolean
-  providerMessageId?: string
   error?: string
-}
-
-/** Records a notification attempt for audit/retry visibility. */
-export async function recordNotification(supabase: SupabaseClient, params: RecordNotificationParams): Promise<void> {
+}): Promise<void> {
   await supabase.from('notification_queue').insert({
     booking_id: params.bookingId,
-    type: params.type,
+    type: 'customer_sms_reminder',
     channel: params.channel,
     recipient: params.recipient,
     body: params.body,
     status: params.delivered ? 'sent' : 'failed',
     delivery_status: params.delivered ? 'sent' : 'failed',
-    provider_message_id: params.providerMessageId ?? null,
     attempts: 1,
     sent_at: params.delivered ? new Date().toISOString() : null,
     last_error: params.error ?? null,
@@ -63,7 +62,7 @@ export async function recordNotification(supabase: SupabaseClient, params: Recor
   if (params.delivered && params.bookingId) {
     await supabase.from('notification_log').insert({
       booking_id: params.bookingId,
-      type: params.type,
+      type: 'customer_sms_reminder',
       channel: params.channel,
       recipient: params.recipient,
       sent_at: new Date().toISOString(),
@@ -88,7 +87,7 @@ function driverEmailHtml(title: string, body: string, jobUrl: string): string {
       <p style="color:#374151;font-size:14px;margin:0 0 24px;line-height:1.6">${body}</p>
       <a href="${APP_URL}${jobUrl}"
          style="display:inline-block;background:linear-gradient(135deg,#f1c56a,#d5a538 55%,#a97918);color:#020813;font-weight:700;font-size:14px;padding:12px 24px;border-radius:8px;text-decoration:none">
-        View Job
+        View Reminder
       </a>
     </div>
     <div style="background:#f9fafb;padding:16px 32px;border-top:1px solid #e5e7eb">
@@ -103,7 +102,6 @@ async function sendEmailToDriver(
   supabase: SupabaseClient,
   driverId: string,
   bookingId: string,
-  type: NotificationType,
   title: string,
   body: string,
   url: string,
@@ -118,13 +116,8 @@ async function sendEmailToDriver(
 
   if (!driver?.email) {
     await recordNotification(supabase, {
-      bookingId,
-      type,
-      channel: 'email',
-      recipient: driverId,
-      body,
-      delivered: false,
-      error: 'No email address on driver record',
+      bookingId, channel: 'email', recipient: driverId, body,
+      delivered: false, error: 'No email address on driver record',
     })
     return false
   }
@@ -141,30 +134,22 @@ async function sendEmailToDriver(
   })
 
   await recordNotification(supabase, {
-    bookingId,
-    type,
-    channel: 'email',
-    recipient: driver.email,
-    body,
-    delivered: res.ok,
-    error: res.ok ? undefined : `Resend HTTP ${res.status}`,
+    bookingId, channel: 'email', recipient: driver.email, body,
+    delivered: res.ok, error: res.ok ? undefined : `Resend HTTP ${res.status}`,
   })
 
   return res.ok
 }
 
-export interface PushParams {
+/** Sends a high-priority web push to every subscription registered by the driver.
+ *  Falls back to email if no subscription exists or all push deliveries fail. */
+async function pushToDriver(supabase: SupabaseClient, params: {
   driverId: string
   bookingId: string
-  type: NotificationType
   title: string
   body: string
   url: string
-}
-
-/** Sends a high-priority web push to every subscription registered by the driver.
- *  Falls back to email if no subscription exists or all push deliveries fail. */
-export async function pushToDriver(supabase: SupabaseClient, params: PushParams): Promise<boolean> {
+}): Promise<boolean> {
   const { data: subs } = await supabase
     .from('push_subscriptions')
     .select('id, endpoint, p256dh, auth_key')
@@ -172,29 +157,18 @@ export async function pushToDriver(supabase: SupabaseClient, params: PushParams)
 
   if (!subs || subs.length === 0) {
     await recordNotification(supabase, {
-      bookingId: params.bookingId,
-      type: params.type,
-      channel: 'push',
-      recipient: params.driverId,
-      body: params.body,
-      delivered: false,
-      error: 'No push subscription registered for driver',
+      bookingId: params.bookingId, channel: 'push', recipient: params.driverId,
+      body: params.body, delivered: false, error: 'No push subscription registered for driver',
     })
-    // Email fallback
-    return sendEmailToDriver(supabase, params.driverId, params.bookingId, params.type, params.title, params.body, params.url)
+    return sendEmailToDriver(supabase, params.driverId, params.bookingId, params.title, params.body, params.url)
   }
 
   if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {
     await recordNotification(supabase, {
-      bookingId: params.bookingId,
-      type: params.type,
-      channel: 'push',
-      recipient: params.driverId,
-      body: params.body,
-      delivered: false,
-      error: 'VAPID keys not configured',
+      bookingId: params.bookingId, channel: 'push', recipient: params.driverId,
+      body: params.body, delivered: false, error: 'VAPID keys not configured',
     })
-    return sendEmailToDriver(supabase, params.driverId, params.bookingId, params.type, params.title, params.body, params.url)
+    return sendEmailToDriver(supabase, params.driverId, params.bookingId, params.title, params.body, params.url)
   }
 
   const payload = JSON.stringify({
@@ -237,19 +211,61 @@ export async function pushToDriver(supabase: SupabaseClient, params: PushParams)
     .join(' | ')
 
   await recordNotification(supabase, {
-    bookingId: params.bookingId,
-    type: params.type,
-    channel: 'push',
-    recipient: params.driverId,
-    body: params.body,
-    delivered,
-    error: delivered ? undefined : (failureDetail || 'All push subscriptions failed'),
+    bookingId: params.bookingId, channel: 'push', recipient: params.driverId, body: params.body,
+    delivered, error: delivered ? undefined : (failureDetail || 'All push subscriptions failed'),
   })
 
   if (!delivered) {
-    // Email fallback
-    return sendEmailToDriver(supabase, params.driverId, params.bookingId, params.type, params.title, params.body, params.url)
+    return sendEmailToDriver(supabase, params.driverId, params.bookingId, params.title, params.body, params.url)
   }
 
   return true
 }
+
+function formatTime(timeStr: string | null): string {
+  return timeStr ? timeStr.slice(0, 5) : ''
+}
+
+Deno.serve(async (_req) => {
+  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+  const summary = { pushed: 0, failed: 0 }
+
+  const { data: pending, error } = await supabase
+    .from('driver_sms_reminders')
+    .select('id, booking_id, driver_id, reminder_type, customer_name, travel_time')
+    .eq('status', 'pending')
+    .is('pushed_at', null)
+    .limit(50)
+
+  if (error) {
+    console.error('[send-customer-sms-reminder-push] query error:', error.message)
+    return new Response(JSON.stringify({ ok: false, error: error.message }), {
+      headers: { 'Content-Type': 'application/json' },
+    })
+  }
+
+  for (const row of pending ?? []) {
+    const name = row.customer_name || 'Customer'
+    const time = formatTime(row.travel_time)
+
+    const pushed = await pushToDriver(supabase, {
+      driverId: row.driver_id,
+      bookingId: row.booking_id,
+      title: 'Customer reminder due',
+      body: time ? `${name} — ${time}` : name,
+      url: `/jobs/${row.booking_id}/reminder?type=${row.reminder_type}`,
+    })
+
+    await supabase
+      .from('driver_sms_reminders')
+      .update({ pushed_at: new Date().toISOString() })
+      .eq('id', row.id)
+
+    pushed ? summary.pushed++ : summary.failed++
+  }
+
+  console.log('[send-customer-sms-reminder-push]', summary)
+  return new Response(JSON.stringify({ ok: true, ...summary }), {
+    headers: { 'Content-Type': 'application/json' },
+  })
+})
