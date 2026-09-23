@@ -9,11 +9,20 @@ import { useToast } from '@/components/toast'
 import type { Booking } from '@/lib/types'
 
 type ReminderStatus = 'pending' | 'opened' | 'sent'
+type ReminderKind = '7day' | '24hr' | 'en_route' | 'arrived' | 'cancelled'
+
+const KIND_LABEL: Record<ReminderKind, string> = {
+  '7day': 'Customer Reminder',
+  '24hr': 'Customer Reminder',
+  en_route: 'Customer Update — On The Way',
+  arrived: 'Customer Update — Arrived',
+  cancelled: 'Customer Update — Cancelled',
+}
 
 interface DriverSmsReminder {
   id: string
   booking_id: string
-  reminder_type: '7day' | '24hr'
+  reminder_type: ReminderKind
   customer_name: string | null
   customer_phone: string
   travel_date: string | null
@@ -55,7 +64,7 @@ export default function ReminderPage({
         .order('created_at', { ascending: false })
         .limit(1)
 
-      if (type === '7day' || type === '24hr') {
+      if (type === '7day' || type === '24hr' || type === 'en_route' || type === 'arrived' || type === 'cancelled') {
         reminderQuery = supabase
           .from('driver_sms_reminders')
           .select('id, booking_id, reminder_type, customer_name, customer_phone, travel_date, travel_time, message, status, sent_at')
@@ -156,7 +165,7 @@ export default function ReminderPage({
       </button>
 
       <div className="max-w-md mx-auto">
-        <p className="text-[#7a9ab8] text-[10px] uppercase tracking-widest font-semibold mb-1">Customer Reminder</p>
+        <p className="text-[#7a9ab8] text-[10px] uppercase tracking-widest font-semibold mb-1">{KIND_LABEL[reminder.reminder_type]}</p>
         <h1 className="text-[#060C1A] font-bold text-xl mb-6">{customerName}</h1>
 
         {/* Details card */}
