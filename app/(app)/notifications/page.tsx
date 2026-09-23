@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
-  ChevronLeft, Bell, ChevronRight,
+  ChevronLeft, Bell, ChevronRight, Trash2,
   Car, MapPin, Users, CheckCircle2, XCircle, Clock, Navigation, UserCheck, AlertCircle,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -52,12 +52,22 @@ const STATUS_META: Record<BookingStatus, StatusMeta> = {
   CRITICAL_UNALLOCATED: { label: 'Needs driver — urgent', Icon: AlertCircle,  iconColor: '#f87171', bgColor: 'rgba(248,113,113,0.15)' },
 }
 
+const CLEARED_BEFORE_KEY = 'driverapp:notifications:clearedBefore'
+
 export default function NotificationsPage() {
   const router = useRouter()
   const [bookings, setBookings] = useState<Booking[]>([])
   const [loading, setLoading] = useState(true)
+  const [clearedBefore, setClearedBefore] = useState<number>(0)
 
   const supabase = createClient()
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(CLEARED_BEFORE_KEY)
+      if (stored) setClearedBefore(Number(stored))
+    } catch { /* localStorage unavailable (private browsing, etc.) */ }
+  }, [])
 
   const loadActivity = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser()
@@ -76,20 +86,41 @@ export default function NotificationsPage() {
 
   useEffect(() => { loadActivity() }, [loadActivity])
 
+  const visibleBookings = bookings.filter((b) => {
+    if (!clearedBefore) return true
+    const updated = b.updated_at ? new Date(b.updated_at).getTime() : 0
+    return updated > clearedBefore
+  })
+
+  const clearNotifications = () => {
+    const cutoff = Date.now()
+    setClearedBefore(cutoff)
+    try { localStorage.setItem(CLEARED_BEFORE_KEY, String(cutoff)) } catch { /* ignore */ }
+  }
+
   return (
     <div className="min-h-screen bg-[#eaeff7] px-4 pt-12 pb-6">
       <div className="flex items-center gap-3 mb-6">
         <button onClick={() => router.back()} className="text-[#7a9ab8] active:text-[#2d4c6d]">
           <ChevronLeft size={22} />
         </button>
-        <h1 className="text-[#060C1A] font-bold text-xl">Activity</h1>
+        <h1 className="text-[#060C1A] font-bold text-xl flex-1">Activity</h1>
+        {visibleBookings.length > 0 && (
+          <button
+            onClick={clearNotifications}
+            className="flex items-center gap-1 text-[#7a9ab8] active:text-[#2d4c6d] text-xs font-medium"
+          >
+            <Trash2 size={14} />
+            Clear
+          </button>
+        )}
       </div>
 
       {loading ? (
         <div className="flex items-center justify-center py-20">
           <div className="w-7 h-7 rounded-full border-2 border-[#d5a538] border-t-transparent animate-spin" />
         </div>
-      ) : bookings.length === 0 ? (
+      ) : visibleBookings.length === 0 ? (
         <div className="bg-white border border-[#c4d4e4] rounded-2xl p-12 text-center">
           <Bell size={32} className="mx-auto mb-3 text-[#a8c0d4]" />
           <p className="text-[#7a9ab8] text-sm">No activity yet</p>
@@ -97,7 +128,7 @@ export default function NotificationsPage() {
         </div>
       ) : (
         <div className="space-y-2.5">
-          {bookings.map((booking) => {
+          {visibleBookings.map((booking) => {
             const meta = STATUS_META[booking.status]
             if (!meta) return null
             const { label, Icon, iconColor, bgColor } = meta
