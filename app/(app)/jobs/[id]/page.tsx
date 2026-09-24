@@ -528,18 +528,6 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
     }
   }, [booking?.status, booking?.assigned_driver_id, supabase])
 
-  const fireArrivedSms = (bookingId: string) => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-      if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`
-      fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/notify-passenger-arrived`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ bookingId }),
-      }).catch(() => {})
-    })
-  }
-
   const triggerReceiptEmail = (bookingId: string) => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' }
@@ -572,7 +560,12 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
     } else {
       const updated = { ...booking, status: nextStatus, ...(tsField ? { [tsField]: now } : {}) } as Booking
       setBooking(updated)
-      if (nextStatus === 'Arrived') fireArrivedSms(booking.id)
+      // Customer "arrived" notification (email, or two-tap SMS handoff to this
+      // driver when there's no email on file) is handled server-side by the
+      // enqueue_operator_customer_notifications() DB trigger on this same
+      // status update -- same as "En Route" above it. No separate client call
+      // needed (this used to also fire notify-passenger-arrived directly,
+      // which duplicated the trigger and sent a real Twilio SMS).
 
       if (nextStatus === 'Passenger On Board' && triggerUndo) {
         setPobCountdown(5)
