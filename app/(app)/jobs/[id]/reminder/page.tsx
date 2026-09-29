@@ -9,7 +9,7 @@ import { useToast } from '@/components/toast'
 import type { Booking } from '@/lib/types'
 
 type ReminderStatus = 'pending' | 'opened' | 'sent'
-type ReminderKind = '7day' | '24hr' | 'en_route' | 'arrived' | 'cancelled'
+type ReminderKind = '7day' | '24hr' | 'en_route' | 'arrived' | 'cancelled' | 'completed'
 
 const KIND_LABEL: Record<ReminderKind, string> = {
   '7day': 'Customer Reminder',
@@ -17,7 +17,10 @@ const KIND_LABEL: Record<ReminderKind, string> = {
   en_route: 'Customer Update — On The Way',
   arrived: 'Customer Update — Arrived',
   cancelled: 'Customer Update — Cancelled',
+  completed: 'Customer Receipt',
 }
+
+const REMINDER_KINDS: ReminderKind[] = ['7day', '24hr', 'en_route', 'arrived', 'cancelled', 'completed']
 
 interface DriverSmsReminder {
   id: string
@@ -64,7 +67,7 @@ export default function ReminderPage({
         .order('created_at', { ascending: false })
         .limit(1)
 
-      if (type === '7day' || type === '24hr' || type === 'en_route' || type === 'arrived' || type === 'cancelled') {
+      if (REMINDER_KINDS.includes(type as ReminderKind)) {
         reminderQuery = supabase
           .from('driver_sms_reminders')
           .select('id, booking_id, reminder_type, customer_name, customer_phone, travel_date, travel_time, message, status, sent_at')

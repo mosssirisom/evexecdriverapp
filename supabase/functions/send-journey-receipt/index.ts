@@ -3,15 +3,15 @@
 // Triggered by the driver app after marking a journey Completed.
 // Sends:
 //   1. A passenger receipt to customer_email (branded, journey summary)
-//      — falls back to SMS if no customer_email is on file
+//      — falls back to a two-tap SMS handoff to the assigned driver if no
+//        customer_email is on file (driver_sms_reminders, reminder_type
+//        'completed') -- no Twilio call.
 //   2. A corporate invoice to corporate_email (expenses breakdown, totals)
 //
-// Email is the primary channel; SMS is the fallback for the passenger receipt
-// when no customer_email exists.
+// Email is the primary channel for the passenger receipt.
 //
 // Required secrets:
 //   RESEND_API_KEY, RECEIPT_FROM  — email (primary)
-//   TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER — SMS (fallback)
 //
 // POST body: { bookingId: string }
 // Returns:   { ok: boolean; sent: string[]; error?: string }
@@ -26,26 +26,6 @@ const RESEND_API_KEY            = Deno.env.get('RESEND_API_KEY') ?? ''
 const RECEIPT_FROM              = Deno.env.get('RECEIPT_FROM') ?? 'EV Exec <receipts@evexec.co.uk>'
 const APP_URL                   = Deno.env.get('APP_URL') ?? 'https://evexec.co.uk'
 const LOGO_URL                  = `${APP_URL}/logo.png`
-const TWILIO_ACCOUNT_SID        = Deno.env.get('TWILIO_ACCOUNT_SID') ?? ''
-const TWILIO_AUTH_TOKEN         = Deno.env.get('TWILIO_AUTH_TOKEN') ?? ''
-const TWILIO_FROM_NUMBER        = Deno.env.get('TWILIO_FROM_NUMBER') ?? ''
-
-async function sendSms(to: string, body: string): Promise<boolean> {
-  if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN || !TWILIO_FROM_NUMBER) return false
-  const res = await fetch(
-    `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`,
-    {
-      method: 'POST',
-      headers: {
-        Authorization: `Basic ${btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`)}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: new URLSearchParams({ To: to, From: TWILIO_FROM_NUMBER, Body: body }).toString(),
-    }
-  )
-  if (!res.ok) console.error('[send-journey-receipt] Twilio error:', await res.text())
-  return res.ok
-}
 
 // ─── Email helpers ────────────────────────────────────────────────────────────
 
@@ -145,7 +125,7 @@ function passengerReceiptHtml(b: Record<string, unknown>, ref: string): string {
     </div>
     <!-- Footer -->
     <div style="background:#f9fafb;padding:20px 32px;border-top:1px solid #e5e7eb">
-      <p style="color:#9ca3af;font-size:12px;margin:0;text-align:center">EV Exec · support@evexec.co.uk · +44 7721 070370</p>
+      <p style="color:#9ca3af;font-size:12px;margin:0;text-align:center">EV Exec · support@evexec.co.uk · 07721 070370</p>
     </div>
   </div>
 </body>
@@ -260,7 +240,7 @@ function corporateInvoiceHtml(
     </div>
     <!-- Footer -->
     <div style="background:#f9fafb;padding:20px 32px;border-top:1px solid #e5e7eb">
-      <p style="color:#9ca3af;font-size:12px;margin:0;text-align:center">EV Exec · support@evexec.co.uk · +44 7721 070370</p>
+      <p style="color:#9ca3af;font-size:12px;margin:0;text-align:center">EV Exec · support@evexec.co.uk · 07721 070370</p>
     </div>
   </div>
 </body>
@@ -339,12 +319,29 @@ Deno.serve(async (req) => {
     if (ok) sent.push('customer_email')
   }
 
-  // SMS fallback — only if no email or email send failed
-  if (!sent.includes('customer_email') && booking.customer_phone) {
+  // Two-tap SMS handoff — only if no email or email send failed, and a
+  // driver is assigned to hand it off to (always true at journey Completed).
+  if (!sent.includes('customer_email') && booking.customer_phone && booking.assigned_driver_id) {
     const price = booking.quoted_price != null ? ` Total: £${(booking.quoted_price as number).toFixed(2)}.` : ''
     const smsBody = `Your EV Exec journey is complete. Booking ref: ${ref}.${price} Thank you for travelling with us.`
-    const ok = await sendSms(booking.customer_phone, smsBody)
-    if (ok) sent.push('customer_sms')
+    const { error: handoffErr } = await supabase
+      .from('driver_sms_reminders')
+      .upsert(
+        {
+          booking_id: bookingId,
+          driver_id: booking.assigned_driver_id,
+          reminder_type: 'completed',
+          customer_name: booking.customer_name ?? null,
+          customer_phone: booking.customer_phone,
+          travel_date: booking.travel_date ?? null,
+          travel_time: booking.travel_time ?? null,
+          message: smsBody,
+          status: 'pending',
+        },
+        { onConflict: 'booking_id,reminder_type', ignoreDuplicates: true }
+      )
+    if (!handoffErr) sent.push('customer_sms_handoff')
+    else console.error('[send-journey-receipt] driver_sms_reminders handoff error:', handoffErr.message)
   }
 
   // Send corporate invoice
