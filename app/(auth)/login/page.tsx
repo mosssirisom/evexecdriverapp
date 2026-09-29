@@ -29,7 +29,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-6 bg-[#eaeff7]">
+    <div className="min-h-screen flex flex-col items-center justify-center px-6 bg-[#020813]">
       {/* Logo */}
       <div className="mb-8 text-center">
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -40,7 +40,7 @@ export default function LoginPage() {
           height={160}
           className="mx-auto"
         />
-        <p className="text-[#7a9ab8] mt-2 tracking-widest uppercase text-xs">Driver Portal</p>
+        <p className="text-white/50 mt-2 tracking-widest uppercase text-xs">Driver Portal</p>
       </div>
 
       {/* Card */}
