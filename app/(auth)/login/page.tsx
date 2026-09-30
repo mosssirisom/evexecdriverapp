@@ -3,9 +3,12 @@
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Eye, EyeOff, Loader2 } from 'lucide-react'
+import { Eye, EyeOff, Loader2, Mail, Lock } from 'lucide-react'
 import { login } from '@/app/actions/auth'
 import { LOGIN_EMAIL_PLACEHOLDER } from '@/lib/config'
+
+const inputCls =
+  'w-full bg-slate-100 border border-slate-200 rounded-lg px-3 py-2.5 text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-gold/40 transition-colors'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -29,40 +32,48 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-6 bg-[#020813]">
-      {/* Logo */}
-      <div className="mb-8 text-center">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/logo.png"
-          alt="EV Exec"
-          width={160}
-          height={160}
-          className="mx-auto"
-        />
-        <p className="text-white/50 mt-2 tracking-widest uppercase text-xs">Driver Portal</p>
-      </div>
+    <div className="min-h-screen bg-[#020813] flex flex-col items-center justify-center px-4">
+      <div className="w-full max-w-sm">
+        <div className="flex flex-col items-center mb-8">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/logo.png"
+            alt="EV Exec"
+            width={260}
+            style={{ maxWidth: '260px', objectFit: 'contain' }}
+          />
+          <p
+            className="text-white/50 font-medium uppercase mt-1 tracking-widest"
+            style={{ fontSize: 'clamp(0.6rem, 1.5vw, 0.7rem)', letterSpacing: '0.22em' }}
+          >
+            Driver Portal
+          </p>
+        </div>
 
-      {/* Card */}
-      <div className="w-full max-w-sm bg-white border border-[#c4d4e4] rounded-2xl p-6 shadow-2xl">
-        <h2 className="text-lg font-semibold text-[#060C1A] mb-6">Sign in</h2>
+        <form
+          onSubmit={handleSubmit}
+          className="rounded-2xl border border-slate-200 bg-white shadow-[0_4px_20px_rgba(15,27,51,0.08)] p-6 space-y-4"
+        >
+          <h2 className="text-[#0F1B33] text-xl font-bold">Sign in</h2>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-[10px] font-semibold text-[#7a9ab8] mb-2 uppercase tracking-widest">
+          <div className="space-y-1.5">
+            <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">
+              <Mail size={11} className="text-amber-600/80" />
               Email
             </label>
             <input
               type="email"
               name="email"
               required
+              autoComplete="email"
               placeholder={LOGIN_EMAIL_PLACEHOLDER}
-              className="w-full bg-[#dce8f2] border border-[#c4d4e4] rounded-xl px-4 py-3 text-[#060C1A] placeholder-[#7a9ab8] text-sm focus:outline-none focus:border-[#d5a538] focus:ring-1 focus:ring-[#d5a538] transition-colors"
+              className={inputCls}
             />
           </div>
 
-          <div>
-            <label className="block text-[10px] font-semibold text-[#7a9ab8] mb-2 uppercase tracking-widest">
+          <div className="space-y-1.5">
+            <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">
+              <Lock size={11} className="text-amber-600/80" />
               Password
             </label>
             <div className="relative">
@@ -70,27 +81,28 @@ export default function LoginPage() {
                 type={showPassword ? 'text' : 'password'}
                 name="password"
                 required
+                autoComplete="current-password"
                 placeholder="••••••••"
-                className="w-full bg-[#dce8f2] border border-[#c4d4e4] rounded-xl px-4 py-3 pr-12 text-[#060C1A] placeholder-[#7a9ab8] text-sm focus:outline-none focus:border-[#d5a538] focus:ring-1 focus:ring-[#d5a538] transition-colors"
+                className={inputCls + ' pr-10'}
               />
               <button
                 type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#7a9ab8] hover:text-[#4a6a8a] transition-colors"
+                onClick={() => setShowPassword((v) => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-600 transition-colors"
                 tabIndex={-1}
               >
-                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
             </div>
-            <div className="text-right mt-2">
-              <Link href="/forgot-password" className="text-[#d5a538] text-xs font-medium">
+            <div className="flex justify-end">
+              <Link href="/forgot-password" className="text-xs text-amber-600 hover:text-amber-600 transition-colors">
                 Forgot password?
               </Link>
             </div>
           </div>
 
           {error && (
-            <p className="text-red-400 text-xs bg-red-400/10 border border-red-400/20 rounded-lg px-3 py-2">
+            <p className="text-xs text-red-600 bg-red-100 border border-red-500/20 rounded-lg px-3 py-2">
               {error}
             </p>
           )}
@@ -98,17 +110,17 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={isPending}
-            className="w-full py-3.5 rounded-xl font-semibold text-[#020813] text-sm flex items-center justify-center gap-2 disabled:opacity-60 transition-opacity mt-2"
+            className="w-full py-3 rounded-2xl text-sm font-semibold text-[#020813] hover:opacity-90 active:scale-[0.98] disabled:opacity-60 transition-all flex items-center justify-center gap-2"
             style={{ background: 'linear-gradient(135deg, #f1c56a, #d5a538 55%, #a97918)' }}
           >
             {isPending ? <Loader2 size={16} className="animate-spin" /> : null}
             {isPending ? 'Signing in…' : 'Sign In'}
           </button>
-        </form>
 
-        <p className="text-center text-xs text-[#a8c0d4] mt-6">
-          Account access is managed by EV Exec
-        </p>
+          <p className="text-center text-xs text-slate-600">
+            Account access is managed by EV Exec
+          </p>
+        </form>
       </div>
     </div>
   )
