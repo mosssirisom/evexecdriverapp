@@ -178,3 +178,13 @@ Asked to audit process/repo sync and make every customer/driver/operator communi
 **`attestation-engine`'s operator panic SMS + voice call — reviewed, left as-is, now logged.** Not previously tracked anywhere in this file. Fires only as the last resort of the zero-failure driver-escalation loop (push → urgent push → reallocate), when no driver confirms a booking through any channel: sends a real Twilio SMS and places a Twilio voice call (TwiML, looped 3x) to `OPERATOR_PHONE`. This is a genuine emergency escalation, not a routine notification, and fits the cost policy's standing SMS exception directly — left untouched on purpose, just documented so it doesn't look like an overlooked gap in a future audit.
 
 **Not yet applied to production**: the `completed` reminder-type migration above — this session's Supabase MCP connection is scoped to an unrelated project (`wzatjhyfwtmxdxfmurkm`), not `yoltkmhtxwluqxxpewbl`. Apply via the Supabase SQL editor or a session with correct project access before this code path is exercised. Full accounting of every Twilio site across all three repos, converted and remaining, is in `evexecoperator/CLAUDE.md`'s matching entry.
+
+## Update — 2026-09-30: one universal email brand, everywhere (user asked for a single style, not three)
+
+Told explicitly "Has to be One universal style" rather than leaving separate designs coexisting. `evexec/lib/emailLayout.js` (dark `#020813` card, gold `#d5a538` accent, logo at top, footer below the card) was picked as canonical, since that's the actual customer-facing site's own brand. New `supabase/functions/_shared/emailLayout.ts` replicates it byte-for-byte and now backs every email template in this repo:
+
+- `_shared/email.ts`'s `reminderEmail`/`cancellationEmail`/`updateEmail` (driver-facing).
+- `_shared/notify.ts`'s `driverEmailHtml` (the attestation-engine push-fallback email).
+- `send-journey-receipt`'s `passengerReceiptHtml`/`corporateInvoiceHtml` (already flagged as a separate design in the earlier audit, now actually unified).
+
+All four of these templates previously linked `${APP_URL}/logo.png` for the EV Exec logo — that path has never existed (only `/public/images/ev-exec-logo.jpg` does), so the logo has almost certainly rendered broken in every driver-facing email this app has ever sent. Fixed as part of the same pass, now pointing at the real asset. Matches the identical unification applied to `evexecoperator` in the same round (see that repo's `CLAUDE.md`) — one brand, one logo, across every repo and runtime in the system.
