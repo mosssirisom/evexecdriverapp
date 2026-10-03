@@ -16,6 +16,7 @@ import { JobMap } from '@/components/job-map'
 import { VerifiedFlightCard } from '@/components/verified-flight-card'
 import { formatDate, formatTime, paymentInfo } from '@/lib/format'
 import { OPS_PHONE } from '@/lib/config'
+import { customerUpdateSms, smsHref, type SmsDriver } from '@/lib/customer-sms'
 import type { Booking, BookingStatus } from '@/lib/types'
 
 // ─── Status flow ─────────────────────────────────────────────────────────────
@@ -430,6 +431,10 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [showCompletion, setShowCompletion] = useState(false)
 
+  // Pre-filled customer update SMS (opened from the driver's own phone on swipe)
+  const [smsDriver, setSmsDriver] = useState<SmsDriver | null>(null)
+  const [pendingSms, setPendingSms] = useState<{ href: string; label: string } | null>(null)
+
   // Photo / damage reports
   // `url` in state is always a short-lived signed URL (bucket is private).
   // `booking_photos.url` in the DB stores the storage path (new uploads) or
@@ -449,10 +454,15 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
   }
 
   const loadBooking = useCallback(async () => {
-    const [bookingRes, photosRes] = await Promise.all([
+    const { data: { user } } = await supabase.auth.getUser()
+    const [bookingRes, photosRes, driverRes] = await Promise.all([
       supabase.from('bookings').select('*').eq('id', id).single(),
       supabase.from('booking_photos').select('id, url, caption, created_at').eq('booking_id', id).order('created_at', { ascending: true }),
+      user
+        ? supabase.from('drivers').select('full_name, vehicle_model, vehicle_registration').eq('id', user.id).single()
+        : Promise.resolve({ data: null }),
     ])
+    if (driverRes.data) setSmsDriver(driverRes.data as SmsDriver)
     if (bookingRes.data) {
       setBooking(bookingRes.data as Booking)
       setDriverNote(bookingRes.data.driver_notes ?? '')
@@ -540,6 +550,42 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
     })
   }
 
+  // Ask for location up front on "Head to Pickup" so the permission prompt
+  // appears while the driver is still on this screen, and push a first fix
+  // straight away so the customer can see the car before the 30s watch kicks in.
+  const requestLocationNow = (driverId: string | null) =>
+    new Promise<void>((resolve) => {
+      if (typeof navigator === 'undefined' || !navigator.geolocation) return resolve()
+      navigator.geolocation.getCurrentPosition(
+        async (pos) => {
+          if (driverId) {
+            gpsLastPushRef.current = Date.now()
+            await supabase.from('drivers').update({
+              current_lat: pos.coords.latitude,
+              current_lng: pos.coords.longitude,
+              location_updated_at: new Date().toISOString(),
+            }).eq('id', driverId)
+          }
+          resolve()
+        },
+        (err) => {
+          addToast({ title: 'Location off', message: 'Enable location so the customer can track you.' })
+          console.warn('[GPS]', err.message)
+          resolve()
+        },
+        { enableHighAccuracy: true, maximumAge: 15_000, timeout: 8_000 },
+      )
+    })
+
+  const openCustomerSms = (status: BookingStatus, b: Booking) => {
+    if (!b.customer_phone) return
+    const body = customerUpdateSms(status, b, smsDriver)
+    if (!body) return
+    const href = smsHref(b.customer_phone, body)
+    setPendingSms({ href, label: status === 'En Route' ? 'Text customer: on my way' : 'Text customer: arrived' })
+    window.location.href = href
+  }
+
   const triggerReceiptEmail = (bookingId: string) => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' }
@@ -556,6 +602,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
     if (!booking || updating) return
     setUpdating(true)
     setUpdateError(null)
+    setPendingSms(null)
     setPobUndoActive(false)
     if (pobTimerRef.current) clearTimeout(pobTimerRef.current)
     if (pobIntervalRef.current) clearInterval(pobIntervalRef.current)
@@ -573,6 +620,12 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
       const updated = { ...booking, status: nextStatus, ...(tsField ? { [tsField]: now } : {}) } as Booking
       setBooking(updated)
       if (nextStatus === 'Arrived') fireArrivedSms(booking.id)
+
+      // triggerUndo is false only when undoing On Board — no customer text then.
+      if (triggerUndo) {
+        if (nextStatus === 'En Route') await requestLocationNow(booking.assigned_driver_id)
+        openCustomerSms(nextStatus, updated)
+      }
 
       if (nextStatus === 'Passenger On Board' && triggerUndo) {
         setPobCountdown(5)
@@ -859,6 +912,26 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
                 </div>
               )}
 
+              {/* Pre-filled customer text — fallback if Messages didn't open */}
+              {pendingSms && !pobUndoActive && (
+                <div className="flex items-center gap-2">
+                  <a
+                    href={pendingSms.href}
+                    className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold text-[#060C1A] bg-white border border-[#d5a538]/40 active:opacity-70"
+                  >
+                    <MessageSquare size={15} className="text-[#d5a538]" />
+                    {pendingSms.label}
+                  </a>
+                  <button
+                    onClick={() => setPendingSms(null)}
+                    aria-label="Dismiss"
+                    className="w-11 h-11 rounded-xl flex items-center justify-center border border-[#c4d4e4] bg-[#dce8f2] active:opacity-70"
+                  >
+                    <X size={16} className="text-[#7a9ab8]" />
+                  </button>
+                </div>
+              )}
+
               {/* Swipe action */}
               {nextStep && !pobUndoActive && (
                 <>
@@ -976,7 +1049,10 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
               {booking.customer_phone && (
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <a
-                    href={`sms:${booking.customer_phone}`}
+                    href={(() => {
+                      const body = customerUpdateSms(booking.status, booking, smsDriver)
+                      return body ? smsHref(booking.customer_phone, body) : `sms:${booking.customer_phone}`
+                    })()}
                     className="w-10 h-10 rounded-xl flex items-center justify-center border border-[#c4d4e4] bg-[#dce8f2] active:opacity-70"
                   >
                     <MessageSquare size={16} className="text-[#4a6a8a]" />

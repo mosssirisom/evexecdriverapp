@@ -9,6 +9,8 @@ const TWILIO_ACCOUNT_SID = Deno.env.get('TWILIO_ACCOUNT_SID') ?? ''
 const TWILIO_AUTH_TOKEN = Deno.env.get('TWILIO_AUTH_TOKEN') ?? ''
 const TWILIO_FROM_NUMBER = Deno.env.get('TWILIO_FROM_NUMBER') ?? ''
 const TWILIO_WHATSAPP_FROM = Deno.env.get('TWILIO_WHATSAPP_FROM') ?? ''
+// Twilio is dormant: nothing is sent unless the SMS_ENABLED=true secret is set.
+const SMS_ENABLED = Deno.env.get('SMS_ENABLED') === 'true'
 
 export interface TwilioResult {
   ok: boolean
@@ -25,6 +27,9 @@ function authHeader(): string {
 }
 
 async function postToTwilio(path: string, params: URLSearchParams): Promise<TwilioResult> {
+  if (!SMS_ENABLED) {
+    return { ok: false, error: 'Twilio is dormant (SMS_ENABLED is not true)' }
+  }
   if (!isConfigured()) {
     return { ok: false, error: 'Twilio is not configured (TWILIO_ACCOUNT_SID/TWILIO_AUTH_TOKEN/TWILIO_FROM_NUMBER missing)' }
   }
