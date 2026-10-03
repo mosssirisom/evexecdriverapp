@@ -45,7 +45,7 @@ export function customerUpdateSms(
   const pickup = booking.pickup_location ?? booking.airport ?? 'your pickup point'
   const ref = booking.ref ?? booking.id.slice(0, 8).toUpperCase()
   const hello = customer ? `${greeting()} ${customer},` : `${greeting()},`
-  const signOff = `Kind regards,\n${driverFirst}, EV Exec Chauffeur Services`
+  const signOff = `Kind regards,\n${driverFirst}, EV Exec`
 
   if (status === 'En Route') {
     const time = booking.travel_time ? ` for your ${formatTime(booking.travel_time)} pickup` : ''
@@ -55,7 +55,7 @@ export function customerUpdateSms(
     return [
       hello,
       ``,
-      `This is ${driverFirst}, your EV Exec chauffeur. I'm now on my way to ${pickup}${time}.${flight}`,
+      `This is ${driverFirst}, your EV Exec driver. I'm now on my way to ${pickup}${time}.${flight}`,
       vehicleLine(driver, "I'll be in"),
       `I'll let you know as soon as I arrive. Booking ref: ${ref}.`,
       ``,
