@@ -538,18 +538,6 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
     }
   }, [booking?.status, booking?.assigned_driver_id, supabase])
 
-  const fireArrivedSms = (bookingId: string) => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-      if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`
-      fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/notify-passenger-arrived`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ bookingId }),
-      }).catch(() => {})
-    })
-  }
-
   // Ask for location up front on "Head to Pickup" so the permission prompt
   // appears while the driver is still on this screen, and push a first fix
   // straight away so the customer can see the car before the 30s watch kicks in.
@@ -619,7 +607,6 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
     } else {
       const updated = { ...booking, status: nextStatus, ...(tsField ? { [tsField]: now } : {}) } as Booking
       setBooking(updated)
-      if (nextStatus === 'Arrived') fireArrivedSms(booking.id)
 
       // triggerUndo is false only when undoing On Board — no customer text then.
       if (triggerUndo) {
