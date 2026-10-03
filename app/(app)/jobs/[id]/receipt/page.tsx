@@ -70,7 +70,7 @@ export default function ReceiptPage({ params }: { params: Promise<{ id: string }
     totalCharged > 0 ? `Total: £${totalCharged.toFixed(2)}` : null,
     `Payment: ${p.text}`,
     ``,
-    `EV Exec Chauffeur Services · evexec.co.uk`,
+    `EV Exec`,
   ].filter(Boolean).join('\n')
 
   const smsHref = `sms:${booking.customer_phone}&body=${encodeURIComponent(lines)}`
@@ -217,7 +217,7 @@ export default function ReceiptPage({ params }: { params: Promise<{ id: string }
 
           {/* Footer */}
           <p className="text-center text-[#a8c0d4] text-[10px] mt-6 print-label">
-            EV Exec Chauffeur Services · evexec.co.uk
+            EV Exec
           </p>
         </div>
       </div>
