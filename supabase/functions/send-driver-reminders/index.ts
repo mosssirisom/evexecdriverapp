@@ -128,8 +128,8 @@ Deno.serve(async (_req) => {
       const passengers = booking.passengers ? String(booking.passengers) : undefined
 
       const pushTitle = reminder.type === 'driver_reminder_24h'
-        ? `Reminder: job tomorrow — ${ref}`
-        : `1-hour reminder — ${ref}`
+        ? `Reminder: job tomorrow, ${ref}`
+        : `1-hour reminder, ${ref}`
       const pushBody = reminder.type === 'driver_reminder_24h'
         ? `${customer} · pickup at ${time} on ${date}. Ensure your vehicle is clean and ready.`
         : `${customer} · pickup at ${time} on ${date}. Make your way to the collection point now.`

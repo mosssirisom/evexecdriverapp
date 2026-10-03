@@ -69,7 +69,7 @@ Deno.serve(async (req) => {
 
   if (isCancelled) {
     notifType = 'job_cancelled'
-    pushTitle = `Job cancelled — ${ref}`
+    pushTitle = `Job cancelled, ${ref}`
     pushBody  = `Booking for ${customer} has been cancelled. Do not travel to the collection point.`
   } else {
     const WATCH = ['travel_date', 'travel_time', 'pickup_location', 'airport', 'dropoff_address']
@@ -85,7 +85,7 @@ Deno.serve(async (req) => {
     // Use travel_time directly to avoid BST/UTC offset issues
     const time = formatTime(newRecord.travel_time as string | null)
     const date = formatDate(newRecord.travel_date as string | null)
-    pushTitle = `Job updated — ${ref}`
+    pushTitle = `Job updated, ${ref}`
     pushBody  = `${customer}${time ? ` · pickup at ${time}${date ? ` on ${date}` : ''}` : ''}. Tap to view updated details.`
   }
 

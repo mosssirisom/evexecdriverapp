@@ -14,13 +14,12 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { CORS_HEADERS, corsPreflightResponse } from '../_shared/cors.ts'
+import { emailShell, pillHtml, PILL } from '../_shared/emailLayout.ts'
 
 const SUPABASE_URL              = Deno.env.get('SUPABASE_URL') ?? ''
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 const RESEND_API_KEY            = Deno.env.get('RESEND_API_KEY') ?? ''
 const RECEIPT_FROM              = Deno.env.get('RECEIPT_FROM') ?? 'EV Exec <receipts@evexec.co.uk>'
-const APP_URL                   = Deno.env.get('APP_URL') ?? 'https://evexec.co.uk'
-const LOGO_URL                  = `${APP_URL}/logo.png`
 const TWILIO_ACCOUNT_SID        = Deno.env.get('TWILIO_ACCOUNT_SID') ?? ''
 const TWILIO_AUTH_TOKEN         = Deno.env.get('TWILIO_AUTH_TOKEN') ?? ''
 const TWILIO_FROM_NUMBER        = Deno.env.get('TWILIO_FROM_NUMBER') ?? ''
@@ -39,32 +38,15 @@ async function sendEmail(to: string, subject: string, html: string): Promise<boo
 }
 
 function arrivedEmailHtml(customerName: string | null, location: string, ref: string): string {
-  const name = customerName ?? 'Passenger'
-  return `<!DOCTYPE html>
-<html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:0;background:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
-  <div style="max-width:600px;margin:32px auto;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08)">
-    <div style="background:#060C1A;padding:28px 32px;text-align:center">
-      <img src="${LOGO_URL}" alt="EV Exec" width="56" height="56"
-           style="display:block;margin:0 auto 12px;border-radius:8px" />
-      <div style="color:#d5a538;font-size:20px;font-weight:700;letter-spacing:2px">EV EXEC</div>
-      <div style="color:rgba(255,255,255,0.4);font-size:11px;letter-spacing:3px;margin-top:4px;text-transform:uppercase">Your Driver Has Arrived</div>
-    </div>
-    <div style="padding:32px">
-      <p style="color:#374151;font-size:15px;margin:0 0 16px">Hi ${name},</p>
-      <p style="color:#374151;font-size:15px;margin:0 0 24px">Your EV Exec driver has arrived at <strong>${location}</strong>. Please make your way to the vehicle.</p>
-      <div style="background:#f9fafb;border-radius:8px;padding:16px;border:1px solid #e5e7eb">
-        <div style="color:#6b7280;font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;margin-bottom:4px">Booking Reference</div>
-        <div style="color:#111827;font-size:18px;font-weight:700">${ref}</div>
-      </div>
-    </div>
-    <div style="background:#f9fafb;padding:20px 32px;border-top:1px solid #e5e7eb">
-      <p style="color:#9ca3af;font-size:12px;margin:0;text-align:center">EV Exec · support@evexec.co.uk · +44 7721 070370</p>
-    </div>
-  </div>
-</body>
-</html>`
+  const name = customerName?.split(' ')[0] || 'there'
+  const row = (l: string, v: string) =>
+    `<tr><td style="padding:9px 0;color:#64748b;width:118px;border-bottom:1px solid #eef0f3;font-size:12px;text-transform:uppercase;letter-spacing:.04em;vertical-align:top">${l}</td>`
+    + `<td style="padding:9px 0;font-weight:700;color:#0f1b33;border-bottom:1px solid #eef0f3;font-size:14px;vertical-align:top">${v}</td></tr>`
+  return emailShell('Driver arrived', `
+    ${pillHtml('Driver arrived', PILL.green)}
+    <p style="margin:18px 0 16px;font-size:15px;line-height:1.6;color:#0f1b33">Hi ${name}, your driver has arrived at your pickup point and is ready when you are.</p>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:14px;margin:0">${row('Reference', ref)}${row('Pickup', location)}</table>
+    <p style="margin:18px 0 0;font-size:14px;line-height:1.6;color:#475569">Questions? Call or WhatsApp 07721 070370.</p>`)
 }
 
 async function sendSms(to: string, body: string): Promise<boolean> {
