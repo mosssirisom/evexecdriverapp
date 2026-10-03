@@ -290,6 +290,17 @@ async function runOperatorAlert(supabase: SupabaseClient, now: Date, summary: Ru
       ? await supabase.from('tenants').select('contact_email').eq('id', b.tenant_id).maybeSingle()
       : { data: null }
     if (tenant?.contact_email) {
+      // Same branded shell as every other EV Exec notification email.
+      const { data: branded } = await supabase.rpc('evexec_notification_email', {
+        p_pill: 'Pickup not confirmed', p_pill_bg: '#fde8e8', p_pill_fg: '#9b1c1c',
+        p_lead: `${driverName} hasn't confirmed this pickup after two reminders. Please check in with them or reassign the job.`,
+        p_rows: [
+          { label: 'Reference', value: ref },
+          { label: 'When', value: pickupSummary(b) },
+          { label: 'Driver', value: driverName + (driver?.phone ? ` · ${driver.phone}` : '') },
+        ],
+        p_footnote: 'Open the dispatch board to reassign or update the job.',
+      })
       await supabase.from('notification_queue').insert({
         booking_id: b.id,
         type: 'attestation_alert',
@@ -297,7 +308,9 @@ async function runOperatorAlert(supabase: SupabaseClient, now: Date, summary: Ru
         recipient: tenant.contact_email,
         subject: title,
         body: message,
-        html: `<p style="font-family:Inter,Arial,sans-serif;font-size:15px">${escapeHtml(message)}</p>`,
+        html: typeof branded === 'string' && branded
+          ? branded
+          : `<p style="font-family:Inter,Arial,sans-serif;font-size:15px">${escapeHtml(message)}</p>`,
         status: 'pending',
         attempts: 0,
         next_attempt_at: now.toISOString(),
