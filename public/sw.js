@@ -33,7 +33,10 @@ self.addEventListener('fetch', (event) => {
 // notification no longer replaces an unrelated one still on the lock screen
 // (a repeat of the same message for the same job still replaces itself).
 self.addEventListener('push', (event) => {
-  const data = event.data?.json() ?? {}
+  // Always show something: iOS cancels the subscription of an app that
+  // receives pushes without displaying a notification.
+  let data = {}
+  try { data = event.data?.json() ?? {} } catch { data = { body: event.data?.text() } }
   const tag = data.tag ?? `${data.url ?? '/jobs'}|${data.title ?? ''}`
   event.waitUntil(
     self.registration.showNotification(data.title ?? 'EV Exec Driver', {

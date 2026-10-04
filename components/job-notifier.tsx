@@ -2,52 +2,8 @@
 
 import { useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { VAPID_PUBLIC_KEY } from '@/lib/config'
+import { syncPush } from '@/lib/push'
 import { useToast } from './toast'
-
-function urlBase64ToUint8Array(base64String: string): Uint8Array {
-  const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
-  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
-  const rawData = atob(base64)
-  return Uint8Array.from([...rawData].map((c) => c.charCodeAt(0)))
-}
-
-const PUSH_KEY_STORAGE = 'evexec_vapid_key'
-
-async function registerPush(userId: string) {
-  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return
-  try {
-    const reg = await navigator.serviceWorker.ready
-    const existing = await reg.pushManager.getSubscription()
-
-    // If the stored VAPID key differs from the current one, the existing
-    // subscription is bound to the old key and will be rejected by Apple/Chrome.
-    // Unsubscribe so we get a fresh one tied to the current key.
-    const storedKey = localStorage.getItem(PUSH_KEY_STORAGE)
-    if (existing && storedKey !== VAPID_PUBLIC_KEY) {
-      await existing.unsubscribe()
-    }
-
-    const sub = (storedKey === VAPID_PUBLIC_KEY ? existing : null) ??
-      await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY) as unknown as ArrayBuffer,
-      })
-
-    const json = sub.toJSON()
-    if (!json.endpoint || !json.keys?.p256dh || !json.keys?.auth) return
-
-    localStorage.setItem(PUSH_KEY_STORAGE, VAPID_PUBLIC_KEY)
-
-    const supabase = createClient()
-    await supabase.from('push_subscriptions').upsert({
-      driver_id: userId,
-      endpoint: json.endpoint,
-      p256dh: json.keys.p256dh,
-      auth_key: json.keys.auth,
-    }, { onConflict: 'driver_id,endpoint', ignoreDuplicates: true })
-  } catch { /* permission denied or unsupported */ }
-}
 
 const CANCELLED_STATUSES = new Set(['cancelled', 'Cancelled', 'canceled', 'Canceled', 'No Show', 'no show'])
 const DETAIL_FIELDS = [
@@ -59,9 +15,13 @@ type BookingRow = Record<string, string | number | boolean | null>
 type DriverEventRow = { event_type: string; payload: Record<string, string | null> | null }
 
 function showNativeNotification(title: string, body: string, tag: string) {
-  if ('Notification' in window && Notification.permission === 'granted') {
-    new Notification(title, { body, icon: '/logo.png', tag })
-  }
+  // Only while the app is hidden: when it's on screen the toast is enough.
+  // `new Notification()` throws on iPhones, so go through the service worker.
+  if (!('Notification' in window) || Notification.permission !== 'granted') return
+  if (document.visibilityState === 'visible') return
+  navigator.serviceWorker?.ready
+    .then((reg) => reg.showNotification(title, { body, icon: '/logo.png', tag }))
+    .catch(() => {})
 }
 
 export function JobNotifier() {
@@ -77,14 +37,11 @@ export function JobNotifier() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
-      // Ask for browser notification permission once, then register push
-      if (!askedRef.current && 'Notification' in window && Notification.permission === 'default') {
+      // Save this phone's current push subscription. Permission itself is only
+      // ever asked for from a tap (PushPrompt / Profile), as iPhones require.
+      if (!askedRef.current) {
         askedRef.current = true
-        const perm = await Notification.requestPermission()
-        if (perm === 'granted') await registerPush(user.id)
-      } else if (!askedRef.current && Notification.permission === 'granted') {
-        askedRef.current = true
-        await registerPush(user.id)
+        await syncPush(user.id)
       }
 
       channel = supabase

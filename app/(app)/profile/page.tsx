@@ -10,6 +10,7 @@ import {
 import { createClient } from '@/lib/supabase/client'
 import { OPS_PHONE, OPS_WHATSAPP, SUPPORT_EMAIL } from '@/lib/config'
 import type { Driver } from '@/lib/types'
+import { PushSettings } from '@/components/push-settings'
 
 export default function ProfilePage() {
   const router = useRouter()
@@ -127,6 +128,8 @@ export default function ProfilePage() {
           </div>
         </div>
       )}
+
+      <PushSettings />
 
       {/* Menu rows */}
       <div className="bg-white border border-[#c4d4e4] rounded-2xl overflow-hidden mb-4">
