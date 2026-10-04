@@ -34,13 +34,6 @@ export interface Booking {
   passengers: number
   luggage: string | null
   return_journey: boolean
-  // Return leg (same booking row)
-  return_date?: string | null
-  return_time?: string | null
-  return_pickup?: string | null
-  return_airport?: string | null
-  return_destination?: string | null
-  return_flight?: string | null
   customer_name: string
   customer_phone: string
   customer_email: string | null

@@ -12,5 +12,5 @@ export default async function ReminderRedirect({
 }) {
   const { id } = await params
   const { type } = await searchParams
-  redirect(type === '24hr' || type === '24hr_return' ? `/jobs/${id}?reminder=${type}` : `/jobs/${id}`)
+  redirect(type === '24hr' ? `/jobs/${id}?reminder=${type}` : `/jobs/${id}`)
 }

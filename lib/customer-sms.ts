@@ -80,16 +80,12 @@ export function customerUpdateSms(
 }
 
 // ─── 24hr customer reminder ─────────────────────────────────────────────────
-// Sent by the driver from their own phone (sms: link), one per journey leg.
-// Tracked in driver_sms_reminders under reminder_type '24hr' (outbound, the
-// same row the website's reminder cron creates) or '24hr_return'.
+// Sent by the driver from their own phone (sms: link), one per booking.
+// A return trip is its own booking (created by the website), so it gets its
+// own reminder there. Tracked in driver_sms_reminders as reminder_type '24hr',
+// the same row the website's reminder cron creates.
 
-export type ReminderLeg = 'outbound' | 'return'
-
-export const REMINDER_TYPE: Record<ReminderLeg, string> = {
-  outbound: '24hr',
-  return: '24hr_return',
-}
+export const REMINDER_TYPE = '24hr'
 
 /** Today's date in the UK as YYYY-MM-DD, whatever the phone's timezone. */
 export function ukToday(now: Date = new Date()): string {
@@ -105,31 +101,18 @@ export function daysBetween(from: string, to: string): number {
   return Math.round((b - a) / 86_400_000)
 }
 
-export interface ReminderLegInfo {
-  leg: ReminderLeg
+export interface ReminderInfo {
   date: string | null
   time: string | null
   pickup: string | null
   flight: string | null
 }
 
-/** Date, time and pickup point for one leg of a booking. The return leg lives
- *  on the same booking row (return_* columns) and starts where the outbound
- *  journey ended, usually the airport. */
-export function reminderLegInfo(booking: Booking, leg: ReminderLeg): ReminderLegInfo {
-  if (leg === 'return') {
-    return {
-      leg,
-      date: booking.return_date ?? null,
-      time: booking.return_time ?? null,
-      pickup: booking.return_pickup ?? booking.return_airport ?? booking.airport ?? booking.dropoff_address ?? null,
-      flight: booking.return_flight ?? null,
-    }
-  }
+/** Date, time and pickup point for a booking (airport pickups start at the airport). */
+export function reminderInfo(booking: Booking): ReminderInfo {
   const jt = (booking.journey_type ?? '').toLowerCase()
   const fromAirport = jt.includes('from') && jt.includes('airport')
   return {
-    leg,
     date: booking.travel_date ?? null,
     time: booking.travel_time ?? null,
     pickup: fromAirport
@@ -150,19 +133,14 @@ function dayPhrase(date: string, today: string): string {
   return `on ${long}`
 }
 
-/** Pre-filled 24hr reminder text for one leg. "today"/"tomorrow" is worked
- *  out from the UK date when the driver taps, so it is never stale. */
-export function customerReminderSms(
-  booking: Booking,
-  leg: ReminderLeg,
-  today: string = ukToday(),
-): string {
-  const info = reminderLegInfo(booking, leg)
+/** Pre-filled 24hr reminder text. "today"/"tomorrow" is worked out from the
+ *  UK date when the driver taps, so it is never stale. */
+export function customerReminderSms(booking: Booking, today: string = ukToday()): string {
+  const info = reminderInfo(booking)
   const customer = firstName(booking.customer_name)
   const ref = booking.ref ?? booking.id.slice(0, 8).toUpperCase()
   const when = info.date ? dayPhrase(info.date, today) : 'soon'
   const at = info.time ? ` at ${formatTime(info.time)}` : ''
-  const journey = leg === 'return' ? 'return journey' : 'journey'
   const where = info.pickup ? `Your driver will be with you at ${info.pickup}.` : null
   const flight = info.flight
     ? `We'll be tracking flight ${info.flight.toUpperCase()} and will adjust if it changes.`
@@ -170,7 +148,7 @@ export function customerReminderSms(
   return [
     customer ? `Hi ${customer},` : 'Hi,',
     ``,
-    `Just a quick reminder that your EV Exec ${journey} is booked for ${when}${at}.`,
+    `Just a quick reminder that your EV Exec journey is booked for ${when}${at}.`,
     [where, flight].filter(Boolean).join(' ') || null,
     `If you have any questions or need to make any changes, please let us know. Booking ref: ${ref}.`,
     ``,

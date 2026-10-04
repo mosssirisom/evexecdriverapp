@@ -18,7 +18,7 @@ import { formatDate, formatTime, paymentInfo } from '@/lib/format'
 import { OPS_PHONE } from '@/lib/config'
 import {
   customerUpdateSms, smsHref, type SmsDriver,
-  customerReminderSms, reminderLegInfo, ukToday, daysBetween, REMINDER_TYPE, type ReminderLeg,
+  customerReminderSms, reminderInfo, ukToday, daysBetween, REMINDER_TYPE,
 } from '@/lib/customer-sms'
 import type { Booking, BookingStatus } from '@/lib/types'
 
@@ -471,7 +471,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
         ? supabase.from('drivers').select('full_name, vehicle_model, vehicle_registration').eq('id', user.id).single()
         : Promise.resolve({ data: null }),
       supabase.from('driver_sms_reminders').select('reminder_type, status, sent_at')
-        .eq('booking_id', id).in('reminder_type', Object.values(REMINDER_TYPE)),
+        .eq('booking_id', id).eq('reminder_type', REMINDER_TYPE),
     ])
     if (user) setDriverId(user.id)
     if (driverRes.data) setSmsDriver(driverRes.data as SmsDriver)
@@ -501,7 +501,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
   // reminder action into view once the booking has loaded.
   useEffect(() => {
     const type = new URLSearchParams(window.location.search).get('reminder')
-    if (type && Object.values(REMINDER_TYPE).includes(type)) setReminderFocus(type)
+    if (type === REMINDER_TYPE) setReminderFocus(type)
   }, [])
 
   useEffect(() => {
@@ -602,12 +602,12 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
 
   // Tap 1 opens Messages with the reminder pre-filled; the driver presses Send
   // (tap 2). Recorded as sent straight away so it can't go out twice by accident.
-  const sendCustomerReminder = async (leg: ReminderLeg, again = false) => {
+  const sendCustomerReminder = async (again = false) => {
     if (!booking?.customer_phone || !driverId) return
-    const type = REMINDER_TYPE[leg]
+    const type = REMINDER_TYPE
     if (again && !window.confirm('This reminder has already been sent. Open it again?')) return
-    const info = reminderLegInfo(booking, leg)
-    const body = customerReminderSms(booking, leg)
+    const info = reminderInfo(booking)
+    const body = customerReminderSms(booking)
     const now = new Date().toISOString()
     setReminders(prev => ({ ...prev, [type]: { status: 'sent', sent_at: now } }))
     window.location.href = smsHref(booking.customer_phone, body)
@@ -845,33 +845,30 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
   const graceMinutes = getGraceMinutes(booking.journey_type, booking.flight_number, booking.wait_time_minutes)
   const prefs = booking.passenger_preferences ?? []
 
-  // 24hr reminder: one per leg, offered on the UK day before (or the day of)
-  // that leg's pickup. The outbound reminder stops once the journey starts;
-  // the return leg shares this booking, so it stays available after the
-  // outbound journey is completed.
-  type ReminderView = { type: string; leg: ReminderLeg; state: 'ready' | 'sent' | 'no-phone' | 'closed'; note?: string; sentAt?: string | null }
+  // 24hr reminder: offered on the UK day before (or the day of) the pickup,
+  // until the journey starts. A return trip is its own booking, with its own
+  // reminder.
+  type ReminderView = { type: string; state: 'ready' | 'sent' | 'no-phone' | 'closed'; note?: string; sentAt?: string | null }
   const ukNow = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date())
   const isCancelledBooking = ['cancelled', 'Cancelled', 'rejected'].includes(booking.status)
-  const outboundStarted = !['pending', 'accepted', 'confirmed', 'Dispatched'].includes(booking.status)
-  const reminderViews: ReminderView[] = (['outbound', 'return'] as ReminderLeg[]).flatMap((leg): ReminderView[] => {
-    if (leg === 'return' && !booking.return_journey) return []
-    const type = REMINDER_TYPE[leg]
+  const journeyStarted = !['pending', 'accepted', 'confirmed', 'Dispatched'].includes(booking.status)
+  const reminderView = ((): ReminderView | null => {
+    const type = REMINDER_TYPE
     const focused = reminderFocus === type
-    const info = reminderLegInfo(booking, leg)
-    if (!info.date) return []
+    const info = reminderInfo(booking)
+    if (!info.date) return null
     const days = daysBetween(ukToday(), info.date)
-    if (!(days === 0 || days === 1 || (focused && days > 1))) return []
+    if (!(days === 0 || days === 1 || (focused && days > 1))) return null
     const row = reminders[type]
-    if (row?.status === 'sent') return [{ type, leg, state: 'sent', sentAt: row.sent_at }]
-    const closed = (note: string): ReminderView[] => (focused ? [{ type, leg, state: 'closed', note }] : [])
+    if (row?.status === 'sent') return { type, state: 'sent', sentAt: row.sent_at }
+    const closed = (note: string): ReminderView | null => (focused ? { type, state: 'closed', note } : null)
     if (isCancelledBooking || isNoShow) return closed('this booking has been cancelled.')
-    if (leg === 'outbound' && outboundStarted) {
-      return closed(isCompleted ? 'this journey has already been completed.' : 'this journey is already under way.')
-    }
+    if (journeyStarted) return closed(isCompleted ? 'this journey has already been completed.' : 'this journey is already under way.')
     if (days === 0 && info.time && info.time.slice(0, 5) <= ukNow) return closed('the pickup time has already passed.')
-    if (!booking.customer_phone) return [{ type, leg, state: 'no-phone' }]
-    return [{ type, leg, state: 'ready' }]
-  })
+    if (!booking.customer_phone) return { type, state: 'no-phone' }
+    return { type, state: 'ready' }
+  })()
+  const reminderViews: ReminderView[] = reminderView ? [reminderView] : []
 
   return (
     <>
@@ -985,7 +982,6 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
 
               {/* 24hr customer reminder — same two-tap text as the progress updates */}
               {reminderViews.map(r => {
-                const legLabel = booking.return_journey ? (r.leg === 'return' ? ' (Return)' : ' (Outbound)') : ''
                 return (
                   <div
                     key={r.type}
@@ -994,22 +990,22 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
                   >
                     {r.state === 'ready' && (
                       <button
-                        onClick={() => sendCustomerReminder(r.leg)}
+                        onClick={() => sendCustomerReminder()}
                         className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold text-[#060C1A] bg-white border border-[#d5a538]/40 active:opacity-70"
                       >
                         <MessageSquare size={15} className="text-[#d5a538]" />
-                        Send 24hr Reminder{legLabel}
+                        Send 24hr Reminder
                       </button>
                     )}
                     {r.state === 'sent' && (
                       <div className="flex items-center gap-2">
                         <div className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold text-green-600 bg-green-500/10 border border-green-500/25">
                           <CheckCircle2 size={15} />
-                          24hr Reminder Sent{legLabel} ✓
+                          24hr Reminder Sent ✓
                         </div>
                         {booking.customer_phone && (
                           <button
-                            onClick={() => sendCustomerReminder(r.leg, true)}
+                            onClick={() => sendCustomerReminder(true)}
                             aria-label="Open the reminder again"
                             className="w-11 h-11 rounded-xl flex items-center justify-center border border-[#c4d4e4] bg-[#dce8f2] active:opacity-70"
                           >
@@ -1021,7 +1017,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
                     {r.state === 'no-phone' && (
                       <div className="flex items-center justify-center gap-2 py-3 px-3 rounded-xl text-xs font-medium text-amber-600 bg-amber-500/10 border border-amber-500/25 text-center">
                         <AlertOctagon size={14} className="flex-shrink-0" />
-                        No customer phone number, so the 24hr reminder{legLabel.toLowerCase()} can&apos;t be sent. Please let the office know.
+                        No customer phone number, so the 24hr reminder can&apos;t be sent. Please let the office know.
                       </div>
                     )}
                     {r.state === 'closed' && (
