@@ -29,16 +29,19 @@ self.addEventListener('fetch', (event) => {
   )
 })
 
-// Show push notification
+// Show push notification. Each job + message gets its own tag, so a new
+// notification no longer replaces an unrelated one still on the lock screen
+// (a repeat of the same message for the same job still replaces itself).
 self.addEventListener('push', (event) => {
   const data = event.data?.json() ?? {}
+  const tag = data.tag ?? `${data.url ?? '/jobs'}|${data.title ?? ''}`
   event.waitUntil(
     self.registration.showNotification(data.title ?? 'EV Exec Driver', {
       body: data.body ?? 'You have an update',
       icon: '/logo.png',
       badge: '/logo.png',
       vibrate: [200, 100, 200],
-      tag: data.tag ?? 'evexec',
+      tag,
       renotify: true,
       data: { url: data.url ?? '/jobs' },
     })
