@@ -16,7 +16,10 @@ import { JobMap } from '@/components/job-map'
 import { VerifiedFlightCard } from '@/components/verified-flight-card'
 import { formatDate, formatTime, paymentInfo } from '@/lib/format'
 import { OPS_PHONE } from '@/lib/config'
-import { customerUpdateSms, smsHref, type SmsDriver } from '@/lib/customer-sms'
+import {
+  customerUpdateSms, smsHref, type SmsDriver,
+  customerReminderSms, reminderLegInfo, ukToday, daysBetween, REMINDER_TYPE, type ReminderLeg,
+} from '@/lib/customer-sms'
 import type { Booking, BookingStatus } from '@/lib/types'
 
 // ─── Status flow ─────────────────────────────────────────────────────────────
@@ -435,6 +438,12 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
   const [smsDriver, setSmsDriver] = useState<SmsDriver | null>(null)
   const [pendingSms, setPendingSms] = useState<{ href: string; label: string } | null>(null)
 
+  // 24hr customer reminder (driver_sms_reminders, one row per leg)
+  const [driverId, setDriverId] = useState<string | null>(null)
+  const [reminders, setReminders] = useState<Record<string, { status: string; sent_at: string | null }>>({})
+  const [reminderFocus, setReminderFocus] = useState<string | null>(null)
+  const reminderRef = useRef<HTMLDivElement>(null)
+
   // Photo / damage reports
   // `url` in state is always a short-lived signed URL (bucket is private).
   // `booking_photos.url` in the DB stores the storage path (new uploads) or
@@ -455,14 +464,20 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
 
   const loadBooking = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser()
-    const [bookingRes, photosRes, driverRes] = await Promise.all([
+    const [bookingRes, photosRes, driverRes, remindersRes] = await Promise.all([
       supabase.from('bookings').select('*').eq('id', id).single(),
       supabase.from('booking_photos').select('id, url, caption, created_at').eq('booking_id', id).order('created_at', { ascending: true }),
       user
         ? supabase.from('drivers').select('full_name, vehicle_model, vehicle_registration').eq('id', user.id).single()
         : Promise.resolve({ data: null }),
+      supabase.from('driver_sms_reminders').select('reminder_type, status, sent_at')
+        .eq('booking_id', id).in('reminder_type', Object.values(REMINDER_TYPE)),
     ])
+    if (user) setDriverId(user.id)
     if (driverRes.data) setSmsDriver(driverRes.data as SmsDriver)
+    if (remindersRes.data) {
+      setReminders(Object.fromEntries(remindersRes.data.map(r => [r.reminder_type, { status: r.status, sent_at: r.sent_at }])))
+    }
     if (bookingRes.data) {
       setBooking(bookingRes.data as Booking)
       setDriverNote(bookingRes.data.driver_notes ?? '')
@@ -481,6 +496,17 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
   }, [id, supabase])
 
   useEffect(() => { loadBooking() }, [loadBooking])
+
+  // Opened from the 24hr reminder notification (?reminder=24hr): bring the
+  // reminder action into view once the booking has loaded.
+  useEffect(() => {
+    const type = new URLSearchParams(window.location.search).get('reminder')
+    if (type && Object.values(REMINDER_TYPE).includes(type)) setReminderFocus(type)
+  }, [])
+
+  useEffect(() => {
+    if (!loading && reminderFocus) reminderRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }, [loading, reminderFocus])
 
   useEffect(() => {
     const channel = supabase
@@ -572,6 +598,36 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
     const href = smsHref(b.customer_phone, body)
     setPendingSms({ href, label: status === 'En Route' ? 'Text customer: on my way' : 'Text customer: arrived' })
     window.location.href = href
+  }
+
+  // Tap 1 opens Messages with the reminder pre-filled; the driver presses Send
+  // (tap 2). Recorded as sent straight away so it can't go out twice by accident.
+  const sendCustomerReminder = async (leg: ReminderLeg, again = false) => {
+    if (!booking?.customer_phone || !driverId) return
+    const type = REMINDER_TYPE[leg]
+    if (again && !window.confirm('This reminder has already been sent. Open it again?')) return
+    const info = reminderLegInfo(booking, leg)
+    const body = customerReminderSms(booking, leg)
+    const now = new Date().toISOString()
+    setReminders(prev => ({ ...prev, [type]: { status: 'sent', sent_at: now } }))
+    window.location.href = smsHref(booking.customer_phone, body)
+    const { error } = await supabase.from('driver_sms_reminders').upsert({
+      booking_id: booking.id,
+      driver_id: driverId,
+      reminder_type: type,
+      customer_name: booking.customer_name,
+      customer_phone: booking.customer_phone,
+      travel_date: info.date,
+      travel_time: info.time,
+      message: body,
+      status: 'sent',
+      opened_at: now,
+      sent_at: now,
+    }, { onConflict: 'booking_id,reminder_type' })
+    if (error) {
+      console.error('[24hr reminder]', error.message)
+      addToast({ title: 'Reminder not saved', message: 'Messages opened, but it could not be marked as sent. Check your signal.' })
+    }
   }
 
   const triggerReceiptEmail = (bookingId: string) => {
@@ -789,6 +845,34 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
   const graceMinutes = getGraceMinutes(booking.journey_type, booking.flight_number, booking.wait_time_minutes)
   const prefs = booking.passenger_preferences ?? []
 
+  // 24hr reminder: one per leg, offered on the UK day before (or the day of)
+  // that leg's pickup. The outbound reminder stops once the journey starts;
+  // the return leg shares this booking, so it stays available after the
+  // outbound journey is completed.
+  type ReminderView = { type: string; leg: ReminderLeg; state: 'ready' | 'sent' | 'no-phone' | 'closed'; note?: string; sentAt?: string | null }
+  const ukNow = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date())
+  const isCancelledBooking = ['cancelled', 'Cancelled', 'rejected'].includes(booking.status)
+  const outboundStarted = !['pending', 'accepted', 'confirmed', 'Dispatched'].includes(booking.status)
+  const reminderViews: ReminderView[] = (['outbound', 'return'] as ReminderLeg[]).flatMap((leg): ReminderView[] => {
+    if (leg === 'return' && !booking.return_journey) return []
+    const type = REMINDER_TYPE[leg]
+    const focused = reminderFocus === type
+    const info = reminderLegInfo(booking, leg)
+    if (!info.date) return []
+    const days = daysBetween(ukToday(), info.date)
+    if (!(days === 0 || days === 1 || (focused && days > 1))) return []
+    const row = reminders[type]
+    if (row?.status === 'sent') return [{ type, leg, state: 'sent', sentAt: row.sent_at }]
+    const closed = (note: string): ReminderView[] => (focused ? [{ type, leg, state: 'closed', note }] : [])
+    if (isCancelledBooking || isNoShow) return closed('this booking has been cancelled.')
+    if (leg === 'outbound' && outboundStarted) {
+      return closed(isCompleted ? 'this journey has already been completed.' : 'this journey is already under way.')
+    }
+    if (days === 0 && info.time && info.time.slice(0, 5) <= ukNow) return closed('the pickup time has already passed.')
+    if (!booking.customer_phone) return [{ type, leg, state: 'no-phone' }]
+    return [{ type, leg, state: 'ready' }]
+  })
+
   return (
     <>
       <div className="min-h-screen bg-[#eaeff7] pb-8">
@@ -810,7 +894,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
         <div className="px-4 pt-4 space-y-3">
 
           {/* ── Journey action card ──────────────────────────────────────── */}
-          {(nextStep || isCompleted || isNoShow) && (
+          {(nextStep || isCompleted || isNoShow || reminderViews.length > 0) && (
             <div
               className="rounded-2xl p-4 space-y-4"
               style={{
@@ -898,6 +982,54 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
                   </button>
                 </div>
               )}
+
+              {/* 24hr customer reminder — same two-tap text as the progress updates */}
+              {reminderViews.map(r => {
+                const legLabel = booking.return_journey ? (r.leg === 'return' ? ' (Return)' : ' (Outbound)') : ''
+                return (
+                  <div
+                    key={r.type}
+                    ref={reminderFocus === r.type ? reminderRef : undefined}
+                    className={reminderFocus === r.type ? 'rounded-xl ring-2 ring-[#d5a538]/50 ring-offset-2 ring-offset-[#eaeff7]' : ''}
+                  >
+                    {r.state === 'ready' && (
+                      <button
+                        onClick={() => sendCustomerReminder(r.leg)}
+                        className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold text-[#060C1A] bg-white border border-[#d5a538]/40 active:opacity-70"
+                      >
+                        <MessageSquare size={15} className="text-[#d5a538]" />
+                        Send 24hr Reminder{legLabel}
+                      </button>
+                    )}
+                    {r.state === 'sent' && (
+                      <div className="flex items-center gap-2">
+                        <div className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold text-green-600 bg-green-500/10 border border-green-500/25">
+                          <CheckCircle2 size={15} />
+                          24hr Reminder Sent{legLabel} ✓
+                        </div>
+                        {booking.customer_phone && (
+                          <button
+                            onClick={() => sendCustomerReminder(r.leg, true)}
+                            aria-label="Open the reminder again"
+                            className="w-11 h-11 rounded-xl flex items-center justify-center border border-[#c4d4e4] bg-[#dce8f2] active:opacity-70"
+                          >
+                            <RefreshCw size={16} className="text-[#7a9ab8]" />
+                          </button>
+                        )}
+                      </div>
+                    )}
+                    {r.state === 'no-phone' && (
+                      <div className="flex items-center justify-center gap-2 py-3 px-3 rounded-xl text-xs font-medium text-amber-600 bg-amber-500/10 border border-amber-500/25 text-center">
+                        <AlertOctagon size={14} className="flex-shrink-0" />
+                        No customer phone number, so the 24hr reminder{legLabel.toLowerCase()} can&apos;t be sent. Please let the office know.
+                      </div>
+                    )}
+                    {r.state === 'closed' && (
+                      <p className="py-2 text-xs text-[#7a9ab8] text-center">No 24hr reminder needed: {r.note}</p>
+                    )}
+                  </div>
+                )
+              })}
 
               {/* Pre-filled customer text — fallback if Messages didn't open */}
               {pendingSms && !pobUndoActive && (

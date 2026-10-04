@@ -141,7 +141,8 @@ Deno.serve(async (_req) => {
         type:      reminder.type,
         title:     pushTitle,
         body:      pushBody,
-        url:       `/jobs/${booking.id}`,
+        // The 24 h reminder opens the job with the customer reminder action ready.
+        url:       reminder.type === 'driver_reminder_24h' ? `/jobs/${booking.id}?reminder=24hr` : `/jobs/${booking.id}`,
       })
 
       if (pushed) {

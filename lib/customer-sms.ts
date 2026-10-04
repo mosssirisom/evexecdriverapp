@@ -79,6 +79,106 @@ export function customerUpdateSms(
   return null
 }
 
+// ─── 24hr customer reminder ─────────────────────────────────────────────────
+// Sent by the driver from their own phone (sms: link), one per journey leg.
+// Tracked in driver_sms_reminders under reminder_type '24hr' (outbound, the
+// same row the website's reminder cron creates) or '24hr_return'.
+
+export type ReminderLeg = 'outbound' | 'return'
+
+export const REMINDER_TYPE: Record<ReminderLeg, string> = {
+  outbound: '24hr',
+  return: '24hr_return',
+}
+
+/** Today's date in the UK as YYYY-MM-DD, whatever the phone's timezone. */
+export function ukToday(now: Date = new Date()): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/London', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(now)
+}
+
+/** Whole calendar days from `from` to `to` (both YYYY-MM-DD). */
+export function daysBetween(from: string, to: string): number {
+  const a = Date.UTC(+from.slice(0, 4), +from.slice(5, 7) - 1, +from.slice(8, 10))
+  const b = Date.UTC(+to.slice(0, 4), +to.slice(5, 7) - 1, +to.slice(8, 10))
+  return Math.round((b - a) / 86_400_000)
+}
+
+export interface ReminderLegInfo {
+  leg: ReminderLeg
+  date: string | null
+  time: string | null
+  pickup: string | null
+  flight: string | null
+}
+
+/** Date, time and pickup point for one leg of a booking. The return leg lives
+ *  on the same booking row (return_* columns) and starts where the outbound
+ *  journey ended, usually the airport. */
+export function reminderLegInfo(booking: Booking, leg: ReminderLeg): ReminderLegInfo {
+  if (leg === 'return') {
+    return {
+      leg,
+      date: booking.return_date ?? null,
+      time: booking.return_time ?? null,
+      pickup: booking.return_pickup ?? booking.return_airport ?? booking.airport ?? booking.dropoff_address ?? null,
+      flight: booking.return_flight ?? null,
+    }
+  }
+  const jt = (booking.journey_type ?? '').toLowerCase()
+  const fromAirport = jt.includes('from') && jt.includes('airport')
+  return {
+    leg,
+    date: booking.travel_date ?? null,
+    time: booking.travel_time ?? null,
+    pickup: fromAirport
+      ? (booking.airport ?? booking.pickup_location ?? null)
+      : (booking.pickup_location ?? booking.airport ?? null),
+    flight: fromAirport ? (booking.flight_number ?? null) : null,
+  }
+}
+
+function dayPhrase(date: string, today: string): string {
+  const [y, m, d] = date.split('-').map(Number)
+  const long = new Date(Date.UTC(y, m - 1, d)).toLocaleDateString('en-GB', {
+    weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC',
+  })
+  const diff = daysBetween(today, date)
+  if (diff === 0) return `today (${long})`
+  if (diff === 1) return `tomorrow (${long})`
+  return `on ${long}`
+}
+
+/** Pre-filled 24hr reminder text for one leg. "today"/"tomorrow" is worked
+ *  out from the UK date when the driver taps, so it is never stale. */
+export function customerReminderSms(
+  booking: Booking,
+  leg: ReminderLeg,
+  today: string = ukToday(),
+): string {
+  const info = reminderLegInfo(booking, leg)
+  const customer = firstName(booking.customer_name)
+  const ref = booking.ref ?? booking.id.slice(0, 8).toUpperCase()
+  const when = info.date ? dayPhrase(info.date, today) : 'soon'
+  const at = info.time ? ` at ${formatTime(info.time)}` : ''
+  const journey = leg === 'return' ? 'return journey' : 'journey'
+  const where = info.pickup ? `Your driver will be with you at ${info.pickup}.` : null
+  const flight = info.flight
+    ? `We'll be tracking flight ${info.flight.toUpperCase()} and will adjust if it changes.`
+    : null
+  return [
+    customer ? `Hi ${customer},` : 'Hi,',
+    ``,
+    `Just a quick reminder that your EV Exec ${journey} is booked for ${when}${at}.`,
+    [where, flight].filter(Boolean).join(' ') || null,
+    `If you have any questions or need to make any changes, please let us know. Booking ref: ${ref}.`,
+    ``,
+    `Many thanks,`,
+    `EV Exec`,
+  ].filter(l => l !== null).join('\n')
+}
+
 /** sms: link that opens the driver's messaging app with the text pre-filled.
  *  `?&body=` is the form both iOS and Android accept. */
 export function smsHref(phone: string, body: string): string {
