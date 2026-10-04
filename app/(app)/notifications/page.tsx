@@ -56,12 +56,18 @@ export default function NotificationsPage() {
   const router = useRouter()
   const [bookings, setBookings] = useState<Booking[]>([])
   const [loading, setLoading] = useState(true)
+  // "Clear" hides everything up to now on this phone; new activity still shows.
+  const [clearedAt, setClearedAt] = useState<string | null>(null)
+  const [clearKey, setClearKey] = useState<string | null>(null)
 
   const supabase = createClient()
 
   const loadActivity = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
+    const key = `evexec_activity_cleared_${user.id}`
+    setClearKey(key)
+    try { setClearedAt(localStorage.getItem(key)) } catch { /* storage unavailable */ }
 
     const { data } = await supabase
       .from('bookings')
@@ -76,28 +82,46 @@ export default function NotificationsPage() {
 
   useEffect(() => { loadActivity() }, [loadActivity])
 
+  const visible = clearedAt
+    ? bookings.filter(b => b.updated_at && b.updated_at > clearedAt)
+    : bookings
+
+  const clearActivity = () => {
+    const now = new Date().toISOString()
+    setClearedAt(now)
+    try { if (clearKey) localStorage.setItem(clearKey, now) } catch { /* storage unavailable */ }
+  }
+
   return (
     <div className="min-h-screen bg-[#eaeff7] px-4 pt-12 pb-6">
       <div className="flex items-center gap-3 mb-6">
         <button onClick={() => router.back()} className="text-[#7a9ab8] active:text-[#2d4c6d]">
           <ChevronLeft size={22} />
         </button>
-        <h1 className="text-[#060C1A] font-bold text-xl">Activity</h1>
+        <h1 className="text-[#060C1A] font-bold text-xl flex-1">Activity</h1>
+        {!loading && visible.length > 0 && (
+          <button
+            onClick={clearActivity}
+            className="text-[#7a9ab8] text-sm font-medium px-3 py-1.5 rounded-lg active:bg-[#dce8f2]"
+          >
+            Clear
+          </button>
+        )}
       </div>
 
       {loading ? (
         <div className="flex items-center justify-center py-20">
           <div className="w-7 h-7 rounded-full border-2 border-[#d5a538] border-t-transparent animate-spin" />
         </div>
-      ) : bookings.length === 0 ? (
+      ) : visible.length === 0 ? (
         <div className="bg-white border border-[#c4d4e4] rounded-2xl p-12 text-center">
           <Bell size={32} className="mx-auto mb-3 text-[#a8c0d4]" />
-          <p className="text-[#7a9ab8] text-sm">No activity yet</p>
-          <p className="text-[#a8c0d4] text-xs mt-1">Your job history will appear here</p>
+          <p className="text-[#7a9ab8] text-sm">{bookings.length ? 'All caught up' : 'No activity yet'}</p>
+          <p className="text-[#a8c0d4] text-xs mt-1">{bookings.length ? 'New job activity will appear here' : 'Your job history will appear here'}</p>
         </div>
       ) : (
         <div className="space-y-2.5">
-          {bookings.map((booking) => {
+          {visible.map((booking) => {
             const meta = STATUS_META[booking.status]
             if (!meta) return null
             const { label, Icon, iconColor, bgColor } = meta
