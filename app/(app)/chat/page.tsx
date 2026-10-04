@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { Send, MessageSquare, Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { formatStampDate, formatStampTime } from '@/lib/format'
 
 interface Message {
   id: string
@@ -16,9 +17,9 @@ function formatMsgTime(iso: string): string {
   const d = new Date(iso)
   const today = new Date()
   const isToday = d.toDateString() === today.toDateString()
-  const time = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+  const time = formatStampTime(d)
   if (isToday) return time
-  return `${d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} · ${time}`
+  return `${formatStampDate(d)} · ${time}`
 }
 
 function isDifferentDay(a: string, b: string): boolean {
@@ -153,9 +154,7 @@ export default function ChatPage() {
                   {showDate && (
                     <div className="text-center my-4">
                       <span className="text-[#a8c0d4] text-[10px] bg-[#dce8f2] px-3 py-1 rounded-full">
-                        {new Date(msg.created_at).toLocaleDateString('en-GB', {
-                          weekday: 'short', day: 'numeric', month: 'short',
-                        })}
+                        {formatStampDate(msg.created_at)}
                       </span>
                     </div>
                   )}

@@ -102,7 +102,7 @@ function pickupSummary(b: Booking): string {
   const place = b.pickup_location ?? b.airport ?? 'pickup'
   const at = pickupAt(b)
   const time = at
-    ? at.toLocaleString('en-GB', { timeZone: 'Europe/London', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+    ? `${at.toLocaleDateString('en-GB', { timeZone: 'Europe/London', day: '2-digit', month: '2-digit', year: 'numeric' })} ${at.toLocaleTimeString('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })}`
     : 'the scheduled time'
   return `${b.customer_name ?? 'Customer'} at ${time} (${place})`
 }

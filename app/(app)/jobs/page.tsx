@@ -6,7 +6,7 @@ import { ChevronRight, Car, Users, Search, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { BookingStatusBadge } from '@/components/badges'
 import { RouteDisplay } from '@/components/route-icons'
-import { formatDate, formatTime, paymentInfo } from '@/lib/format'
+import { formatDate, formatTime, paymentInfo, formatStampDate } from '@/lib/format'
 import type { Booking } from '@/lib/types'
 
 type Tab = 'upcoming' | 'active' | 'completed'
@@ -179,7 +179,7 @@ export default function JobsPage() {
   }
   const currentList = sortNearestFirst(applySearch(applyDateFilter(baseList)))
 
-  const today = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+  const today = formatStampDate(new Date())
 
   return (
     <div className="min-h-screen bg-[#eaeff7] px-4 pt-12 pb-4">

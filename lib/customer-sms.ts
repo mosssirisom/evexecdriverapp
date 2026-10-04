@@ -1,5 +1,5 @@
 import type { Booking, BookingStatus } from './types'
-import { formatTime } from './format'
+import { formatDate, formatTime } from './format'
 
 // Pre-filled customer update texts, sent manually from the driver's own phone
 // (sms: link) when they swipe the job progress bar. No Twilio cost.
@@ -123,10 +123,7 @@ export function reminderInfo(booking: Booking): ReminderInfo {
 }
 
 function dayPhrase(date: string, today: string): string {
-  const [y, m, d] = date.split('-').map(Number)
-  const long = new Date(Date.UTC(y, m - 1, d)).toLocaleDateString('en-GB', {
-    weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC',
-  })
+  const long = formatDate(date)
   const diff = daysBetween(today, date)
   if (diff === 0) return `today (${long})`
   if (diff === 1) return `tomorrow (${long})`

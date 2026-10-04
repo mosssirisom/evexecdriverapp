@@ -4,7 +4,7 @@ import { useEffect, useState, use } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, Printer, CheckCircle2, MessageSquare, Mail } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { formatDate, formatTime, paymentInfo } from '@/lib/format'
+import { formatDate, formatTime, paymentInfo, formatStamp } from '@/lib/format'
 import type { Booking, BookingExpense } from '@/lib/types'
 
 export default function ReceiptPage({ params }: { params: Promise<{ id: string }> }) {
@@ -153,7 +153,7 @@ export default function ReceiptPage({ params }: { params: Promise<{ id: string }
             <span className="text-green-400 text-sm font-semibold">Journey Completed</span>
             {booking.completed_at && (
               <span className="text-[#7a9ab8] text-xs print-label">
-                {new Date(booking.completed_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London' })}
+                {formatStamp(booking.completed_at)}
               </span>
             )}
           </div>

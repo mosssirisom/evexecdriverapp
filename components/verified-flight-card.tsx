@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Plane, RefreshCw } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { formatStamp } from '@/lib/format'
 import { useToast } from './toast'
 
 interface FlightVerification {
@@ -23,9 +24,7 @@ function formatFlightDateTime(iso: string | null): string {
   if (!iso) return '—'
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return '—'
-  const date = d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Europe/London' })
-  const time = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Europe/London' })
-  return `${date}, ${time}`
+  return formatStamp(d)
 }
 
 /**

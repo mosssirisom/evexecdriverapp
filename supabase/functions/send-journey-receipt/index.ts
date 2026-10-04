@@ -72,10 +72,11 @@ async function sendEmail(to: string, subject: string, html: string): Promise<boo
 
 function fmt(iso: string | null): string {
   if (!iso) return 'Not recorded'
-  return new Date(iso).toLocaleString('en-GB', {
-    day: 'numeric', month: 'short', year: 'numeric',
-    hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London',
-  })
+  // House style: DD/MM/YYYY HH:MM (24-hour), UK time.
+  const d = new Date(iso)
+  const date = d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Europe/London' })
+  const time = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: 'Europe/London' })
+  return `${date} ${time}`
 }
 
 function fmtPrice(p: number | null): string {
