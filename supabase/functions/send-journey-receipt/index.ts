@@ -6,12 +6,12 @@
 //      — falls back to SMS if no customer_email is on file
 //   2. A corporate invoice to corporate_email (expenses breakdown, totals)
 //
-// Email is the primary channel; SMS is the fallback for the passenger receipt
-// when no customer_email exists.
+// Email is the primary channel: both emails are queued for the website to
+// send (it holds the Resend key; edge functions have none). SMS is the
+// fallback for the passenger receipt when no customer_email exists, and is
+// dormant unless SMS_ENABLED=true.
 //
-// Required secrets:
-//   RESEND_API_KEY, RECEIPT_FROM  — email (primary)
-//   TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER — SMS (fallback)
+// Secrets (SMS only): TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER
 //
 // POST body: { bookingId: string }
 // Returns:   { ok: boolean; sent: string[]; error?: string }
@@ -20,11 +20,11 @@ import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { CORS_HEADERS, corsPreflightResponse } from '../_shared/cors.ts'
 import { emailShell, pillHtml, PILL } from '../_shared/emailLayout.ts'
+import { queueEmail } from '../_shared/notify.ts'
+import { stopsFromNotes } from '../_shared/email.ts'
 
 const SUPABASE_URL              = Deno.env.get('SUPABASE_URL') ?? ''
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-const RESEND_API_KEY            = Deno.env.get('RESEND_API_KEY') ?? ''
-const RECEIPT_FROM              = Deno.env.get('RECEIPT_FROM') ?? 'EV Exec <receipts@evexec.co.uk>'
 const TWILIO_ACCOUNT_SID        = Deno.env.get('TWILIO_ACCOUNT_SID') ?? ''
 const TWILIO_AUTH_TOKEN         = Deno.env.get('TWILIO_AUTH_TOKEN') ?? ''
 const TWILIO_FROM_NUMBER        = Deno.env.get('TWILIO_FROM_NUMBER') ?? ''
@@ -50,26 +50,6 @@ async function sendSms(to: string, body: string): Promise<boolean> {
 
 // ─── Email helpers ────────────────────────────────────────────────────────────
 
-async function sendEmail(to: string, subject: string, html: string): Promise<boolean> {
-  if (!RESEND_API_KEY) {
-    console.warn('[send-journey-receipt] RESEND_API_KEY not configured')
-    return false
-  }
-  const res = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${RESEND_API_KEY}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ from: RECEIPT_FROM, to, subject, html }),
-  })
-  if (!res.ok) {
-    const err = await res.text()
-    console.error('[send-journey-receipt] Resend error:', err)
-  }
-  return res.ok
-}
-
 function fmt(iso: string | null): string {
   if (!iso) return 'Not recorded'
   // House style: DD/MM/YYYY HH:MM (24-hour), UK time.
@@ -82,6 +62,24 @@ function fmt(iso: string | null): string {
 function fmtPrice(p: number | null): string {
   if (p == null) return 'TBC'
   return `£${p.toFixed(2)}`
+}
+
+// Explicit payment wording, same rules as evexec/lib/format.js paymentLine().
+function paymentLine(b: Record<string, unknown>): string {
+  const notes = String(b.notes ?? '')
+  if (/^Return leg created automatically/i.test(notes)) {
+    const ref = notes.match(/Outbound ref:\s*(\S+)/i)?.[1]?.replace(/[.,]$/, '')
+    return ref ? `Included with booking ${ref}` : 'Included with your outbound booking'
+  }
+  const m = String(b.payment_method ?? '').trim().toLowerCase()
+  const st = String(b.payment_status ?? '').trim().toLowerCase()
+  const bank = m === 'bank transfer' || m === 'bank_transfer'
+  if (st === 'paid') return m === 'card' || m === 'payment link' ? 'Paid by card' : m === 'cash' ? 'Paid in cash' : bank ? 'Paid by bank transfer' : 'Paid'
+  if (m === 'cash') return 'Cash on the day'
+  if (bank) return 'Bank transfer (payment pending)'
+  if (m === 'payment link') return 'Payment link sent (payment pending)'
+  if (m === 'card') return 'Card payment pending'
+  return 'Payment required'
 }
 
 // ─── Email templates ──────────────────────────────────────────────────────────
@@ -105,15 +103,16 @@ function totalHtml(label: string, amount: string): string {
 const FOOTNOTE = '<p style="margin:18px 0 0;font-size:14px;line-height:1.6;color:#475569">Questions? Call or WhatsApp 07721 070370.</p>'
 
 function passengerReceiptHtml(b: Record<string, unknown>, ref: string): string {
-  const pickup   = (b.pickup_location as string | null) ?? (b.airport as string | null) ?? 'Not recorded'
-  const dropoff  = (b.dropoff_address as string | null) ?? (b.airport as string | null) ?? 'Not recorded'
+  const pickup  = (b.pickup_location as string | null) || (b.airport as string | null) || 'Not recorded'
+  const dropoff = (b.dropoff_address as string | null) || (b.airport as string | null) || 'Not recorded'
+  const stops   = stopsFromNotes(b.notes).map((v, i): [string, string] => [`Stop ${i + 1}`, v])
   const price    = fmtPrice(b.quoted_price as number | null)
   const doneAt   = fmt(b.completed_at as string | null)
 
   return emailShell('Journey receipt', `
     ${pillHtml('Journey receipt', PILL.green)}
     <p style="margin:18px 0 16px;font-size:15px;line-height:1.6;color:#0f1b33">Thank you for travelling with EV Exec. Here's a summary of your journey.</p>
-    ${rowsHtml([['Reference', ref], ['Pickup', pickup], ['Drop-off', dropoff], ['Completed', doneAt]])}
+    ${rowsHtml([['Reference', ref], ['Pickup', pickup], ...stops, ['Drop-off', dropoff], ['Completed', doneAt], ['Payment', paymentLine(b)]])}
     ${totalHtml('Total', price)}
     ${FOOTNOTE}`)
 }
@@ -124,8 +123,9 @@ function corporateInvoiceHtml(
   driverName: string,
   expenses: Array<{ type: string; amount: number }>,
 ): string {
-  const pickup  = (b.pickup_location as string | null) ?? (b.airport as string | null) ?? 'Not recorded'
-  const dropoff = (b.dropoff_address as string | null) ?? (b.airport as string | null) ?? 'Not recorded'
+  const pickup  = (b.pickup_location as string | null) || (b.airport as string | null) || 'Not recorded'
+  const dropoff = (b.dropoff_address as string | null) || (b.airport as string | null) || 'Not recorded'
+  const stops   = stopsFromNotes(b.notes).map((v, i): [string, string] => [`Stop ${i + 1}`, v])
   const price   = b.quoted_price as number | null
   const doneAt  = fmt(b.completed_at as string | null)
   const expTotal = expenses.reduce((s, e) => s + e.amount, 0)
@@ -139,7 +139,7 @@ function corporateInvoiceHtml(
   return emailShell('Journey invoice', `
     ${pillHtml('Journey invoice', PILL.gold)}
     <p style="margin:18px 0 16px;font-size:15px;line-height:1.6;color:#0f1b33">Invoice for your completed journey with EV Exec.</p>
-    ${rowsHtml([['Reference', ref], ['Driver', driverName], ['Pickup', pickup], ['Drop-off', dropoff], ['Completed', doneAt]])}
+    ${rowsHtml([['Reference', ref], ['Driver', driverName], ['Pickup', pickup], ...stops, ['Drop-off', dropoff], ['Completed', doneAt]])}
     <div style="margin:0 0 4px;color:#64748b;font-size:12px;text-transform:uppercase;letter-spacing:.04em">Charges</div>
     ${rowsHtml(charges)}
     ${totalHtml('Total due', `£${grandTotal.toFixed(2)}`)}
@@ -210,11 +210,11 @@ Deno.serve(async (req) => {
 
   // Send passenger receipt (email primary, SMS fallback)
   if (booking.customer_email) {
-    const ok = await sendEmail(
-      booking.customer_email,
-      `Your EV Exec journey receipt (Ref ${ref})`,
-      passengerReceiptHtml(booking, ref),
-    )
+    const ok = await queueEmail(supabase, {
+      bookingId, type: 'receipt', to: booking.customer_email,
+      subject: `Your EV Exec journey receipt (Ref ${ref})`,
+      html: passengerReceiptHtml(booking, ref),
+    })
     if (ok) sent.push('customer_email')
   }
 
@@ -228,11 +228,11 @@ Deno.serve(async (req) => {
 
   // Send corporate invoice
   if (booking.corporate_email) {
-    const ok = await sendEmail(
-      booking.corporate_email,
-      `EV Exec journey invoice (Ref ${ref})`,
-      corporateInvoiceHtml(booking, ref, driverName, expenses),
-    )
+    const ok = await queueEmail(supabase, {
+      bookingId, type: 'receipt', to: booking.corporate_email,
+      subject: `EV Exec journey invoice (Ref ${ref})`,
+      html: corporateInvoiceHtml(booking, ref, driverName, expenses),
+    })
     if (ok) sent.push('corporate')
   }
 

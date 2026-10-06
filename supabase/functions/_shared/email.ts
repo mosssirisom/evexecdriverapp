@@ -1,55 +1,8 @@
-// Thin Resend email client shared across edge functions.
-//
-// Uses the same RESEND_API_KEY and RECEIPT_FROM already configured for
-// send-journey-receipt. Falls back to ok:false gracefully when credentials
-// are not configured so functions can be deployed and tested without email.
+// Driver email templates shared across edge functions. Sending goes through
+// queueEmail() in ./notify.ts (the website sends it; edge functions have no
+// email key).
 
 import { emailShell } from './emailLayout.ts'
-
-const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') ?? ''
-const FROM_ADDRESS   = Deno.env.get('RECEIPT_FROM') ?? 'EV Exec <noreply@evexec.co.uk>'
-
-export interface EmailResult {
-  ok: boolean
-  id?: string
-  error?: string
-}
-
-export async function sendEmail(opts: {
-  to: string
-  subject: string
-  html: string
-}): Promise<EmailResult> {
-  if (!RESEND_API_KEY) {
-    return { ok: false, error: 'RESEND_API_KEY not configured' }
-  }
-
-  try {
-    const res = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${RESEND_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        from: FROM_ADDRESS,
-        to: opts.to,
-        subject: opts.subject,
-        html: opts.html,
-      }),
-    })
-
-    const json = await res.json().catch(() => null)
-
-    if (!res.ok) {
-      return { ok: false, error: json?.message ?? `Resend responded ${res.status}` }
-    }
-
-    return { ok: true, id: json?.id }
-  } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : String(err) }
-  }
-}
 
 // ─── Shared layout helpers ────────────────────────────────────────────────────
 
@@ -100,6 +53,7 @@ export function reminderEmail(opts: {
   date: string
   time: string
   passengers?: string
+  stops?: string[]
   type: '24h' | '1h'
   bookingUrl: string
 }): { subject: string; html: string } {
@@ -124,6 +78,7 @@ export function reminderEmail(opts: {
     { label: 'Pickup time', value: opts.time },
     { label: 'Date', value: opts.date },
     { label: 'Pickup', value: opts.pickup },
+    ...(opts.stops ?? []).map((v, i) => ({ label: `Stop ${i + 1}`, value: v })),
     ...(opts.dropoff ? [{ label: 'Drop-off', value: opts.dropoff }] : []),
     ...(opts.passengers ? [{ label: 'Passengers', value: opts.passengers }] : []),
   ]
@@ -182,6 +137,7 @@ export function updateEmail(opts: {
   time: string
   pickup: string
   dropoff: string
+  stops?: string[]
   bookingUrl: string
 }): { subject: string; html: string } {
   const subject = `Job updated, ${opts.ref}`
@@ -191,6 +147,7 @@ export function updateEmail(opts: {
     { label: 'Pickup time', value: opts.time },
     { label: 'Date', value: opts.date },
     { label: 'Pickup', value: opts.pickup },
+    ...(opts.stops ?? []).map((v, i) => ({ label: `Stop ${i + 1}`, value: v })),
     ...(opts.dropoff ? [{ label: 'Drop-off', value: opts.dropoff }] : []),
   ]
 
@@ -206,4 +163,11 @@ export function updateEmail(opts: {
   `)
 
   return { subject, html }
+}
+
+/** "Stop N: address" lines from a booking's notes, in order. */
+export function stopsFromNotes(notes: unknown): string[] {
+  return String(notes ?? '').split('\n').map((l) => l.trim())
+    .filter((l) => /^Stop \d+:/i.test(l))
+    .map((l) => l.replace(/^Stop \d+:\s*/i, '').trim()).filter(Boolean)
 }

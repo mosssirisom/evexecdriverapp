@@ -4,18 +4,20 @@
 // 20260622000000_driver_reminder_cron.sql for the scheduling setup).
 //
 // Notifies the assigned driver:
-//   - 24 h before pickup_time  → type 'driver_reminder_24h'
-//   - 1 h before pickup_time   → type 'driver_reminder_1h'
+//   - 24 h before pickup  → type 'driver_reminder_24h'
+//   - 1 h before pickup   → type 'driver_reminder_1h'
+// This is the only driver reminder (the database no longer queues its own).
 //
-// Delivery: push primary, email fallback if push fails or no subscription.
+// Delivery: push primary; if push fails or there's no subscription, the
+// reminder email is queued for the website to send.
 //
 // Deduplication: checks notification_log before sending so that an extra
 // invocation inside the same ±1-minute window never fires twice.
 
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
 import { createClient } from 'jsr:@supabase/supabase-js@2'
-import { recordNotification, pushToDriver, type NotificationType } from '../_shared/notify.ts'
-import { sendEmail, reminderEmail } from '../_shared/email.ts'
+import { pushToDriver, queueEmail, type NotificationType } from '../_shared/notify.ts'
+import { reminderEmail, stopsFromNotes } from '../_shared/email.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -57,29 +59,50 @@ function formatTime(isoTimestamp: string): string {
   })
 }
 
+// travel_date + travel_time are UK wall-clock values; this is the instant they
+// happen (handles BST/GMT). Used when a booking has no pickup_time.
+function ukWallClock(dateStr: string | null, timeStr: string | null): Date | null {
+  const dm = String(dateStr ?? '').match(/^(\d{4})-(\d{2})-(\d{2})/)
+  const tm = String(timeStr ?? '').match(/^(\d{1,2}):(\d{2})/)
+  if (!dm || !tm) return null
+  const guess = Date.UTC(+dm[1], +dm[2] - 1, +dm[3], +tm[1], +tm[2])
+  const p = Object.fromEntries(new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Europe/London', hour12: false, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
+  }).formatToParts(new Date(guess)).map((x) => [x.type, x.value]))
+  return new Date(guess - (Date.UTC(+p.year, +p.month - 1, +p.day, +p.hour % 24, +p.minute) - guess))
+}
+
+const dateOnly = (ms: number) => new Date(ms).toISOString().slice(0, 10)
+
 Deno.serve(async (_req) => {
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
   const summary: Record<string, number> = { pushed: 0, emailed: 0, skipped: 0, failed: 0 }
 
   for (const reminder of REMINDERS) {
-    const windowStart = new Date(Date.now() + reminder.offsetMs - WINDOW_MS).toISOString()
-    const windowEnd   = new Date(Date.now() + reminder.offsetMs + WINDOW_MS).toISOString()
+    const target = Date.now() + reminder.offsetMs
 
-    const { data: bookings, error } = await supabase
+    // Pickup instant: travel_date + travel_time (UK) when present, otherwise
+    // pickup_time, so bookings without pickup_time are reminded too. Fetch a
+    // +/- 1 day band by date and match the exact window in code.
+    const { data: rows, error } = await supabase
       .from('bookings')
-      .select('id, ref, customer_name, pickup_location, airport, dropoff_address, journey_type, pickup_time, travel_date, travel_time, passengers, assigned_driver_id')
+      .select('id, ref, customer_name, pickup_location, airport, dropoff_address, destination, notes, journey_type, pickup_time, travel_date, travel_time, passengers, assigned_driver_id')
       .in('status', ACTIVE_STATUSES)
       .not('assigned_driver_id', 'is', null)
-      .not('pickup_time', 'is', null)
-      .gte('pickup_time', windowStart)
-      .lte('pickup_time', windowEnd)
+      .gte('travel_date', dateOnly(target - 86_400_000))
+      .lte('travel_date', dateOnly(target + 86_400_000))
+
+    const bookings = (rows ?? []).filter((b) => {
+      const at = (ukWallClock(b.travel_date, b.travel_time) ?? (b.pickup_time ? new Date(b.pickup_time) : null))?.getTime()
+      return at != null && Math.abs(at - target) <= WINDOW_MS
+    })
 
     if (error) {
       console.error(`[${reminder.type}] query error:`, error.message)
       continue
     }
 
-    for (const booking of (bookings ?? [])) {
+    for (const booking of bookings) {
       // Deduplication guard — check notification_log (successful deliveries) AND
       // notification_queue (any attempt in the last 90 min, including failures).
       // Without the queue check, a failed push+email attempt leaves no log entry
@@ -117,14 +140,10 @@ Deno.serve(async (_req) => {
       const bookingUrl = `${APP_URL}/jobs/${booking.id}`
       const reminderType = reminder.type === 'driver_reminder_24h' ? '24h' : '1h' as const
 
-      const jt = (booking.journey_type ?? '').toLowerCase()
-      const isFromAirport = jt.includes('from') && jt.includes('airport')
-      const pickup  = isFromAirport
-        ? (booking.airport ?? booking.pickup_location ?? 'pickup point')
-        : (booking.pickup_location ?? booking.airport ?? 'pickup point')
-      const dropoff = isFromAirport
-        ? (booking.dropoff_address ?? booking.airport ?? '')
-        : (booking.dropoff_address ?? booking.airport ?? '')
+      // The stored addresses are the source of truth; the airport name only
+      // fills a side that has no address.
+      const pickup  = booking.pickup_location || booking.airport || 'pickup point'
+      const dropoff = booking.dropoff_address || booking.airport || booking.destination || ''
       const passengers = booking.passengers ? String(booking.passengers) : undefined
 
       const pushTitle = reminder.type === 'driver_reminder_24h'
@@ -143,6 +162,7 @@ Deno.serve(async (_req) => {
         body:      pushBody,
         // The 24 h reminder opens the job with the customer reminder action ready.
         url:       reminder.type === 'driver_reminder_24h' ? `/jobs/${booking.id}?reminder=24hr` : `/jobs/${booking.id}`,
+        noEmailFallback: true, // the detailed reminder email below is sent instead
       })
 
       if (pushed) {
@@ -172,24 +192,13 @@ Deno.serve(async (_req) => {
         date,
         time,
         passengers,
+        stops: stopsFromNotes(booking.notes),
         type: reminderType,
         bookingUrl,
       })
 
-      const result = await sendEmail({ to: driver.email, subject, html })
-
-      await recordNotification(supabase, {
-        bookingId: booking.id,
-        type:      reminder.type,
-        channel:   'email',
-        recipient: driver.email,
-        body:      pushBody,
-        delivered: result.ok,
-        providerMessageId: result.id,
-        error:     result.error,
-      })
-
-      result.ok ? summary.emailed++ : summary.failed++
+      const queued = await queueEmail(supabase, { bookingId: booking.id, type: reminder.type, to: driver.email, subject, html, body: pushBody })
+      queued ? summary.emailed++ : summary.failed++
     }
   }
 

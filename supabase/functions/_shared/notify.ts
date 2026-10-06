@@ -1,8 +1,9 @@
 // Notification helpers shared by the attestation engine.
 //
-// Push delivery uses VAPID web-push. Email (Resend) is the fallback when the
-// driver has no push subscription or all push deliveries fail. Every attempt
-// is recorded in `notification_queue` for audit/retry visibility.
+// Push delivery uses VAPID web-push. Email is the fallback when the driver has
+// no push subscription or all push deliveries fail; it is queued for the
+// website to send (queueEmail). Every attempt is recorded in
+// `notification_queue` for audit/retry visibility.
 
 import type { SupabaseClient } from 'jsr:@supabase/supabase-js@2'
 // @ts-ignore - no type declarations published for this package
@@ -11,8 +12,6 @@ import { emailShell, pillHtml, PILL } from './emailLayout.ts'
 
 const VAPID_PUBLIC_KEY  = Deno.env.get('VAPID_PUBLIC_KEY') ?? ''
 const VAPID_PRIVATE_KEY = Deno.env.get('VAPID_PRIVATE_KEY') ?? ''
-const RESEND_API_KEY    = Deno.env.get('RESEND_API_KEY') ?? ''
-const RECEIPT_FROM      = Deno.env.get('RECEIPT_FROM') ?? 'EV Exec <receipts@evexec.co.uk>'
 const APP_URL           = Deno.env.get('APP_URL') ?? 'https://evexec.co.uk'
 
 if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
@@ -70,6 +69,22 @@ export async function recordNotification(supabase: SupabaseClient, params: Recor
   }
 }
 
+/** Queues an email for the website to send (it holds the Resend key; the
+ *  every-minute notification-queue-sweep sends it). Edge functions have no
+ *  email key of their own, so every email from them goes through here. */
+export async function queueEmail(
+  supabase: SupabaseClient,
+  r: { bookingId: string | null; type: string; to: string; subject: string; html: string; body?: string },
+): Promise<boolean> {
+  const { error } = await supabase.from('notification_queue').insert({
+    booking_id: r.bookingId, type: r.type, channel: 'email', recipient: r.to,
+    subject: r.subject, html: r.html, body: r.body ?? null,
+    status: 'pending', attempts: 0, next_attempt_at: new Date().toISOString(),
+  })
+  if (error) console.error(`[queueEmail] ${r.type} for ${r.bookingId}:`, error.message)
+  return !error
+}
+
 function driverEmailHtml(title: string, body: string, jobUrl: string): string {
   return emailShell(title, `
     ${pillHtml('Driver notification', PILL.blue)}
@@ -94,8 +109,6 @@ async function sendEmailToDriver(
   body: string,
   url: string,
 ): Promise<boolean> {
-  if (!RESEND_API_KEY) return false
-
   const { data: driver } = await supabase
     .from('drivers')
     .select('email, full_name')
@@ -115,28 +128,7 @@ async function sendEmailToDriver(
     return false
   }
 
-  const res = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      from: RECEIPT_FROM,
-      to: driver.email,
-      subject: title,
-      html: driverEmailHtml(title, body, url),
-    }),
-  })
-
-  await recordNotification(supabase, {
-    bookingId,
-    type,
-    channel: 'email',
-    recipient: driver.email,
-    body,
-    delivered: res.ok,
-    error: res.ok ? undefined : `Resend HTTP ${res.status}`,
-  })
-
-  return res.ok
+  return queueEmail(supabase, { bookingId, type, to: driver.email, subject: title, html: driverEmailHtml(title, body, url), body })
 }
 
 export interface PushParams {
@@ -146,6 +138,8 @@ export interface PushParams {
   title: string
   body: string
   url: string
+  /** Set when the caller sends its own, more detailed email if push fails. */
+  noEmailFallback?: boolean
 }
 
 /** Sends a high-priority web push to every subscription registered by the driver.
@@ -167,7 +161,7 @@ export async function pushToDriver(supabase: SupabaseClient, params: PushParams)
       error: 'No push subscription registered for driver',
     })
     // Email fallback
-    return sendEmailToDriver(supabase, params.driverId, params.bookingId, params.type, params.title, params.body, params.url)
+    return params.noEmailFallback ? false : sendEmailToDriver(supabase, params.driverId, params.bookingId, params.type, params.title, params.body, params.url)
   }
 
   if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {
@@ -180,7 +174,7 @@ export async function pushToDriver(supabase: SupabaseClient, params: PushParams)
       delivered: false,
       error: 'VAPID keys not configured',
     })
-    return sendEmailToDriver(supabase, params.driverId, params.bookingId, params.type, params.title, params.body, params.url)
+    return params.noEmailFallback ? false : sendEmailToDriver(supabase, params.driverId, params.bookingId, params.type, params.title, params.body, params.url)
   }
 
   const payload = JSON.stringify({
@@ -234,7 +228,7 @@ export async function pushToDriver(supabase: SupabaseClient, params: PushParams)
 
   if (!delivered) {
     // Email fallback
-    return sendEmailToDriver(supabase, params.driverId, params.bookingId, params.type, params.title, params.body, params.url)
+    return params.noEmailFallback ? false : sendEmailToDriver(supabase, params.driverId, params.bookingId, params.type, params.title, params.body, params.url)
   }
 
   return true

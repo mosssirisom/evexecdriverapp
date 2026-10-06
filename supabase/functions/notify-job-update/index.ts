@@ -6,12 +6,12 @@
 //
 // Delivery order:
 //   1. Web push — free, instant.
-//   2. Email fallback via Resend — when no push subscription is registered.
+//   2. Email fallback, queued for the website to send, when push can't be delivered.
 
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
 import { createClient } from 'jsr:@supabase/supabase-js@2'
-import { pushToDriver, recordNotification, type NotificationType } from '../_shared/notify.ts'
-import { sendEmail, cancellationEmail, updateEmail } from '../_shared/email.ts'
+import { pushToDriver, queueEmail, type NotificationType } from '../_shared/notify.ts'
+import { cancellationEmail, updateEmail, stopsFromNotes } from '../_shared/email.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -97,6 +97,7 @@ Deno.serve(async (req) => {
     title: pushTitle,
     body:  pushBody,
     url:   `/jobs/${bookingId}`,
+    noEmailFallback: true, // the detailed email below is sent instead
   })
 
   if (pushed) {
@@ -119,14 +120,13 @@ Deno.serve(async (req) => {
     })
   }
 
-  const jt = ((newRecord.journey_type as string | null) ?? '').toLowerCase()
-  const isFromAirport = jt.includes('from') && jt.includes('airport')
-  const pickupAddr = isFromAirport
-    ? ((newRecord.airport as string | null) ?? (newRecord.pickup_location as string | null) ?? '')
-    : ((newRecord.pickup_location as string | null) ?? (newRecord.airport as string | null) ?? '')
-  const dropoffAddr = isFromAirport
-    ? ((newRecord.dropoff_address as string | null) ?? (newRecord.airport as string | null) ?? '')
-    : ((newRecord.dropoff_address as string | null) ?? (newRecord.airport as string | null) ?? '')
+  // The stored addresses are the source of truth; the airport name only
+  // fills a side that has no address. Stops come from the booking's notes
+  // (not in the trigger payload), in travel order.
+  const pickupAddr  = (newRecord.pickup_location as string | null) || (newRecord.airport as string | null) || ''
+  const dropoffAddr = (newRecord.dropoff_address as string | null) || (newRecord.airport as string | null) || ''
+  const { data: full } = await supabase.from('bookings').select('notes').eq('id', bookingId).maybeSingle()
+  const stops = stopsFromNotes(full?.notes)
 
   let emailContent: { subject: string; html: string }
 
@@ -149,24 +149,14 @@ Deno.serve(async (req) => {
       time:    formatTime(newRecord.travel_time as string | null),
       pickup:  pickupAddr,
       dropoff: dropoffAddr,
+      stops,
       bookingUrl,
     })
   }
 
-  const result = await sendEmail({ to: driver.email, ...emailContent })
+  const emailed = await queueEmail(supabase, { bookingId, type: notifType, to: driver.email, ...emailContent, body: pushBody })
 
-  await recordNotification(supabase, {
-    bookingId,
-    type:      notifType,
-    channel:   'email',
-    recipient: driver.email,
-    body:      pushBody,
-    delivered: result.ok,
-    providerMessageId: result.id,
-    error:     result.error,
-  })
-
-  return new Response(JSON.stringify({ ok: true, pushed: false, emailed: result.ok, type: notifType }), {
+  return new Response(JSON.stringify({ ok: true, pushed: false, emailed, type: notifType }), {
     headers: { 'Content-Type': 'application/json' },
   })
 })
