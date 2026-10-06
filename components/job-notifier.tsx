@@ -86,6 +86,22 @@ export function JobNotifier() {
               return
             }
 
+            // Payment received / customer chose cash: say so plainly.
+            const nowPaid = String(b.payment_status ?? '').toLowerCase() === 'paid'
+              && String(old.payment_status ?? '').toLowerCase() !== 'paid'
+            const nowCash = !nowPaid && String(b.payment_method ?? '').toLowerCase() === 'cash'
+              && String(old.payment_method ?? '').toLowerCase() !== 'cash'
+            if (nowPaid || nowCash) {
+              const amount = b.quoted_price ? `£${Number(b.quoted_price).toFixed(2)}` : ''
+              const title = nowPaid ? `Payment received — ${ref}` : `Customer paying cash — ${ref}`
+              const message = nowPaid
+                ? `${customer}${amount ? ` · ${amount}` : ''} · Paid by card. Nothing to collect.`
+                : `${customer} · Collect ${amount || 'the fare'} in cash.`
+              addToast({ title, message, href: `/jobs/${b.id}` })
+              showNativeNotification(title, message, `payment-${b.id}`)
+              return
+            }
+
             // Detail or payment field changes
             const changed = DETAIL_FIELDS.filter(f => b[f] !== old[f])
             if (changed.length > 0) {
