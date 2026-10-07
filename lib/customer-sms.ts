@@ -79,13 +79,26 @@ export function customerUpdateSms(
   return null
 }
 
-// ─── 24hr customer reminder ─────────────────────────────────────────────────
-// Sent by the driver from their own phone (sms: link), one per booking.
-// A return trip is its own booking (created by the website), so it gets its
-// own reminder there. Tracked in driver_sms_reminders as reminder_type '24hr',
-// the same row the website's reminder cron creates.
+// ─── Customer reminders (week ahead and day before) ─────────────────────────
+// Sent by the driver from their own phone (sms: link), one of each per
+// booking. A return trip is its own booking (created by the website), so it
+// gets its own reminders there. Tracked in driver_sms_reminders as
+// reminder_type '7day' / '24hr', the same rows the website's reminder cron
+// creates (5-7 days before, and on the day before).
 
 export const REMINDER_TYPE = '24hr'
+export const WEEK_REMINDER_TYPE = '7day'
+export const REMINDER_TYPES = [WEEK_REMINDER_TYPE, REMINDER_TYPE] as const
+export type ReminderType = (typeof REMINDER_TYPES)[number]
+
+export function isReminderType(t: string | null | undefined): t is ReminderType {
+  return t === REMINDER_TYPE || t === WEEK_REMINDER_TYPE
+}
+
+/** Button/heading name for a reminder type. */
+export function reminderLabel(type: ReminderType): string {
+  return type === WEEK_REMINDER_TYPE ? 'Week-Ahead Reminder' : '24hr Reminder'
+}
 
 /** Today's date in the UK as YYYY-MM-DD, whatever the phone's timezone. */
 export function ukToday(now: Date = new Date()): string {
@@ -127,11 +140,12 @@ function dayPhrase(date: string, today: string): string {
   const diff = daysBetween(today, date)
   if (diff === 0) return `today (${long})`
   if (diff === 1) return `tomorrow (${long})`
-  return `on ${long}`
+  return `${long} (in ${diff} days)`
 }
 
-/** Pre-filled 24hr reminder text. "today"/"tomorrow" is worked out from the
- *  UK date when the driver taps, so it is never stale. */
+/** Pre-filled reminder text (week ahead or day before). "today", "tomorrow"
+ *  or "in N days" is worked out from the UK date when the driver taps, so it
+ *  is never stale. */
 export function customerReminderSms(booking: Booking, today: string = ukToday()): string {
   const info = reminderInfo(booking)
   const customer = firstName(booking.customer_name)

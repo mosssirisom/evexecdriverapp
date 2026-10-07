@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 
 // Old link format used by the "Customer reminder due" push
-// (send-customer-sms-reminder-push): /jobs/<id>/reminder?type=24hr.
+// (send-customer-sms-reminder-push): /jobs/<id>/reminder?type=24hr|7day.
 // The reminder now lives on the job screen itself.
 export default async function ReminderRedirect({
   params,
@@ -12,5 +12,5 @@ export default async function ReminderRedirect({
 }) {
   const { id } = await params
   const { type } = await searchParams
-  redirect(type === '24hr' ? `/jobs/${id}?reminder=${type}` : `/jobs/${id}`)
+  redirect(type === '24hr' || type === '7day' ? `/jobs/${id}?reminder=${type}` : `/jobs/${id}`)
 }
