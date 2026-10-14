@@ -24,3 +24,7 @@ User decision: every customer gets both reminders on every channel they have. Th
 
 - Website: `evexec/api/reminders/trigger.js` creates both independently; the cron still runs once a day (`0 8 * * *`, 09:00 UK in summer) and picks bookings by UK calendar date. No driver assigned → email only (warning logged). Tests: `npm run test:unit` (`tests/unit/reminders.test.cjs`).
 - Driver app: the job screen offers "Send Week-Ahead Reminder" (2–7 days before, once the website has handed one off, or when opened from its notification) as well as "Send 24hr Reminder"; the "Customer reminder due" push links to `/jobs/<id>?reminder=7day|24hr`. The text is generated when the driver taps ("in 6 days" / "tomorrow" / "today"), so it is never stale.
+
+## Update — 2026-10-14: Chat tab removed from the Driver App
+
+Audit found the Chat tab sent messages to `driver_messages`, but nothing in the Operator app ever read or answered them (one message ever sent, never seen). User decision: remove it rather than build an operator side. The `/chat` page, its bottom-bar tab and unread badge are gone; `/chat` redirects to `/dashboard` (`next.config.ts`). The `driver_messages` table and its one row were left in place (no code uses them).
