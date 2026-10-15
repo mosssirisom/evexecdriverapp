@@ -1,0 +1,114 @@
+import type { SupabaseClient } from 'jsr:@supabase/supabase-js@2'
+// @ts-ignore
+import webpush from 'npm:web-push@3.6.7'
+
+const VAPID_PUBLIC_KEY = Deno.env.get('VAPID_PUBLIC_KEY') ?? ''
+const VAPID_PRIVATE_KEY = Deno.env.get('VAPID_PRIVATE_KEY') ?? ''
+
+if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
+  webpush.setVapidDetails('mailto:driver@evexec.co.uk', VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY)
+}
+
+export type NotificationType =
+  | 'attestation_first'
+  | 'attestation_second_urgent'
+  | 'attestation_reallocated'
+  | 'operator_panic'
+  | 'driver_reminder_24h'
+  | 'driver_reminder_1h'
+  | 'job_assigned'
+  | 'job_cancelled'
+  | 'job_updated'
+
+export type NotificationChannel = 'push' | 'sms' | 'whatsapp' | 'voice' | 'email'
+
+export interface RecordNotificationParams {
+  bookingId: string | null
+  type: NotificationType
+  channel: NotificationChannel
+  recipient: string
+  body: string
+  delivered: boolean
+  providerMessageId?: string
+  error?: string
+}
+
+export async function recordNotification(supabase: SupabaseClient, params: RecordNotificationParams): Promise<void> {
+  await supabase.from('notification_queue').insert({
+    booking_id: params.bookingId,
+    type: params.type,
+    channel: params.channel,
+    recipient: params.recipient,
+    body: params.body,
+    status: params.delivered ? 'sent' : 'failed',
+    delivery_status: params.delivered ? 'sent' : 'failed',
+    provider_message_id: params.providerMessageId ?? null,
+    attempts: 1,
+    sent_at: params.delivered ? new Date().toISOString() : null,
+    last_error: params.error ?? null,
+  })
+  if (params.delivered && params.bookingId) {
+    await supabase.from('notification_log').insert({
+      booking_id: params.bookingId,
+      type: params.type,
+      channel: params.channel,
+      recipient: params.recipient,
+      sent_at: new Date().toISOString(),
+    })
+  }
+}
+
+export interface PushParams {
+  driverId: string
+  bookingId: string
+  type: NotificationType
+  title: string
+  body: string
+  url: string
+}
+
+export async function pushToDriver(supabase: SupabaseClient, params: PushParams): Promise<boolean> {
+  const { data: subs } = await supabase.from('push_subscriptions').select('id, endpoint, p256dh, auth_key').eq('driver_id', params.driverId)
+
+  if (!subs || subs.length === 0) {
+    await recordNotification(supabase, { bookingId: params.bookingId, type: params.type, channel: 'push', recipient: params.driverId, body: params.body, delivered: false, error: 'No push subscription registered for driver' })
+    return false
+  }
+
+  if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {
+    await recordNotification(supabase, { bookingId: params.bookingId, type: params.type, channel: 'push', recipient: params.driverId, body: params.body, delivered: false, error: 'VAPID keys not configured' })
+    return false
+  }
+
+  const payload = JSON.stringify({ title: params.title, body: params.body, url: params.url, icon: '/logo.png', badge: '/logo.png', requireInteraction: true })
+
+  const results = await Promise.allSettled(
+    subs.map((sub: { endpoint: string; p256dh: string; auth_key: string }) =>
+      webpush.sendNotification({ endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth_key } }, payload)
+    )
+  )
+
+  const expired = subs.filter((_sub: unknown, i: number) => {
+    const r = results[i]
+    return r.status === 'rejected' && (r as PromiseRejectedResult).reason?.statusCode === 410
+  })
+  if (expired.length > 0) {
+    await supabase.from('push_subscriptions').delete().in('id', expired.map((s: { id: string }) => s.id))
+  }
+
+  const delivered = results.some((r) => r.status === 'fulfilled')
+
+  const failureDetail = results
+    .map((r, i) => {
+      if (r.status !== 'rejected') return null
+      const reason = (r as PromiseRejectedResult).reason
+      const code = reason?.statusCode ?? reason?.status ?? '?'
+      const body = typeof reason?.body === 'string' ? reason.body.slice(0, 200) : (reason?.message ?? String(reason))
+      return `[${i}] HTTP ${code}: ${body}`
+    })
+    .filter(Boolean)
+    .join(' | ')
+
+  await recordNotification(supabase, { bookingId: params.bookingId, type: params.type, channel: 'push', recipient: params.driverId, body: params.body, delivered, error: delivered ? undefined : (failureDetail || 'All push subscriptions failed') })
+  return delivered
+}
