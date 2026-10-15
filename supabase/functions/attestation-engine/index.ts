@@ -21,6 +21,9 @@
 // A driver "confirms" by tapping Confirm on the dashboard (sets
 // driver_confirmed_at) or simply by swiping the job to En Route or beyond.
 //
+// Jobs given to a trusted partner (drivers.kind = 'partner') are skipped:
+// partners have no Driver App to confirm in.
+//
 // The original design (auto-suspend + auto-reassign + Twilio SMS/voice panic
 // to the operator) was never live: its schema migration was never applied.
 // The user chose this reminder-only version instead.
@@ -141,7 +144,18 @@ async function runFirstGate(supabase: SupabaseClient, now: Date, summary: RunSum
 
   if (error) throw new Error(`first_gate select: ${error.message}`)
 
-  for (const b of (data ?? []) as Booking[]) {
+  // Trusted partners (outside operators) have no Driver App, so they can't
+  // confirm; asking them would only end in a false "driver hasn't confirmed"
+  // alert to the office.
+  const rows = (data ?? []) as Booking[]
+  const ids = [...new Set(rows.map((b) => b.assigned_driver_id).filter(Boolean))] as string[]
+  const { data: partnerRows } = ids.length
+    ? await supabase.from('drivers').select('id').in('id', ids).eq('kind', 'partner')
+    : { data: [] }
+  const partners = new Set((partnerRows ?? []).map((d: { id: string }) => d.id))
+
+  for (const b of rows) {
+    if (partners.has(b.assigned_driver_id!)) continue
     const at = pickupAt(b)
     if (!at) continue
     const opensAt = at.getTime() - FIRST_LEAD_MINUTES * 60_000
