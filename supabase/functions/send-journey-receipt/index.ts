@@ -22,6 +22,7 @@ import { CORS_HEADERS, corsPreflightResponse } from '../_shared/cors.ts'
 import { emailShell, pillHtml, PILL } from '../_shared/emailLayout.ts'
 import { queueEmail } from '../_shared/notify.ts'
 import { stopsFromNotes } from '../_shared/email.ts'
+import { receiptPaymentLine, receiptTitle } from '../_shared/receiptWording.ts'
 
 const SUPABASE_URL              = Deno.env.get('SUPABASE_URL') ?? ''
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -64,24 +65,6 @@ function fmtPrice(p: number | null): string {
   return `£${p.toFixed(2)}`
 }
 
-// Explicit payment wording, same rules as evexec/lib/format.js paymentLine().
-function paymentLine(b: Record<string, unknown>): string {
-  const notes = String(b.notes ?? '')
-  if (/^Return leg created automatically/i.test(notes)) {
-    const ref = notes.match(/Outbound ref:\s*(\S+)/i)?.[1]?.replace(/[.,]$/, '')
-    return ref ? `Included with booking ${ref}` : 'Included with your outbound booking'
-  }
-  const m = String(b.payment_method ?? '').trim().toLowerCase()
-  const st = String(b.payment_status ?? '').trim().toLowerCase()
-  const bank = m === 'bank transfer' || m === 'bank_transfer'
-  if (st === 'paid') return m === 'card' || m === 'payment link' ? 'Paid by card' : m === 'cash' ? 'Paid in cash' : bank ? 'Paid by bank transfer' : 'Paid'
-  if (m === 'cash') return 'Cash on the day'
-  if (bank) return 'Bank transfer (payment pending)'
-  if (m === 'payment link') return 'Payment link sent (payment pending)'
-  if (m === 'card') return 'Card payment pending'
-  return 'Payment required'
-}
-
 // ─── Email templates ──────────────────────────────────────────────────────────
 
 const ROW_LABEL = 'padding:9px 0;color:#64748b;width:118px;border-bottom:1px solid #eef0f3;font-size:12px;text-transform:uppercase;letter-spacing:.04em;vertical-align:top'
@@ -109,10 +92,12 @@ function passengerReceiptHtml(b: Record<string, unknown>, ref: string): string {
   const price    = fmtPrice(b.quoted_price as number | null)
   const doneAt   = fmt(b.completed_at as string | null)
 
-  return emailShell('Journey receipt', `
-    ${pillHtml('Journey receipt', PILL.green)}
+  const title    = receiptTitle(b)
+
+  return emailShell(title, `
+    ${pillHtml(title, title === 'Journey receipt' ? PILL.green : PILL.gold)}
     <p style="margin:18px 0 16px;font-size:15px;line-height:1.6;color:#0f1b33">Thank you for travelling with EV Exec. Here's a summary of your journey.</p>
-    ${rowsHtml([['Reference', ref], ['Pickup', pickup], ...stops, ['Drop-off', dropoff], ['Completed', doneAt], ['Payment', paymentLine(b)]])}
+    ${rowsHtml([['Reference', ref], ['Pickup', pickup], ...stops, ['Drop-off', dropoff], ['Completed', doneAt], ['Payment', receiptPaymentLine(b)]])}
     ${totalHtml('Total', price)}
     ${FOOTNOTE}`)
 }
@@ -212,7 +197,7 @@ Deno.serve(async (req) => {
   if (booking.customer_email) {
     const ok = await queueEmail(supabase, {
       bookingId, type: 'receipt', to: booking.customer_email,
-      subject: `Your EV Exec journey receipt (Ref ${ref})`,
+      subject: `Your EV Exec ${receiptTitle(booking).toLowerCase()} (Ref ${ref})`,
       html: passengerReceiptHtml(booking, ref),
     })
     if (ok) sent.push('customer_email')
