@@ -14,7 +14,7 @@
 //      out what changed) come from the trigger's request.
 // Dependencies are injected so this can be unit-tested with Node.
 
-import { isTrustedTrigger, UUID_RE } from '../_shared/webhookAuth.ts'
+import { isTrustedTrigger, UUID_RE, type SecretLoader } from '../_shared/webhookAuth.ts'
 import { cancellationEmail, updateEmail, stopsFromNotes } from '../_shared/email.ts'
 
 export const CANCELLED_STATUSES = ['cancelled', 'Cancelled', 'canceled', 'Canceled']
@@ -36,7 +36,7 @@ export interface JobBooking {
 
 export interface JobUpdateDeps {
   appUrl: string
-  loadWebhookSecret: () => Promise<string | null>
+  loadWebhookSecret: SecretLoader
   loadBooking: (id: string) => Promise<JobBooking | null>
   pushToDriver: (p: {
     driverId: string; bookingId: string; type: 'job_cancelled' | 'job_updated'

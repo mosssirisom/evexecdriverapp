@@ -27,8 +27,9 @@ Deno.serve((req: Request) => {
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
   return handleSendPush(req, {
     loadWebhookSecret: async () => {
-      const { data } = await supabase.from('push_config').select('webhook_secret').eq('id', true).maybeSingle()
-      return data?.webhook_secret ?? null
+      const { data, error } = await supabase.rpc('driver_alert_webhook_secrets')
+      if (error) throw error
+      return (data as string[] | null) ?? null
     },
     loadBooking: async (id) => {
       const { data } = await supabase

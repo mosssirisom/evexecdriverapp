@@ -9,7 +9,7 @@
 //      choose who is notified or what the message says.
 // Dependencies are injected so this can be unit-tested with Node.
 
-import { isTrustedTrigger, UUID_RE } from '../_shared/webhookAuth.ts'
+import { isTrustedTrigger, UUID_RE, type SecretLoader } from '../_shared/webhookAuth.ts'
 
 export interface PushSub { id: string; endpoint: string; p256dh: string; auth_key: string }
 export interface NewJobBooking {
@@ -21,7 +21,7 @@ export interface NewJobBooking {
 }
 
 export interface SendPushDeps {
-  loadWebhookSecret: () => Promise<string | null>
+  loadWebhookSecret: SecretLoader
   loadBooking: (id: string) => Promise<NewJobBooking | null>
   loadSubscriptions: (driverId: string) => Promise<PushSub[]>
   sendPush: (sub: PushSub, payload: string) => Promise<unknown>

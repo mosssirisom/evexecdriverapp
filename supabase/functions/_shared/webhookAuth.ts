@@ -1,8 +1,10 @@
 // Shared-secret check for functions that only database triggers may call.
 //
-// The triggers send the push_config.webhook_secret value in the
-// x-webhook-secret header (same secret and header the Operator app's
-// /api/push/dispatch route and notify-operator-new-booking already use).
+// The triggers send the vault secret 'driver_alert_webhook_secret' in the
+// x-webhook-secret header. The functions load the accepted values (current,
+// plus the previous one during a rotation) with the service-role-only RPC
+// public.driver_alert_webhook_secrets(); see migration
+// evexec/supabase/migrations/20261015031000_driver_alert_webhook_secret.sql.
 // Plain TypeScript with no Deno or npm imports, so it can be unit-tested
 // with Node (supabase/functions/tests).
 
@@ -17,24 +19,28 @@ export function safeEqual(a: string, b: string): boolean {
   return diff === 0
 }
 
+export type SecretLoader = () => Promise<string | string[] | null | undefined>
+
 /**
- * True only when the request carries the expected secret. A missing or empty
- * expected secret (not configured, or the lookup failed) always refuses.
+ * True only when the request carries one of the accepted secrets. No
+ * accepted secret (not configured, or the lookup failed) always refuses;
+ * empty values are never accepted.
  */
-export async function isTrustedTrigger(
-  headers: Headers,
-  loadSecret: () => Promise<string | null | undefined>,
-): Promise<boolean> {
+export async function isTrustedTrigger(headers: Headers, loadSecret: SecretLoader): Promise<boolean> {
   const presented = headers.get('x-webhook-secret') ?? ''
   if (!presented) return false
-  let expected: string | null | undefined
+  let loaded: string | string[] | null | undefined
   try {
-    expected = await loadSecret()
+    loaded = await loadSecret()
   } catch {
     return false
   }
-  if (!expected) return false
-  return safeEqual(presented, expected)
+  const accepted = (Array.isArray(loaded) ? loaded : [loaded]).filter((v): v is string => typeof v === 'string' && v.length > 0)
+  // Compare against every accepted value (no early exit) so timing doesn't
+  // reveal which one matched.
+  let ok = false
+  for (const v of accepted) ok = safeEqual(presented, v) || ok
+  return ok
 }
 
 export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i

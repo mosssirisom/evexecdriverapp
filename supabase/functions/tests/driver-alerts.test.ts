@@ -33,6 +33,17 @@ test('isTrustedTrigger refuses missing, wrong, unconfigured or failing secrets',
   assert.equal(await isTrustedTrigger(h(SECRET), async () => SECRET), true)
 })
 
+test('isTrustedTrigger accepts current or previous secret during a rotation, never an empty one', async () => {
+  const h = (v: string) => new Headers({ 'x-webhook-secret': v })
+  const both = async () => ['new-secret', 'old-secret']
+  assert.equal(await isTrustedTrigger(h('new-secret'), both), true)
+  assert.equal(await isTrustedTrigger(h('old-secret'), both), true)
+  assert.equal(await isTrustedTrigger(h('other'), both), false)
+  assert.equal(await isTrustedTrigger(h('old-secret'), async () => ['new-secret']), false, 'previous secret refused once removed')
+  assert.equal(await isTrustedTrigger(h('x'), async () => []), false)
+  assert.equal(await isTrustedTrigger(h('x'), async () => ['', 'x'.slice(1)]), false)
+})
+
 // ── send-push ───────────────────────────────────────────────────────────────
 function sendPushDeps(booking: NewJobBooking | null) {
   const calls = { pushedTo: [] as string[], payloads: [] as string[], loadedSubsFor: [] as string[] }
