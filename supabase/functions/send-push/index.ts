@@ -3,10 +3,12 @@ import { createClient } from "jsr:@supabase/supabase-js@2"
 import { recordNotification } from '../_shared/notify.ts'
 // @ts-ignore - no type declarations published for this package
 import webpush from "npm:web-push@3.6.7"
+import { handleSendPush, type PushSub } from './handler.ts'
 
 // Invoked by the `trg_booking_push` trigger (notify_driver_new_booking)
 // whenever a booking's assigned_driver_id is set/changed. Sends a web push
-// to every subscription the driver has registered.
+// to every subscription the driver has registered. Requests must carry the
+// trigger's x-webhook-secret; see handler.ts.
 
 const VAPID_PUBLIC_KEY = Deno.env.get('VAPID_PUBLIC_KEY') ?? ''
 const VAPID_PRIVATE_KEY = Deno.env.get('VAPID_PRIVATE_KEY') ?? ''
@@ -21,99 +23,33 @@ if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
   )
 }
 
-Deno.serve(async (req: Request) => {
-  if (req.method !== 'POST') {
-    return new Response('Method not allowed', { status: 405 })
-  }
-
-  let booking: Record<string, unknown>
-  try {
-    const body = await req.json()
-    booking = (body.record ?? body) as Record<string, unknown>
-  } catch {
-    return new Response('Invalid JSON', { status: 400 })
-  }
-
-  const driverId = booking.assigned_driver_id as string | undefined
-  if (!driverId) {
-    return new Response(JSON.stringify({ sent: 0 }), {
-      headers: { 'Content-Type': 'application/json' },
-    })
-  }
-
+Deno.serve((req: Request) => {
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
-
-  const { data: subs } = await supabase
-    .from('push_subscriptions')
-    .select('id, endpoint, p256dh, auth_key')
-    .eq('driver_id', driverId)
-
-  const customerName = (booking.customer_name as string) ?? 'New booking'
-  const pickup = (booking.pickup_location as string) ??
-    (booking.airport as string) ??
-    'See job details'
-  const bookingId = booking.id as string
-  const body = `${customerName} · ${pickup}`
-
-  if (!subs || subs.length === 0) {
-    await recordNotification(supabase, {
-      bookingId,
-      type: 'job_assigned',
-      channel: 'push',
-      recipient: driverId,
-      body,
-      delivered: false,
-      error: 'No push subscription registered for driver',
-    })
-    return new Response(JSON.stringify({ sent: 0 }), {
-      headers: { 'Content-Type': 'application/json' },
-    })
-  }
-
-  const payload = JSON.stringify({
-    title: `New job — ${customerName}`,
-    body: pickup,
-    url: `/jobs/${bookingId}`,
-    icon: '/logo.png',
-    badge: '/logo.png',
-  })
-
-  const results = await Promise.allSettled(
-    subs.map((sub: { endpoint: string; p256dh: string; auth_key: string }) =>
-      webpush.sendNotification(
-        { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth_key } },
-        payload
-      )
-    )
-  )
-
-  // Remove expired subscriptions
-  const expired = subs.filter((_sub: unknown, i: number) => {
-    const r = results[i]
-    return r.status === 'rejected' &&
-      (r as PromiseRejectedResult).reason?.statusCode === 410
-  })
-  if (expired.length > 0) {
-    await supabase
-      .from('push_subscriptions')
-      .delete()
-      .in('id', expired.map((s: { id: string }) => s.id))
-  }
-
-  const sent = results.filter((r) => r.status === 'fulfilled').length
-  const delivered = sent > 0
-
-  await recordNotification(supabase, {
-    bookingId,
-    type: 'job_assigned',
-    channel: 'push',
-    recipient: driverId,
-    body,
-    delivered,
-    error: delivered ? undefined : 'All push subscriptions failed',
-  })
-
-  return new Response(JSON.stringify({ sent, total: subs.length }), {
-    headers: { 'Content-Type': 'application/json' },
+  return handleSendPush(req, {
+    loadWebhookSecret: async () => {
+      const { data } = await supabase.from('push_config').select('webhook_secret').eq('id', true).maybeSingle()
+      return data?.webhook_secret ?? null
+    },
+    loadBooking: async (id) => {
+      const { data } = await supabase
+        .from('bookings')
+        .select('id, customer_name, pickup_location, airport, assigned_driver_id')
+        .eq('id', id)
+        .maybeSingle()
+      return data ?? null
+    },
+    loadSubscriptions: async (driverId) => {
+      const { data } = await supabase
+        .from('push_subscriptions')
+        .select('id, endpoint, p256dh, auth_key')
+        .eq('driver_id', driverId)
+      return (data ?? []) as PushSub[]
+    },
+    sendPush: (sub, payload) =>
+      webpush.sendNotification({ endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth_key } }, payload),
+    deleteSubscriptions: async (ids) => {
+      await supabase.from('push_subscriptions').delete().in('id', ids)
+    },
+    recordNotification: (p) => recordNotification(supabase, p),
   })
 })

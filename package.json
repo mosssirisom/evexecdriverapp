@@ -6,7 +6,8 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test:functions": "node --test --experimental-strip-types supabase/functions/tests/*.test.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.3",
