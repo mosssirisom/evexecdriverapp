@@ -19,6 +19,11 @@
 //   - '7day' and anything else: no email (user decision, 14/10/2026). The
 //     reminder is still waiting in the app, and the day-before one follows.
 //
+// Trusted partners (drivers.kind = 'partner', outside operators with no
+// Driver App) are never pushed or emailed: the office sends their customers'
+// texts from the Operator app (Today → Texts to send), so every office
+// device gets a push instead.
+//
 // Dates DD/MM/YYYY, times 24-hour HH:MM, UK time.
 
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
@@ -34,6 +39,8 @@ const VAPID_PRIVATE_KEY = Deno.env.get('VAPID_PRIVATE_KEY') ?? ''
 if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
   webpush.setVapidDetails('mailto:driver@evexec.co.uk', VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY)
 }
+
+const OPERATOR_APP_URL = (Deno.env.get('OPERATOR_APP_URL') ?? 'https://evexecoperator.vercel.app').replace(/\/$/, '')
 
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
@@ -155,9 +162,27 @@ async function pushToDriver(supabase: SupabaseClient, params: {
   return delivered
 }
 
+/** Push every office device (Operator app) through its dispatch route. */
+async function pushOffice(supabase: SupabaseClient, title: string, body: string): Promise<boolean> {
+  const { data } = await supabase.from('push_config').select('webhook_secret').eq('id', true).maybeSingle()
+  const secret = data?.webhook_secret
+  if (!secret) return false
+  try {
+    const res = await fetch(`${OPERATOR_APP_URL}/api/push/dispatch`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-webhook-secret': secret },
+      body: JSON.stringify({ notification: { title, body, url: '/operator/today', tag: 'texts-to-send' } }),
+    })
+    return res.ok
+  } catch (e) {
+    console.error('[send-customer-sms-reminder-push] office push:', (e as Error).message)
+    return false
+  }
+}
+
 Deno.serve(async (_req) => {
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
-  const summary = { pushed: 0, emailed: 0, failed: 0 }
+  const summary = { pushed: 0, emailed: 0, failed: 0, office: 0 }
 
   const { data: pending, error } = await supabase
     .from('driver_sms_reminders')
@@ -171,9 +196,22 @@ Deno.serve(async (_req) => {
     return new Response(JSON.stringify({ ok: false, error: error.message }), { headers: { 'Content-Type': 'application/json' } })
   }
 
+  const driverIds = [...new Set((pending ?? []).map((r: { driver_id: string }) => r.driver_id))]
+  const { data: partnerRows } = driverIds.length
+    ? await supabase.from('drivers').select('id').in('id', driverIds).eq('kind', 'partner')
+    : { data: [] }
+  const partners = new Set((partnerRows ?? []).map((d: { id: string }) => d.id))
+
   for (const row of pending ?? []) {
     const name = (row.customer_name ?? '').trim() || 'Customer'
     const whenText = [longDate(row.travel_date), hhmm(row.travel_time)].filter(Boolean).join(' at ')
+
+    if (partners.has(row.driver_id)) {
+      await pushOffice(supabase, `Text ${name} their reminder`, whenText ? `Partner job ${whenText}. Open Today → Texts to send.` : 'Partner job. Open Today → Texts to send.')
+      await supabase.from('driver_sms_reminders').update({ pushed_at: new Date().toISOString() }).eq('id', row.id)
+      summary.office++
+      continue
+    }
     const week = row.reminder_type === '7day'
     const type = row.reminder_type === '7day' || row.reminder_type === '24hr' ? row.reminder_type : null
 

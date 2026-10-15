@@ -15,16 +15,39 @@ export default function ResetPasswordPage() {
   const [success, setSuccess] = useState(false)
   const [isPending, setIsPending] = useState(false)
   const [ready, setReady] = useState(false)
+  // Opened from the office's "Driver App invite" email (Operator app, Drivers).
+  const [invite, setInvite] = useState(false)
 
   const supabase = createClient()
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    let cancelled = false
+    ;(async () => {
+      // Invite and office-sent links carry a one-time token
+      // (?token_hash=…&type=recovery[&invite=1]); verify it to sign in.
+      const params = new URLSearchParams(window.location.search)
+      const tokenHash = params.get('token_hash')
+      const type = params.get('type')
+      if (params.get('invite') === '1') setInvite(true)
+      if (tokenHash && (type === 'recovery' || type === 'invite' || type === 'magiclink')) {
+        const { error: err } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type })
+        if (cancelled) return
+        // Drop the used token from the address bar.
+        window.history.replaceState(null, '', window.location.pathname)
+        if (err) {
+          setError('This link has expired or has already been used. Ask the office to send a new invite, or request a new link.')
+          setReady(true)
+          return
+        }
+      }
+      const { data: { session } } = await supabase.auth.getSession()
+      if (cancelled) return
       if (!session) {
         setError('This password reset link is invalid or has expired. Please request a new one.')
       }
       setReady(true)
-    })
+    })()
+    return () => { cancelled = true }
   }, [supabase])
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -72,7 +95,8 @@ export default function ResetPasswordPage() {
           </div>
         ) : (
           <>
-            <h2 className="text-lg font-semibold text-[#060C1A] mb-6">Set a new password</h2>
+            <h2 className="text-lg font-semibold text-[#060C1A] mb-2">{invite ? 'Welcome to the Driver App' : 'Set a new password'}</h2>
+            <p className="text-[#4a6a8a] text-sm mb-6">{invite ? 'Choose a password. You\'ll use it with your email address to sign in.' : 'Choose a new password for your account.'}</p>
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
@@ -133,7 +157,7 @@ export default function ResetPasswordPage() {
                 style={{ background: 'linear-gradient(135deg, #f1c56a, #d5a538 55%, #a97918)' }}
               >
                 {isPending ? <Loader2 size={16} className="animate-spin" /> : null}
-                {isPending ? 'Updating…' : 'Update Password'}
+                {isPending ? 'Saving…' : invite ? 'Set Password' : 'Update Password'}
               </button>
             </form>
           </>
