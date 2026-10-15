@@ -101,6 +101,28 @@ test('send-push: legitimate trigger call notifies the assigned driver', async ()
   assert.deepEqual(JSON.parse(calls.payloads[0]).url, `/jobs/${BOOKING_ID}`)
 })
 
+test('send-push: when every device fails, the per-device HTTP detail is recorded and a 410 device is removed', async () => {
+  const { deps } = sendPushDeps(realBooking)
+  const recorded: Array<{ delivered: boolean; error?: string }> = []
+  const deleted: string[][] = []
+  deps.loadSubscriptions = async () => [
+    { id: 'gone', endpoint: 'https://push.example/gone', p256dh: 'k', auth_key: 'a' },
+    { id: 'down', endpoint: 'https://push.example/down', p256dh: 'k', auth_key: 'a' },
+  ]
+  deps.sendPush = async (sub) => {
+    throw Object.assign(new Error('push failed'), sub.id === 'gone' ? { statusCode: 410, body: 'expired' } : { statusCode: 503, body: 'unavailable' })
+  }
+  deps.deleteSubscriptions = async (ids) => { deleted.push(ids) }
+  deps.recordNotification = async (p) => { recorded.push({ delivered: p.delivered, error: p.error }) }
+  const res = await handleSendPush(post({ record: { id: BOOKING_ID } }, { 'x-webhook-secret': SECRET }), deps)
+  assert.equal(res.status, 200)
+  assert.deepEqual(await res.json(), { sent: 0, total: 2 })
+  assert.deepEqual(deleted, [['gone']])
+  assert.equal(recorded.length, 1)
+  assert.equal(recorded[0].delivered, false)
+  assert.equal(recorded[0].error, '[0] HTTP 410: expired | [1] HTTP 503: unavailable')
+})
+
 // ── notify-job-update ───────────────────────────────────────────────────────
 function jobDeps(booking: JobBooking | null) {
   const calls = { pushes: [] as Array<{ driverId: string; title: string; body: string }>, emails: [] as string[] }

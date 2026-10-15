@@ -87,9 +87,24 @@ export async function handleSendPush(req: Request, deps: SendPushDeps): Promise<
 
   const sent = results.filter((r) => r.status === 'fulfilled').length
   const delivered = sent > 0
+
+  // Per-device failure detail (status code + first 200 chars of the push
+  // service's reply), as the previously deployed version logged it.
+  const failureDetail = results
+    .map((r, i) => {
+      if (r.status !== 'rejected') return null
+      const reason = (r as PromiseRejectedResult).reason
+      const code = reason?.statusCode ?? reason?.status ?? '?'
+      const msg = typeof reason?.body === 'string' ? reason.body.slice(0, 200) : (reason?.message ?? String(reason))
+      return `[${i}] HTTP ${code}: ${msg}`
+    })
+    .filter(Boolean)
+    .join(' | ')
+  console.log('[send-push] results:', JSON.stringify({ sent, total: subs.length, failureDetail }))
+
   await deps.recordNotification({
     bookingId, type: 'job_assigned', channel: 'push', recipient: driverId, body,
-    delivered, error: delivered ? undefined : 'All push subscriptions failed',
+    delivered, error: delivered ? undefined : (failureDetail || 'All push subscriptions failed'),
   })
   return json({ sent, total: subs.length })
 }
