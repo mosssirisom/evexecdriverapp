@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test:functions": "node --test --experimental-strip-types supabase/functions/tests/*.test.ts"
+    "test:functions": "node --test --experimental-strip-types supabase/functions/tests/*.test.ts",
+    "test:unit": "node --test --experimental-strip-types tests/*.test.ts",
+    "test": "npm run test:unit && npm run test:functions"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.3",

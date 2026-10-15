@@ -9,6 +9,7 @@ import {
   UserX, X, Plus, Car, MapPin, RefreshCw, Camera, Trash2, ArrowLeftRight, Banknote, Clock,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { completionPatch, settledState, type CollectMethod } from '@/lib/completion'
 import { useToast } from '@/components/toast'
 import { BookingStatusBadge } from '@/components/badges'
 import { PickupIcon, DropoffIcon } from '@/components/route-icons'
@@ -293,25 +294,42 @@ function CompletionOverlay({ ref: bookingRef, price, onDone }: { ref: string; pr
 
 function PaymentModal({
   quotedPrice,
+  paymentStatus,
   onConfirm,
   onBack,
   loading,
 }: {
   quotedPrice: number | null
-  onConfirm: (method: 'Cash' | 'Card' | 'Bank Transfer') => void
+  paymentStatus: string | null
+  onConfirm: (method: CollectMethod | null) => void
   onBack: () => void
   loading: boolean
 }) {
-  const [method, setMethod] = useState<'Cash' | 'Card' | 'Bank Transfer'>('Card')
+  const settled = settledState(paymentStatus)
+  const [method, setMethod] = useState<CollectMethod>('Card')
   const [cashReceived, setCashReceived] = useState('')
-  const cashReceivedValid = method !== 'Cash' || parseFloat(cashReceived) > 0
+  const cashReceivedValid = settled !== null || method !== 'Cash' || parseFloat(cashReceived) > 0
 
   return (
     <div className="fixed inset-0 flex flex-col justify-end" style={{ background: 'rgba(2,8,19,0.85)', zIndex: 9999 }}>
       <div className="bg-white rounded-t-3xl px-5 pt-5 pb-10">
         <div className="w-10 h-1 rounded-full bg-[#c4d4e4] mx-auto mb-5" />
-        <h2 className="text-[#060C1A] font-bold text-lg mb-1">How was payment made?</h2>
-        <p className="text-[#7a9ab8] text-xs mb-5">Confirm before completing the journey</p>
+        {settled ? (
+          <>
+            <h2 className="text-[#060C1A] font-bold text-lg mb-1">Nothing to collect</h2>
+            <div className="mb-5 mt-3 flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-3 py-2.5">
+              <CheckCircle2 size={14} className="text-emerald-700 flex-shrink-0" />
+              <p className="text-emerald-800 text-xs font-semibold">
+                {settled === 'paid'
+                  ? 'The customer has already paid. Do not take any payment.'
+                  : 'This journey is on account (invoiced). Do not take any payment.'}
+              </p>
+            </div>
+          </>
+        ) : (
+        <>
+        <h2 className="text-[#060C1A] font-bold text-lg mb-1">How did the customer pay?</h2>
+        <p className="text-[#4a6a8a] text-xs mb-5">The office confirms card and bank payments.</p>
 
         <div className="grid grid-cols-3 gap-3 mb-5">
           {(['Card', 'Cash', 'Bank Transfer'] as const).map((m) => {
@@ -333,7 +351,7 @@ function PaymentModal({
                 {m === 'Cash' && <Banknote size={20} />}
                 {m === 'Bank Transfer' && <ArrowLeftRight size={20} />}
                 <span className="text-xs font-bold">{m === 'Bank Transfer' ? 'Transfer' : m}</span>
-                {m === 'Card' && <span className="text-[10px] font-normal opacity-60">Already paid</span>}
+                {m === 'Card' && <span className="text-[10px] font-normal opacity-60">Card machine</span>}
               </button>
             )
           })}
@@ -364,12 +382,16 @@ function PaymentModal({
         )}
 
         {(method === 'Card' || method === 'Bank Transfer') && (
-          <div className="mb-5 flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-3 py-2.5">
-            <CheckCircle2 size={14} className="text-emerald-400 flex-shrink-0" />
-            <p className="text-emerald-400 text-xs font-semibold">
-              {method === 'Card' ? 'Paid by card — no collection needed' : 'Bank transfer — marked as paid'}
+          <div className="mb-5 flex items-center gap-2 bg-[#f0f5fa] border border-[#e2eaf2] rounded-xl px-3 py-2.5">
+            <CheckCircle2 size={14} className="text-[#4a6a8a] flex-shrink-0" />
+            <p className="text-[#1e3a5f] text-xs font-semibold">
+              {method === 'Card'
+                ? 'Taken on the card machine. The office marks it paid once it clears.'
+                : 'Customer is paying by bank transfer. The office marks it paid when it arrives.'}
             </p>
           </div>
+        )}
+        </>
         )}
 
         <div className="flex gap-3">
@@ -381,7 +403,7 @@ function PaymentModal({
             Back
           </button>
           <button
-            onClick={() => onConfirm(method)}
+            onClick={() => onConfirm(settled ? null : method)}
             disabled={loading || !cashReceivedValid}
             className="px-5 py-3.5 rounded-xl text-sm font-bold text-[#020813] flex items-center justify-center gap-2 disabled:opacity-50"
             style={{ flex: 2, background: 'linear-gradient(135deg, #34d399, #10b981 55%, #059669)' }}
@@ -693,23 +715,20 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
     await handleStatusUpdate('Arrived', false)
   }
 
-  const handleComplete = async (paymentMethod: 'Cash' | 'Card' | 'Bank Transfer') => {
+  const handleComplete = async (paymentMethod: CollectMethod | null) => {
     if (!booking) return
     setShowPaymentModal(false)
     setUpdating(true)
     setUpdateError(null)
 
-    const now = new Date().toISOString()
-    const { error } = await supabase.from('bookings').update({
-      status: 'Completed', completed_at: now, updated_at: now,
-      payment_method: paymentMethod,
-      ...(paymentMethod !== 'Cash' ? { payment_status: 'Paid' } : {}),
-    }).eq('id', booking.id)
+    // Never marks the booking Paid; see lib/completion.ts.
+    const patch = completionPatch(booking, paymentMethod, new Date().toISOString())
+    const { error } = await supabase.from('bookings').update(patch).eq('id', booking.id)
 
     if (error) {
       setUpdateError(error.message ?? 'Failed to complete. Please try again.')
     } else {
-      setBooking({ ...booking, status: 'Completed', completed_at: now, payment_method: paymentMethod })
+      setBooking({ ...booking, ...patch } as Booking)
       setShowCompletion(true)
       // Fire-and-forget receipt emails
       triggerReceiptEmail(booking.id)
@@ -1423,6 +1442,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
       {showPaymentModal && (
         <PaymentModal
           quotedPrice={booking?.quoted_price ?? null}
+          paymentStatus={booking?.payment_status ?? null}
           onConfirm={handleComplete}
           onBack={() => setShowPaymentModal(false)}
           loading={updating}
