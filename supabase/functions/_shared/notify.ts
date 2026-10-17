@@ -12,7 +12,7 @@ import { emailShell, pillHtml, PILL } from './emailLayout.ts'
 
 const VAPID_PUBLIC_KEY  = Deno.env.get('VAPID_PUBLIC_KEY') ?? ''
 const VAPID_PRIVATE_KEY = Deno.env.get('VAPID_PRIVATE_KEY') ?? ''
-const APP_URL           = Deno.env.get('APP_URL') ?? 'https://evexec.co.uk'
+const APP_URL           = Deno.env.get('APP_URL') ?? 'https://evexecdriverapp.vercel.app'
 
 if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
   webpush.setVapidDetails('mailto:driver@evexec.co.uk', VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY)

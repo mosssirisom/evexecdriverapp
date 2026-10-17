@@ -15,7 +15,7 @@ import { cancellationEmail, updateEmail, stopsFromNotes } from '../_shared/email
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-const APP_URL = Deno.env.get('APP_URL') ?? 'https://evexec.co.uk'
+const APP_URL = Deno.env.get('APP_URL') ?? 'https://evexecdriverapp.vercel.app'
 
 const CANCELLED_STATUSES = ['cancelled', 'Cancelled', 'canceled', 'Canceled']
 

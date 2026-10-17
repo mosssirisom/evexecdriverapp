@@ -181,6 +181,16 @@ Deno.serve(async (req) => {
     return json({ ok: false, error: 'Booking not found' }, { status: 404 })
   }
 
+  // Only the job's own driver, and only once the job is finished.
+  const token = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '')
+  const { data: caller } = token ? await supabase.auth.getUser(token) : { data: { user: null } }
+  if (!caller?.user || caller.user.id !== booking.assigned_driver_id) {
+    return json({ ok: false, error: 'Not your job' }, { status: 403 })
+  }
+  if (booking.status !== 'Completed') {
+    return json({ ok: false, error: 'Job not completed' }, { status: 409 })
+  }
+
   if (booking.receipt_sent_at) {
     return json({ ok: true, sent: [], cached: true })
   }
