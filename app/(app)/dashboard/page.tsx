@@ -14,6 +14,7 @@ type AttestBooking = Pick<Booking, 'id' | 'ref' | 'customer_name' | 'travel_date
 export default function DashboardPage() {
   const [driver, setDriver] = useState<Driver | null>(null)
   const [bookings, setBookings] = useState<Booking[]>([])
+  const [completedTodayCount, setCompletedTodayCount] = useState(0)
   const [attestationBookings, setAttestationBookings] = useState<AttestBooking[]>([])
   const [confirmingJobId, setConfirmingJobId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -25,7 +26,7 @@ export default function DashboardPage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
 
-    const [{ data: driverData }, { data: bookingData }, { data: attestData }] = await Promise.all([
+    const [{ data: driverData }, { data: bookingData }, { data: attestData }, { count: doneCount }] = await Promise.all([
       supabase.from('drivers').select('*').eq('id', user.id).single(),
       supabase
         .from('bookings')
@@ -40,11 +41,18 @@ export default function DashboardPage() {
         .eq('assigned_driver_id', user.id)
         .in('attestation_status', ['awaiting_first_attestation', 'awaiting_second_attestation'])
         .is('driver_confirmed_at', null),
+      supabase
+        .from('bookings')
+        .select('id', { count: 'exact', head: true })
+        .eq('assigned_driver_id', user.id)
+        .in('status', ['completed', 'Completed'])
+        .eq('travel_date', ukToday()),
     ])
 
     if (driverData) setDriver(driverData)
     if (bookingData) setBookings(bookingData)
     if (attestData) setAttestationBookings(attestData as AttestBooking[])
+    setCompletedTodayCount(doneCount ?? 0)
     setLoading(false)
   }, [supabase])
 
@@ -71,7 +79,6 @@ export default function DashboardPage() {
   const todayBookings = bookings.filter((b) => b.travel_date === today)
   const activeBooking = bookings.find((b) => ['En Route', 'en_route', 'Passenger On Board', 'Arrived', 'arrived', 'Active', 'active'].includes(b.status))
   const upcomingBookings = todayBookings.filter((b) => ['accepted', 'confirmed', 'Dispatched'].includes(b.status))
-  const completedToday = bookings.filter((b) => ['completed', 'Completed'].includes(b.status) && b.travel_date === today)
 
   const initials = driver?.full_name
     ? driver.full_name.split(' ').map((n) => n[0]).join('').slice(0, 2)
@@ -212,7 +219,7 @@ export default function DashboardPage() {
         </div>
         <div className="bg-white border border-[#c4d4e4] rounded-xl p-3 text-center">
           <Car size={16} className="mx-auto mb-1 text-[#7a5c14]" />
-          <p className="text-[#060C1A] font-bold text-lg">{completedToday.length}</p>
+          <p className="text-[#060C1A] font-bold text-lg">{completedTodayCount}</p>
           <p className="text-[#4f6580] text-[10px] uppercase tracking-wide mt-0.5">Done</p>
         </div>
         <div className="bg-white border border-[#c4d4e4] rounded-xl p-3 text-center">

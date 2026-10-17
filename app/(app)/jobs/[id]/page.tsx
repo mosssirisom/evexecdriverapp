@@ -302,9 +302,10 @@ function PaymentModal({
   onBack: () => void
   loading: boolean
 }) {
-  const [method, setMethod] = useState<'Cash' | 'Card' | 'Bank Transfer'>('Card')
+  // No default: the driver must say how the customer paid.
+  const [method, setMethod] = useState<'Cash' | 'Card' | 'Bank Transfer' | null>(null)
   const [cashReceived, setCashReceived] = useState('')
-  const cashReceivedValid = method !== 'Cash' || parseFloat(cashReceived) > 0
+  const cashReceivedValid = method !== null && (method !== 'Cash' || parseFloat(cashReceived) > 0)
 
   return (
     <div className="fixed inset-0 flex flex-col justify-end" style={{ background: 'rgba(2,8,19,0.85)', zIndex: 9999 }}>
@@ -333,7 +334,7 @@ function PaymentModal({
                 {m === 'Cash' && <Banknote size={20} />}
                 {m === 'Bank Transfer' && <ArrowLeftRight size={20} />}
                 <span className="text-xs font-bold">{m === 'Bank Transfer' ? 'Transfer' : m}</span>
-                {m === 'Card' && <span className="text-[10px] font-normal opacity-60">Already paid</span>}
+                {m === 'Card' && <span className="text-[10px] font-normal opacity-60">Paid to office</span>}
               </button>
             )
           })}
@@ -367,7 +368,7 @@ function PaymentModal({
           <div className="mb-5 flex items-center gap-2 bg-emerald-100 border border-emerald-200 rounded-xl px-3 py-2.5">
             <CheckCircle2 size={14} className="text-emerald-800 flex-shrink-0" />
             <p className="text-emerald-800 text-xs font-semibold">
-              {method === 'Card' ? 'Paid by card — no collection needed' : 'Bank transfer — marked as paid'}
+              {method === 'Card' ? 'Card or payment link — nothing to collect, the office records the payment' : 'Bank transfer — nothing to collect, the office confirms the payment'}
             </p>
           </div>
         )}
@@ -381,7 +382,7 @@ function PaymentModal({
             Back
           </button>
           <button
-            onClick={() => onConfirm(method)}
+            onClick={() => { if (method) onConfirm(method) }}
             disabled={loading || !cashReceivedValid}
             className="px-5 py-3.5 rounded-xl text-sm font-bold text-[#020813] flex items-center justify-center gap-2 disabled:opacity-50"
             style={{ flex: 2, background: 'linear-gradient(135deg, #34d399, #10b981 55%, #059669)' }}
@@ -657,10 +658,12 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
     const patch: Record<string, string> = { status: nextStatus, updated_at: now }
     if (tsField) patch[tsField] = now
 
-    const { error } = await supabase.from('bookings').update(patch).eq('id', booking.id)
+    const { data, error } = await supabase.from('bookings').update(patch).eq('id', booking.id).select('id')
 
-    if (error) {
-      setUpdateError(error.message ?? 'Failed to update. Please try again.')
+    // No row back = the update didn't apply (e.g. the office has just taken
+    // the job off this driver).
+    if (error || !data?.length) {
+      setUpdateError(error?.message ?? 'This job could not be updated. It may have been changed by the office. Refresh and try again.')
     } else {
       const updated = { ...booking, status: nextStatus, ...(tsField ? { [tsField]: now } : {}) } as Booking
       setBooking(updated)
@@ -702,14 +705,15 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
     setUpdateError(null)
 
     const now = new Date().toISOString()
-    const { error } = await supabase.from('bookings').update({
+    // Payment status is left to the office (and Stripe): the driver only says how
+    // the customer paid.
+    const { data, error } = await supabase.from('bookings').update({
       status: 'Completed', completed_at: now, updated_at: now,
       ...(paymentMethod ? { payment_method: paymentMethod } : {}),
-      ...(paymentMethod && paymentMethod !== 'Cash' ? { payment_status: 'Paid' } : {}),
-    }).eq('id', booking.id)
+    }).eq('id', booking.id).select('id')
 
-    if (error) {
-      setUpdateError(error.message ?? 'Failed to complete. Please try again.')
+    if (error || !data?.length) {
+      setUpdateError(error?.message ?? 'This job could not be updated. It may have been changed by the office. Refresh and try again.')
     } else {
       setBooking({ ...booking, status: 'Completed', completed_at: now, payment_method: paymentMethod ?? booking.payment_method })
       setShowCompletion(true)
@@ -1061,7 +1065,8 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
                       label={nextStep.label}
                       onConfirm={() => {
                         if (nextStep.to === 'Completed') {
-                          if (isReturnLeg(booking.notes)) handleComplete(null)
+                          // Return legs are paid with the outbound; paid bookings need no question.
+                          if (isReturnLeg(booking.notes) || String(booking.payment_status ?? '').toLowerCase() === 'paid') handleComplete(null)
                           else setShowPaymentModal(true)
                         } else {
                           handleStatusUpdate(nextStep.to)
