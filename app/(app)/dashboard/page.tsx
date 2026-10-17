@@ -6,7 +6,7 @@ import { Car, ChevronRight, Bell, Briefcase, Star, RefreshCw, CheckCircle2, Load
 import { createClient } from '@/lib/supabase/client'
 import { BookingStatusBadge } from '@/components/badges'
 import { RouteDisplay } from '@/components/route-icons'
-import { formatTime } from '@/lib/format'
+import { formatDate, formatTime, ukToday } from '@/lib/format'
 import type { Booking, Driver } from '@/lib/types'
 
 type AttestBooking = Pick<Booking, 'id' | 'ref' | 'customer_name' | 'travel_date' | 'travel_time' | 'pickup_location' | 'airport' | 'attestation_status'>
@@ -67,7 +67,7 @@ export default function DashboardPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const today = new Date().toISOString().split('T')[0]
+  const today = ukToday()
   const todayBookings = bookings.filter((b) => b.travel_date === today)
   const activeBooking = bookings.find((b) => ['En Route', 'en_route', 'Passenger On Board', 'Arrived', 'arrived', 'Active', 'active'].includes(b.status))
   const upcomingBookings = todayBookings.filter((b) => ['accepted', 'confirmed', 'Dispatched'].includes(b.status))
@@ -107,7 +107,7 @@ export default function DashboardPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <p className="text-[#7a9ab8] text-xs uppercase tracking-widest">{greeting()}</p>
+          <p className="text-[#4f6580] text-xs uppercase tracking-widest">{greeting()}</p>
           <h1 className="text-[#060C1A] font-semibold text-lg mt-0.5">{driver?.full_name ?? 'Driver'}</h1>
         </div>
         <div className="flex items-center gap-3">
@@ -116,13 +116,13 @@ export default function DashboardPage() {
             disabled={refreshing}
             className="w-10 h-10 rounded-xl bg-[#dce8f2] border border-[#c4d4e4] flex items-center justify-center active:opacity-70 disabled:opacity-50"
           >
-            <RefreshCw size={16} className={`text-[#4a6a8a] ${refreshing ? 'animate-spin' : ''}`} />
+            <RefreshCw size={16} className={`text-[#3b5470] ${refreshing ? 'animate-spin' : ''}`} />
           </button>
           <Link
             href="/notifications"
             className="relative w-10 h-10 rounded-xl bg-[#dce8f2] border border-[#c4d4e4] flex items-center justify-center"
           >
-            <Bell size={18} className="text-[#4a6a8a]" />
+            <Bell size={18} className="text-[#3b5470]" />
             {upcomingBookings.length > 0 && (
               <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#d5a538]" />
             )}
@@ -139,22 +139,22 @@ export default function DashboardPage() {
       {/* Attestation — jobs needing driver confirmation */}
       {attestationBookings.length > 0 && (
         <div className="mb-5 space-y-2.5">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-amber-400">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-amber-800">
             ⚠ Confirmation Required
           </p>
           {attestationBookings.map(b => (
             <div
               key={b.id}
-              className="bg-white border border-amber-500/30 rounded-2xl p-4"
+              className="bg-white border border-amber-300 rounded-2xl p-4"
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1 min-w-0">
                   <p className="text-[#060C1A] font-semibold text-sm">{b.customer_name}</p>
-                  <p className="text-[#7a9ab8] text-xs mt-0.5">
-                    {b.travel_date ?? ''}
+                  <p className="text-[#4f6580] text-xs mt-0.5">
+                    {b.travel_date ? formatDate(b.travel_date) : ''}
                     {b.travel_time ? ` · ${formatTime(b.travel_time)}` : ''}
                   </p>
-                  <p className="text-[#7a9ab8] text-xs mt-0.5 truncate">
+                  <p className="text-[#4f6580] text-xs mt-0.5 truncate">
                     {b.pickup_location ?? b.airport ?? '—'}
                   </p>
                 </div>
@@ -171,7 +171,7 @@ export default function DashboardPage() {
                 </button>
               </div>
               <div className="mt-2.5">
-                <span className="text-[10px] font-semibold px-2 py-1 rounded-full text-amber-400 bg-amber-500/10 border border-amber-500/20">
+                <span className="text-[10px] font-semibold px-2 py-1 rounded-full text-amber-800 bg-amber-100 border border-amber-200">
                   {b.attestation_status === 'awaiting_second_attestation'
                     ? '2nd confirmation'
                     : '1st confirmation'}
@@ -190,13 +190,13 @@ export default function DashboardPage() {
             style={{ background: 'linear-gradient(135deg, rgba(213,165,56,0.12), rgba(213,165,56,0.04))' }}
           >
             <div className="flex items-center justify-between mb-3">
-              <span className="text-[10px] font-semibold uppercase tracking-widest text-[#d5a538]">
+              <span className="text-[10px] font-semibold uppercase tracking-widest text-[#7a5c14]">
                 ● Active Job
               </span>
-              <ChevronRight size={16} className="text-[#d5a538]" />
+              <ChevronRight size={16} className="text-[#7a5c14]" />
             </div>
             <p className="text-[#060C1A] font-semibold text-sm">{activeBooking.customer_name}</p>
-            <p className="text-[#4a6a8a] text-xs mt-0.5">
+            <p className="text-[#3b5470] text-xs mt-0.5">
               {activeBooking.pickup_location ?? activeBooking.airport ?? 'Pickup location'}
             </p>
           </div>
@@ -206,52 +206,52 @@ export default function DashboardPage() {
       {/* Stats */}
       <div className="grid grid-cols-3 gap-3 mb-5">
         <div className="bg-white border border-[#c4d4e4] rounded-xl p-3 text-center">
-          <Briefcase size={16} className="mx-auto mb-1 text-[#d5a538]" />
+          <Briefcase size={16} className="mx-auto mb-1 text-[#7a5c14]" />
           <p className="text-[#060C1A] font-bold text-lg">{upcomingBookings.length + (activeBooking ? 1 : 0)}</p>
-          <p className="text-[#7a9ab8] text-[10px] uppercase tracking-wide mt-0.5">Today</p>
+          <p className="text-[#4f6580] text-[10px] uppercase tracking-wide mt-0.5">Today</p>
         </div>
         <div className="bg-white border border-[#c4d4e4] rounded-xl p-3 text-center">
-          <Car size={16} className="mx-auto mb-1 text-[#d5a538]" />
+          <Car size={16} className="mx-auto mb-1 text-[#7a5c14]" />
           <p className="text-[#060C1A] font-bold text-lg">{completedToday.length}</p>
-          <p className="text-[#7a9ab8] text-[10px] uppercase tracking-wide mt-0.5">Done</p>
+          <p className="text-[#4f6580] text-[10px] uppercase tracking-wide mt-0.5">Done</p>
         </div>
         <div className="bg-white border border-[#c4d4e4] rounded-xl p-3 text-center">
-          <Star size={16} className="mx-auto mb-1 text-[#d5a538]" />
+          <Star size={16} className="mx-auto mb-1 text-[#7a5c14]" />
           <p className="text-[#060C1A] font-bold text-lg">{bookings.length}</p>
-          <p className="text-[#7a9ab8] text-[10px] uppercase tracking-wide mt-0.5">Total</p>
+          <p className="text-[#4f6580] text-[10px] uppercase tracking-wide mt-0.5">Total</p>
         </div>
       </div>
 
       {/* Upcoming Jobs */}
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-[#060C1A] font-semibold text-sm">Today&apos;s Jobs</h2>
-        <Link href="/jobs" className="text-[#d5a538] text-xs font-medium">
+        <Link href="/jobs" className="text-[#7a5c14] text-xs font-medium">
           View all
         </Link>
       </div>
 
       {upcomingBookings.length === 0 && !activeBooking ? (
         <div className="bg-white border border-[#c4d4e4] rounded-2xl p-6 text-center">
-          <Car size={28} className="mx-auto mb-2 text-[#a8c0d4]" />
-          <p className="text-[#7a9ab8] text-sm">No upcoming jobs today</p>
+          <Car size={28} className="mx-auto mb-2 text-[#5a6f88]" />
+          <p className="text-[#4f6580] text-sm">No upcoming jobs today</p>
         </div>
       ) : (
         <div className="space-y-3">
           {upcomingBookings.slice(0, 3).map((booking) => (
             <Link key={booking.id} href={`/jobs/${booking.id}`}>
-              <div className="bg-white border border-[#c4d4e4] rounded-2xl p-4 active:opacity-80 transition-opacity">
+              <div className="bg-white border border-[#c4d4e4] rounded-2xl p-4 shadow-sm active:opacity-80 transition-opacity">
                 <div className="flex items-start justify-between mb-2">
-                  <span className="text-[#d5a538] font-semibold text-sm">{formatTime(booking.travel_time)}</span>
+                  <span className="text-[#7a5c14] font-bold text-base">{formatTime(booking.travel_time)}</span>
                   <div className="flex items-center gap-2">
                     <BookingStatusBadge status={booking.status} />
-                    <ChevronRight size={14} className="text-[#7a9ab8]" />
+                    <ChevronRight size={14} className="text-[#4f6580]" />
                   </div>
                 </div>
-                <p className="text-[#060C1A] font-medium text-sm mb-3">{booking.customer_name}</p>
+                <p className="text-[#060C1A] font-semibold text-[15px] mb-3">{booking.customer_name}</p>
                 <RouteDisplay booking={booking} />
                 {booking.quoted_price && (
                   <div className="flex items-center mt-3 pt-3 border-t border-[#d8e6f0]">
-                    <span className="ml-auto text-[#d5a538] font-semibold text-sm">
+                    <span className="ml-auto text-[#7a5c14] font-semibold text-sm">
                       £{booking.quoted_price.toFixed(0)}
                     </span>
                   </div>

@@ -148,11 +148,11 @@ export default function CalendarPage() {
       {/* Month navigation */}
       <div className="flex items-center justify-between mb-4">
         <button onClick={prevMonth} className="w-9 h-9 rounded-xl bg-[#dce8f2] flex items-center justify-center active:opacity-70">
-          <ChevronLeft size={18} className="text-[#4a6a8a]" />
+          <ChevronLeft size={18} className="text-[#3b5470]" />
         </button>
         <span className="text-[#060C1A] font-semibold text-base">{MONTHS[month]} {year}</span>
         <button onClick={nextMonth} className="w-9 h-9 rounded-xl bg-[#dce8f2] flex items-center justify-center active:opacity-70">
-          <ChevronRight size={18} className="text-[#4a6a8a]" />
+          <ChevronRight size={18} className="text-[#3b5470]" />
         </button>
       </div>
 
@@ -160,15 +160,15 @@ export default function CalendarPage() {
       {!loading && (
         <div className="grid grid-cols-3 gap-3 mb-4">
           <div className="bg-white border border-[#c4d4e4] rounded-2xl p-3 text-center">
-            <p className="text-[#7a9ab8] text-[10px] uppercase tracking-wide">Jobs</p>
+            <p className="text-[#4f6580] text-[10px] uppercase tracking-wide">Jobs</p>
             <p className="text-[#060C1A] font-bold text-xl mt-0.5">{totalMonthJobs}</p>
           </div>
           <div className="bg-white border border-[#c4d4e4] rounded-2xl p-3 text-center">
-            <p className="text-[#7a9ab8] text-[10px] uppercase tracking-wide">Earnings</p>
-            <p className="text-[#d5a538] font-bold text-xl mt-0.5">£{totalMonthEarnings.toFixed(0)}</p>
+            <p className="text-[#4f6580] text-[10px] uppercase tracking-wide">Earnings</p>
+            <p className="text-[#7a5c14] font-bold text-xl mt-0.5">£{totalMonthEarnings.toFixed(0)}</p>
           </div>
           <div className="bg-white border border-[#c4d4e4] rounded-2xl p-3 text-center">
-            <p className="text-[#7a9ab8] text-[10px] uppercase tracking-wide">Shift hrs</p>
+            <p className="text-[#4f6580] text-[10px] uppercase tracking-wide">Shift hrs</p>
             <p className="text-[#060C1A] font-bold text-xl mt-0.5">
               {totalMonthShiftHours > 0 ? totalMonthShiftHours.toFixed(0) : '—'}
             </p>
@@ -179,7 +179,7 @@ export default function CalendarPage() {
       {/* Day headers */}
       <div className="grid grid-cols-7 mb-1">
         {DAYS.map(d => (
-          <div key={d} className="text-center text-[9px] font-semibold text-[#7a9ab8] py-1 uppercase tracking-wide">
+          <div key={d} className="text-center text-[9px] font-semibold text-[#4f6580] py-1 uppercase tracking-wide">
             {d}
           </div>
         ))}
@@ -217,8 +217,8 @@ export default function CalendarPage() {
             >
               <span className={`text-sm font-semibold leading-none ${
                 isSelected ? 'text-[#020813]'
-                : isUnavailable ? 'text-red-400/70'
-                : isToday ? 'text-[#d5a538]'
+                : isUnavailable ? 'text-red-800'
+                : isToday ? 'text-[#7a5c14]'
                 : 'text-[#2d4c6d]'
               }`}>
                 {day}
@@ -252,15 +252,15 @@ export default function CalendarPage() {
       <div className="flex items-center gap-4 mb-5 flex-wrap">
         <div className="flex items-center gap-1.5">
           <div className="w-2 h-2 rounded-full bg-[#d5a538]" />
-          <span className="text-[#7a9ab8] text-[10px]">Job</span>
+          <span className="text-[#4f6580] text-[10px]">Job</span>
         </div>
         <div className="flex items-center gap-1.5">
           <div className="w-2 h-2 rounded-full bg-blue-400/70" />
-          <span className="text-[#7a9ab8] text-[10px]">Shift</span>
+          <span className="text-[#4f6580] text-[10px]">Shift</span>
         </div>
         <div className="flex items-center gap-1.5">
           <div className="w-2 h-2 rounded-full bg-red-400/50" />
-          <span className="text-[#7a9ab8] text-[10px]">Unavailable</span>
+          <span className="text-[#4f6580] text-[10px]">Unavailable</span>
         </div>
       </div>
 
@@ -271,7 +271,7 @@ export default function CalendarPage() {
             <h2 className="text-[#060C1A] font-semibold text-sm">
               {selectedDay} {MONTHS[month]}
             </h2>
-            <span className="text-[#7a9ab8] text-xs">
+            <span className="text-[#4f6580] text-xs">
               {selectedBookings.length} job{selectedBookings.length !== 1 ? 's' : ''}
             </span>
           </div>
@@ -282,17 +282,17 @@ export default function CalendarPage() {
             const mins = shiftMinutes(shift)
             const hours = (mins / 60).toFixed(1)
             return (
-              <div className="flex items-center gap-3 bg-blue-500/10 border border-blue-500/25 rounded-2xl px-4 py-3 mb-3">
-                <Clock size={16} className="text-blue-400 flex-shrink-0" />
+              <div className="flex items-center gap-3 bg-blue-100 border border-blue-200 rounded-2xl px-4 py-3 mb-3">
+                <Clock size={16} className="text-blue-800 flex-shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <p className="text-blue-300 font-semibold text-sm">
+                  <p className="text-blue-800 font-semibold text-sm">
                     {fmtShiftTime(shift.start_time)} – {fmtShiftTime(shift.end_time)}
                   </p>
                   {shift.notes && (
-                    <p className="text-blue-400/60 text-xs mt-0.5 truncate">{shift.notes}</p>
+                    <p className="text-blue-800 text-xs mt-0.5 truncate">{shift.notes}</p>
                   )}
                 </div>
-                <span className="text-blue-400/60 text-xs font-medium flex-shrink-0">{hours}h</span>
+                <span className="text-blue-800 text-xs font-medium flex-shrink-0">{hours}h</span>
               </div>
             )
           })()}
@@ -304,8 +304,8 @@ export default function CalendarPage() {
               disabled={toggling}
               className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold mb-3 border transition-opacity disabled:opacity-50 active:opacity-70 ${
                 selectedIsUnavailable
-                  ? 'border-red-500/30 text-red-400 bg-red-500/8'
-                  : 'border-[#c4d4e4] text-[#7a9ab8] bg-[#f0f5fa]'
+                  ? 'border-red-300 text-red-800 bg-red-100'
+                  : 'border-[#c4d4e4] text-[#4f6580] bg-[#f0f5fa]'
               }`}
             >
               <Ban size={14} />
@@ -319,8 +319,8 @@ export default function CalendarPage() {
             </div>
           ) : selectedBookings.length === 0 ? (
             <div className="bg-white border border-[#c4d4e4] rounded-2xl p-8 text-center">
-              <Car size={24} className="mx-auto mb-2 text-[#a8c0d4]" />
-              <p className="text-[#7a9ab8] text-sm">
+              <Car size={24} className="mx-auto mb-2 text-[#5a6f88]" />
+              <p className="text-[#4f6580] text-sm">
                 {selectedIsUnavailable ? 'Marked as unavailable' : 'No jobs this day'}
               </p>
             </div>
@@ -333,25 +333,25 @@ export default function CalendarPage() {
                   <Link key={job.id} href={`/jobs/${job.id}`}>
                     <div className={`rounded-2xl p-4 active:opacity-80 transition-opacity ${
                       isCompleted
-                        ? 'bg-white border border-green-500/20'
+                        ? 'bg-white border border-green-200'
                         : isCancelled
                         ? 'bg-white border border-[#d8e6f0] opacity-50'
                         : 'bg-white border border-[#c4d4e4]'
                     }`}>
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-[#d5a538] font-semibold text-sm">{formatTime(job.travel_time)}</span>
+                        <span className="text-[#7a5c14] font-bold text-base">{formatTime(job.travel_time)}</span>
                         <div className="flex items-center gap-2">
                           {job.quoted_price != null && job.quoted_price > 0 && (
-                            <span className="text-[#d5a538] font-bold text-sm">£{job.quoted_price.toFixed(0)}</span>
+                            <span className="text-[#7a5c14] font-bold text-sm">£{job.quoted_price.toFixed(0)}</span>
                           )}
                           {isCompleted && (
-                            <div className="flex items-center gap-1 bg-green-500/15 border border-green-500/25 rounded-full px-2 py-0.5">
-                              <CheckCircle2 size={11} className="text-green-400" />
-                              <span className="text-green-400 text-[10px] font-semibold">Done</span>
+                            <div className="flex items-center gap-1 bg-green-100 border border-green-200 rounded-full px-2 py-0.5">
+                              <CheckCircle2 size={11} className="text-green-800" />
+                              <span className="text-green-800 text-[10px] font-semibold">Done</span>
                             </div>
                           )}
                           {isCancelled && (
-                            <span className="text-[#7a9ab8] text-[10px] font-medium">Cancelled</span>
+                            <span className="text-[#4f6580] text-[10px] font-medium">Cancelled</span>
                           )}
                         </div>
                       </div>

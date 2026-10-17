@@ -45,6 +45,7 @@ export interface Booking {
   payment_status: string
   assigned_driver_id: string | null
   driver_notes: string | null
+  notes: string | null
   // Journey timestamps (Phase 1)
   tracking_started_at: string | null
   arrived_at: string | null

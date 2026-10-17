@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { syncPush } from '@/lib/push'
 import { useToast } from './toast'
+import { formatDate } from '@/lib/format'
 
 const CANCELLED_STATUSES = new Set(['cancelled', 'Cancelled', 'canceled', 'Canceled', 'No Show', 'no show'])
 const DETAIL_FIELDS = [
@@ -54,7 +55,7 @@ export function JobNotifier() {
             const b = payload.new as BookingRow
             const pickup = (b.pickup_location ?? b.airport ?? 'See job details') as string
             const customer = (b.customer_name ?? 'New booking') as string
-            const msg = `${pickup}${b.travel_date ? ` · ${b.travel_date}` : ''}`
+            const msg = `${pickup}${b.travel_date ? ` · ${formatDate(b.travel_date as string)}` : ''}`
             addToast({ title: `New job — ${customer}`, message: msg, href: `/jobs/${b.id}` })
             showNativeNotification(`New job — ${customer}`, `${customer} · ${pickup}`, 'new-job')
           }

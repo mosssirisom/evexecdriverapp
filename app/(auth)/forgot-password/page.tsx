@@ -35,20 +35,20 @@ export default function ForgotPasswordPage() {
       <div className="mb-8 text-center">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/logo.png" alt="EV Exec" width={160} height={160} className="mx-auto" />
-        <p className="text-[#7a9ab8] mt-2 tracking-widest uppercase text-xs">Driver Portal</p>
+        <p className="text-[#4f6580] mt-2 tracking-widest uppercase text-xs">Driver Portal</p>
       </div>
 
       <div className="w-full max-w-sm bg-white border border-[#c4d4e4] rounded-2xl p-6 shadow-2xl">
         {sent ? (
           <div className="text-center py-2">
-            <MailCheck size={32} className="mx-auto mb-3 text-[#d5a538]" />
+            <MailCheck size={32} className="mx-auto mb-3 text-[#7a5c14]" />
             <h2 className="text-lg font-semibold text-[#060C1A] mb-2">Check your email</h2>
-            <p className="text-[#4a6a8a] text-sm">
+            <p className="text-[#3b5470] text-sm">
               If an account exists for <span className="text-[#1e3a5f]">{email}</span>, we&apos;ve sent a link to reset your password.
             </p>
             <Link
               href="/login"
-              className="inline-flex items-center gap-1.5 text-[#d5a538] text-xs font-medium mt-6"
+              className="inline-flex items-center gap-1.5 text-[#7a5c14] text-xs font-medium mt-6"
             >
               <ArrowLeft size={14} />
               Back to sign in
@@ -57,13 +57,13 @@ export default function ForgotPasswordPage() {
         ) : (
           <>
             <h2 className="text-lg font-semibold text-[#060C1A] mb-2">Reset your password</h2>
-            <p className="text-[#7a9ab8] text-sm mb-6">
+            <p className="text-[#4f6580] text-sm mb-6">
               Enter the email associated with your driver account and we&apos;ll send you a link to reset your password.
             </p>
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-[10px] font-semibold text-[#7a9ab8] mb-2 uppercase tracking-widest">
+                <label className="block text-[10px] font-semibold text-[#4f6580] mb-2 uppercase tracking-widest">
                   Email
                 </label>
                 <input
@@ -78,7 +78,7 @@ export default function ForgotPasswordPage() {
               </div>
 
               {error && (
-                <p className="text-red-400 text-xs bg-red-400/10 border border-red-400/20 rounded-lg px-3 py-2">
+                <p className="text-red-800 text-xs bg-red-100 border border-red-200 rounded-lg px-3 py-2">
                   {error}
                 </p>
               )}
@@ -96,7 +96,7 @@ export default function ForgotPasswordPage() {
 
             <Link
               href="/login"
-              className="inline-flex items-center gap-1.5 text-[#7a9ab8] hover:text-[#4a6a8a] text-xs font-medium mt-6"
+              className="inline-flex items-center gap-1.5 text-[#4f6580] hover:text-[#3b5470] text-xs font-medium mt-6"
             >
               <ArrowLeft size={14} />
               Back to sign in

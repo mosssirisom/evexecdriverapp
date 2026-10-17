@@ -83,24 +83,24 @@ export default function ResetPasswordPage() {
       <div className="mb-8 text-center">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/logo.png" alt="EV Exec" width={160} height={160} className="mx-auto" />
-        <p className="text-[#7a9ab8] mt-2 tracking-widest uppercase text-xs">Driver Portal</p>
+        <p className="text-[#4f6580] mt-2 tracking-widest uppercase text-xs">Driver Portal</p>
       </div>
 
       <div className="w-full max-w-sm bg-white border border-[#c4d4e4] rounded-2xl p-6 shadow-2xl">
         {success ? (
           <div className="text-center py-2">
-            <CheckCircle2 size={32} className="mx-auto mb-3 text-green-400" />
+            <CheckCircle2 size={32} className="mx-auto mb-3 text-green-800" />
             <h2 className="text-lg font-semibold text-[#060C1A] mb-2">Password updated</h2>
-            <p className="text-[#4a6a8a] text-sm">Taking you to your dashboard…</p>
+            <p className="text-[#3b5470] text-sm">Taking you to your dashboard…</p>
           </div>
         ) : (
           <>
             <h2 className="text-lg font-semibold text-[#060C1A] mb-2">{invite ? 'Welcome to the Driver App' : 'Set a new password'}</h2>
-            <p className="text-[#4a6a8a] text-sm mb-6">{invite ? 'Choose a password. You\'ll use it with your email address to sign in.' : 'Choose a new password for your account.'}</p>
+            <p className="text-[#3b5470] text-sm mb-6">{invite ? 'Choose a password. You\'ll use it with your email address to sign in.' : 'Choose a new password for your account.'}</p>
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-[10px] font-semibold text-[#7a9ab8] mb-2 uppercase tracking-widest">
+                <label className="block text-[10px] font-semibold text-[#4f6580] mb-2 uppercase tracking-widest">
                   New Password
                 </label>
                 <div className="relative">
@@ -116,7 +116,7 @@ export default function ResetPasswordPage() {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#7a9ab8] hover:text-[#4a6a8a] transition-colors"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#4f6580] hover:text-[#3b5470] transition-colors"
                     tabIndex={-1}
                   >
                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
@@ -125,7 +125,7 @@ export default function ResetPasswordPage() {
               </div>
 
               <div>
-                <label className="block text-[10px] font-semibold text-[#7a9ab8] mb-2 uppercase tracking-widest">
+                <label className="block text-[10px] font-semibold text-[#4f6580] mb-2 uppercase tracking-widest">
                   Confirm Password
                 </label>
                 <input
@@ -140,7 +140,7 @@ export default function ResetPasswordPage() {
               </div>
 
               {error && (
-                <div className="text-red-400 text-xs bg-red-400/10 border border-red-400/20 rounded-lg px-3 py-2 space-y-1">
+                <div className="text-red-800 text-xs bg-red-100 border border-red-200 rounded-lg px-3 py-2 space-y-1">
                   <p>{error}</p>
                   {!ready ? null : (
                     <Link href="/forgot-password" className="underline inline-block">
