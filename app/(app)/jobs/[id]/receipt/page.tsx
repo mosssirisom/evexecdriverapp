@@ -142,7 +142,7 @@ export default function ReceiptPage({ params }: { params: Promise<{ id: string }
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/logo.png" alt="EV Exec" width={64} height={64} className="mx-auto mb-3" />
             <p className="text-[#4f6580] text-[10px] uppercase tracking-widest print-gray">Journey Receipt</p>
-            <h1 className="text-[#7a5c14] font-bold text-2xl mt-1 tracking-wide print-black" style={{ fontFamily: 'monospace' }}>
+            <h1 className="text-[#7a5c14] font-bold text-2xl mt-1 tracking-wide print-black">
               {ref}
             </h1>
           </div>

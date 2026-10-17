@@ -43,3 +43,8 @@ Audit found the Chat tab sent messages to `driver_messages`, but nothing in the 
 - **Return legs** (`isReturnLeg()` in `lib/format.ts`, notes start "Return leg created automatically"): shown as "Paid with Outbound"; completing one no longer asks "How was payment made?" or writes a payment method. Card / payment link / bank transfer show "Paid to Office" (was "Card on Arrival"), matching the website's driver emails.
 - **Dates**: dashboard confirmation cards and the new-job pop-up showed raw YYYY-MM-DD (now DD/MM/YYYY); the dashboard's "today" used UTC (`ukToday()` now), which showed yesterday's jobs between 00:00 and 01:00 in summer.
 - Checked, no change: Twilio is gated by `SMS_ENABLED` in every edge function; `npx tsc` and `next build` pass; `next lint` is not configured (it opens a setup prompt).
+
+## Update — 2026-10-17: one font, Manrope
+
+User decision: the whole app uses Manrope, like the website. Self-hosted (`public/fonts/manrope-latin*.woff2`, same files as `evexec`, SIL OFL in `OFL-Manrope.txt`), `@font-face` at the top of the global CSS, body font Manrope, and Tailwind `sans`, `serif` and `mono` all map to Manrope, so booking references and other monospace text match. Weights 200–800 (CSS 900 renders as 800); no italic face (browser slants it). Emails keep their email-safe fonts. Checked in a browser: every visible text element renders in Manrope and the font file loads.
+- Driver app: `fonts` is excluded from the sign-in redirect in `middleware.ts`, so the font also loads on the signed-out pages. The receipt reference lost its inline monospace style.
