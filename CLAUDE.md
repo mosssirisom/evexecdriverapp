@@ -48,3 +48,10 @@ Audit found the Chat tab sent messages to `driver_messages`, but nothing in the 
 
 User decision: the whole app uses Manrope, like the website. Self-hosted (`public/fonts/manrope-latin*.woff2`, same files as `evexec`, SIL OFL in `OFL-Manrope.txt`), `@font-face` at the top of the global CSS, body font Manrope, and Tailwind `sans`, `serif` and `mono` all map to Manrope, so booking references and other monospace text match. Weights 200–800 (CSS 900 renders as 800); no italic face (browser slants it). Emails keep their email-safe fonts. Checked in a browser: every visible text element renders in Manrope and the font file loads.
 - Driver app: `fonts` is excluded from the sign-in redirect in `middleware.ts`, so the font also loads on the signed-out pages. The receipt reference lost its inline monospace style.
+
+## Update — 2026-10-17: app icon (steering wheel)
+
+User chose option D from five (emblem, EV monogram, bolt, steering wheel, EV in a ring): a gold steering wheel (`#D5A538`) on navy (`#0B1525`). Before, `/favicon.ico` did not exist (no tab icon) and phones used the wide 1.35 MB `logo.png` with text as the home-screen icon.
+- Files: `public/favicon.ico` (16/32/48), `public/icons/icon.svg` (tab), `apple-touch-icon.png` (180), `icon-192.png`, `icon-512.png`, `icon-512-maskable.png` (wheel inside the safe zone), `badge-96.png` (white on transparent, Android status bar). The 64×64 SVG source of the wheel is `icon.svg`; regenerate the PNGs from it if it changes.
+- Wired in `app/layout.tsx` `metadata.icons`, `public/manifest.json`, push notifications (`public/sw.js` icon and badge, cache name bumped to `evexec-driver-v2`) and `components/job-notifier.tsx`. `logo.png` stays on the sign-in, password and receipt screens.
+- `favicon.ico` and `icons` are already excluded from the sign-in redirect (`middleware.ts`).

@@ -21,7 +21,7 @@ function showNativeNotification(title: string, body: string, tag: string) {
   if (!('Notification' in window) || Notification.permission !== 'granted') return
   if (document.visibilityState === 'visible') return
   navigator.serviceWorker?.ready
-    .then((reg) => reg.showNotification(title, { body, icon: '/logo.png', tag }))
+    .then((reg) => reg.showNotification(title, { body, icon: '/icons/icon-192.png', badge: '/icons/badge-96.png', tag }))
     .catch(() => {})
 }
 
