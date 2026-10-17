@@ -49,7 +49,7 @@ export default function LoginPage() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-[10px] font-semibold text-[#7a9ab8] mb-2 uppercase tracking-widest">
+            <label className="block text-[10px] font-semibold text-[#4f6580] mb-2 uppercase tracking-widest">
               Email
             </label>
             <input
@@ -62,7 +62,7 @@ export default function LoginPage() {
           </div>
 
           <div>
-            <label className="block text-[10px] font-semibold text-[#7a9ab8] mb-2 uppercase tracking-widest">
+            <label className="block text-[10px] font-semibold text-[#4f6580] mb-2 uppercase tracking-widest">
               Password
             </label>
             <div className="relative">
@@ -76,21 +76,21 @@ export default function LoginPage() {
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#7a9ab8] hover:text-[#4a6a8a] transition-colors"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#4f6580] hover:text-[#3b5470] transition-colors"
                 tabIndex={-1}
               >
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
             </div>
             <div className="text-right mt-2">
-              <Link href="/forgot-password" className="text-[#d5a538] text-xs font-medium">
+              <Link href="/forgot-password" className="text-[#7a5c14] text-xs font-medium">
                 Forgot password?
               </Link>
             </div>
           </div>
 
           {error && (
-            <p className="text-red-400 text-xs bg-red-400/10 border border-red-400/20 rounded-lg px-3 py-2">
+            <p className="text-red-800 text-xs bg-red-100 border border-red-200 rounded-lg px-3 py-2">
               {error}
             </p>
           )}
@@ -106,7 +106,7 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <p className="text-center text-xs text-[#a8c0d4] mt-6">
+        <p className="text-center text-xs text-[#5a6f88] mt-6">
           Account access is managed by EV Exec
         </p>
       </div>
