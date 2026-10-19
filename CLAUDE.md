@@ -70,3 +70,7 @@ User chose option D from five (emblem, EV monogram, bolt, steering wheel, EV in 
 - **No-show**: a driver marking "Passenger No Show" (status Cancelled + `[No Show]` in `driver_notes`) no longer gets a "Job cancelled, do not travel" alert (same migration, patch of `notify_driver_job_update`). Office cancellations still alert the driver (tested in a rolled-back transaction).
 - **Function sources brought into main**: the live `notify-job-update` (v10) and `send-push` (v10) were deployed from the unmerged branch `claude/security-fixes-p0` (trigger secret check, booking read from the database). Their files (`notify-job-update/handler.ts`, `send-push/handler.ts`, `_shared/webhookAuth.ts`, `tests/driver-alerts.test.ts`) are now on main, so a redeploy from main keeps that protection. `npm run test:functions` runs their tests. The rest of that branch (its own completion/receipt changes) was not merged.
 - `APP_URL` edge-function secret is still unset; the code default is the Driver App address, so nothing depends on it.
+
+## Update — 2026-10-19: password rule
+
+Supabase Auth now requires passwords of at least 8 characters with a letter and a number (set by the user in the dashboard, 19/10/2026). The reset/set-password screen checks the same rule before sending, so drivers see a clear message instead of Supabase's.
