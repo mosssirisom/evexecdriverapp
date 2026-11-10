@@ -6,7 +6,8 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
     "test:functions": "node --test --experimental-strip-types supabase/functions/tests/*.test.ts"
   },
   "dependencies": {
@@ -20,6 +21,7 @@
     "web-push": "^3.6.7"
   },
   "devDependencies": {
+    "@eslint/eslintrc": "^3.3.7",
     "@types/leaflet": "^1.9.21",
     "@types/node": "^20",
     "@types/react": "^19",
