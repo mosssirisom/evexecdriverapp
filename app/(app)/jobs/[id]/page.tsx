@@ -731,12 +731,12 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
     const noShowNote = [driverNote.trim(), '[No Show] Passenger was not at the pickup location.']
       .filter(Boolean).join('\n\n')
     const { error } = await supabase.from('bookings').update({
-      status: 'Cancelled', driver_notes: noShowNote, updated_at: new Date().toISOString(),
+      status: 'No Show', driver_notes: noShowNote, updated_at: new Date().toISOString(),
     }).eq('id', booking.id)
     if (error) {
       setUpdateError(error.message ?? 'Failed to mark no show. Please try again.')
     } else {
-      setBooking({ ...booking, status: 'Cancelled', driver_notes: noShowNote })
+      setBooking({ ...booking, status: 'No Show', driver_notes: noShowNote })
       setDriverNote(noShowNote)
     }
     setUpdating(false)
@@ -822,8 +822,9 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
   // ── Derived state ──────────────────────────────────────────────────────────
 
   const nextStep = STATUS_FLOW.find(s => s.from === booking.status)
-  const isDone = ['completed', 'Completed', 'cancelled', 'Cancelled', 'rejected'].includes(booking.status)
-  const isNoShow = booking.status === 'Cancelled' && (booking.driver_notes ?? '').includes('[No Show]')
+  const isDone = ['completed', 'Completed', 'cancelled', 'Cancelled', 'rejected', 'No Show'].includes(booking.status)
+  // A no-show is its own status now; older ones were Cancelled with a note.
+  const isNoShow = booking.status === 'No Show' || (booking.status === 'Cancelled' && (booking.driver_notes ?? '').includes('[No Show]'))
   const isEnRoute = ['En Route', 'en_route'].includes(booking.status)
   const isArrived = ['Arrived', 'arrived'].includes(booking.status)
   const isPob = booking.status === 'Passenger On Board'

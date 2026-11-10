@@ -74,3 +74,11 @@ User chose option D from five (emblem, EV monogram, bolt, steering wheel, EV in 
 ## Update — 2026-10-19: password rule
 
 Supabase Auth now requires passwords of at least 8 characters with a letter and a number (set by the user in the dashboard, 19/10/2026). The reset/set-password screen checks the same rule before sending, so drivers see a clear message instead of Supabase's.
+
+## Update — 2026-11-10: no-show is its own status
+
+- The job screen's "Passenger No Show" button now sets `status: 'No Show'` (still writes the "[No Show] Passenger was not at the pickup location." note to `driver_notes`). Before it set `Cancelled` plus the note, which told the customer their booking was cancelled.
+- `No Show` counts as finished on the job screen (`isDone`). `isNoShow` accepts both forms, so older no-shows (Cancelled plus the note) still display as no-shows.
+- `components/job-notifier.tsx` no longer pops "Job cancelled" for the driver's own no-show (status `No Show`, or the `[No Show]` note).
+- The database allows this since migration `20261110133454` (in `evexec`): a driver-only login can set `No Show` or `Cancelled` only from En Route or Arrived. **Do not remove `Cancelled` from what drivers may set until this version is live**, or the old button breaks. An open Driver App tab from before the deploy still sends `Cancelled`.
+- The branch was merged with `main` first (11 commits behind); `package.json` keeps `lint`, `typecheck` and `test:functions`.

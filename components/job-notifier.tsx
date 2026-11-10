@@ -90,8 +90,11 @@ export function JobNotifier() {
               return
             }
 
+            // The driver's own no-show: they know, so no "job cancelled" alert.
+            const ownNoShow = b.status === 'No Show' || String(b.driver_notes ?? '').includes('[No Show]')
             const isCancelled = CANCELLED_STATUSES.has(b.status as string)
               && !CANCELLED_STATUSES.has(old.status as string)
+              && !ownNoShow
 
             if (isCancelled) {
               addToast({
