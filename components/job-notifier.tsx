@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { syncPush } from '@/lib/push'
 import { useToast } from './toast'
+import { formatDate } from '@/lib/format'
 
 const CANCELLED_STATUSES = new Set(['cancelled', 'Cancelled', 'canceled', 'Canceled', 'No Show', 'no show'])
 const DETAIL_FIELDS = [
@@ -20,7 +21,7 @@ function showNativeNotification(title: string, body: string, tag: string) {
   if (!('Notification' in window) || Notification.permission !== 'granted') return
   if (document.visibilityState === 'visible') return
   navigator.serviceWorker?.ready
-    .then((reg) => reg.showNotification(title, { body, icon: '/logo.png', tag }))
+    .then((reg) => reg.showNotification(title, { body, icon: '/icons/icon-192.png', badge: '/icons/badge-96.png', tag }))
     .catch(() => {})
 }
 
@@ -28,6 +29,10 @@ export function JobNotifier() {
   const supabase = createClient()
   const { addToast } = useToast()
   const askedRef = useRef(false)
+  // Last values seen for each of this driver's bookings. Realtime UPDATE
+  // events on an RLS table carry only the primary key in `old`, so changes are
+  // worked out against this copy instead.
+  const lastSeen = useRef(new Map<string, BookingRow>())
 
   useEffect(() => {
     let channel: ReturnType<typeof supabase.channel> | null = null
@@ -44,6 +49,12 @@ export function JobNotifier() {
         await syncPush(user.id)
       }
 
+      const { data: current } = await supabase
+        .from('bookings')
+        .select(`id, status, ${DETAIL_FIELDS.join(', ')}`)
+        .eq('assigned_driver_id', user.id)
+      for (const row of (current ?? []) as unknown as BookingRow[]) lastSeen.current.set(String(row.id), row)
+
       channel = supabase
         .channel('driver-job-events')
         // New job assigned
@@ -52,9 +63,10 @@ export function JobNotifier() {
           { event: 'INSERT', schema: 'public', table: 'bookings', filter: `assigned_driver_id=eq.${user.id}` },
           (payload) => {
             const b = payload.new as BookingRow
+            lastSeen.current.set(String(b.id), b)
             const pickup = (b.pickup_location ?? b.airport ?? 'See job details') as string
             const customer = (b.customer_name ?? 'New booking') as string
-            const msg = `${pickup}${b.travel_date ? ` · ${b.travel_date}` : ''}`
+            const msg = `${pickup}${b.travel_date ? ` · ${formatDate(b.travel_date as string)}` : ''}`
             addToast({ title: `New job — ${customer}`, message: msg, href: `/jobs/${b.id}` })
             showNativeNotification(`New job — ${customer}`, `${customer} · ${pickup}`, 'new-job')
           }
@@ -65,9 +77,18 @@ export function JobNotifier() {
           { event: 'UPDATE', schema: 'public', table: 'bookings', filter: `assigned_driver_id=eq.${user.id}` },
           (payload) => {
             const b = payload.new as BookingRow
-            const old = payload.old as BookingRow
+            const old = lastSeen.current.get(String(b.id))
+            lastSeen.current.set(String(b.id), b)
             const customer = (b.customer_name ?? 'Your booking') as string
             const ref = (b.ref ?? String(b.id).slice(0, 8).toUpperCase()) as string
+            // First sight of this booking: it has just been given to this driver.
+            if (!old) {
+              if (CANCELLED_STATUSES.has(b.status as string) || String(b.status ?? '').toLowerCase() === 'completed') return
+              const pickup = (b.pickup_location ?? b.airport ?? 'See job details') as string
+              addToast({ title: `New job — ${customer}`, message: `${pickup}${b.travel_date ? ` · ${formatDate(b.travel_date as string)}` : ''}`, href: `/jobs/${b.id}` })
+              showNativeNotification(`New job — ${customer}`, `${customer} · ${pickup}`, 'new-job')
+              return
+            }
 
             const isCancelled = CANCELLED_STATUSES.has(b.status as string)
               && !CANCELLED_STATUSES.has(old.status as string)
@@ -87,9 +108,10 @@ export function JobNotifier() {
             }
 
             // Payment received / customer chose cash: say so plainly.
-            const nowPaid = String(b.payment_status ?? '').toLowerCase() === 'paid'
+            const done = String(b.status ?? '').toLowerCase() === 'completed'
+            const nowPaid = !done && String(b.payment_status ?? '').toLowerCase() === 'paid'
               && String(old.payment_status ?? '').toLowerCase() !== 'paid'
-            const nowCash = !nowPaid && String(b.payment_method ?? '').toLowerCase() === 'cash'
+            const nowCash = !done && !nowPaid && String(b.payment_method ?? '').toLowerCase() === 'cash'
               && String(old.payment_method ?? '').toLowerCase() !== 'cash'
             if (nowPaid || nowCash) {
               const amount = b.quoted_price ? `£${Number(b.quoted_price).toFixed(2)}` : ''

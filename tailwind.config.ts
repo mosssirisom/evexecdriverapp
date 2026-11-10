@@ -16,7 +16,11 @@ const config: Config = {
         card: '#0F1D30',
       },
       fontFamily: {
-        serif: ['Georgia', 'Times New Roman', 'serif'],
+        // One font everywhere (Manrope, app/globals.css), including the
+        // serif and monospace utilities.
+        sans: ['Manrope', 'system-ui', 'sans-serif'],
+        serif: ['Manrope', 'system-ui', 'sans-serif'],
+        mono: ['Manrope', 'system-ui', 'sans-serif'],
       },
     },
   },

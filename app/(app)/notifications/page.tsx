@@ -95,14 +95,14 @@ export default function NotificationsPage() {
   return (
     <div className="min-h-screen bg-[#eaeff7] px-4 pt-12 pb-6">
       <div className="flex items-center gap-3 mb-6">
-        <button onClick={() => router.back()} className="text-[#7a9ab8] active:text-[#2d4c6d]">
+        <button onClick={() => router.back()} className="text-[#4f6580] active:text-[#2d4c6d]">
           <ChevronLeft size={22} />
         </button>
         <h1 className="text-[#060C1A] font-bold text-xl flex-1">Activity</h1>
         {!loading && visible.length > 0 && (
           <button
             onClick={clearActivity}
-            className="text-[#7a9ab8] text-sm font-medium px-3 py-1.5 rounded-lg active:bg-[#dce8f2]"
+            className="text-[#4f6580] text-sm font-medium px-3 py-1.5 rounded-lg active:bg-[#dce8f2]"
           >
             Clear
           </button>
@@ -115,9 +115,9 @@ export default function NotificationsPage() {
         </div>
       ) : visible.length === 0 ? (
         <div className="bg-white border border-[#c4d4e4] rounded-2xl p-12 text-center">
-          <Bell size={32} className="mx-auto mb-3 text-[#a8c0d4]" />
-          <p className="text-[#7a9ab8] text-sm">{bookings.length ? 'All caught up' : 'No activity yet'}</p>
-          <p className="text-[#a8c0d4] text-xs mt-1">{bookings.length ? 'New job activity will appear here' : 'Your job history will appear here'}</p>
+          <Bell size={32} className="mx-auto mb-3 text-[#5a6f88]" />
+          <p className="text-[#4f6580] text-sm">{bookings.length ? 'All caught up' : 'No activity yet'}</p>
+          <p className="text-[#5a6f88] text-xs mt-1">{bookings.length ? 'New job activity will appear here' : 'Your job history will appear here'}</p>
         </div>
       ) : (
         <div className="space-y-2.5">
@@ -143,23 +143,23 @@ export default function NotificationsPage() {
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
                           <p className="text-[#060C1A] font-semibold text-sm leading-tight">{booking.customer_name}</p>
-                          <p className="text-[#7a9ab8] text-[11px] mt-0.5">{label}</p>
+                          <p className="text-[#4f6580] text-[11px] mt-0.5">{label}</p>
                         </div>
                         <div className="flex items-center gap-1.5 flex-shrink-0">
-                          <span className="text-[#7a9ab8] text-[10px]">{timeAgo(booking.updated_at)}</span>
-                          <ChevronRight size={13} className="text-[#7a9ab8]" />
+                          <span className="text-[#4f6580] text-[10px]">{timeAgo(booking.updated_at)}</span>
+                          <ChevronRight size={13} className="text-[#4f6580]" />
                         </div>
                       </div>
 
                       {/* Route */}
                       <div className="flex items-center gap-1.5 mt-2">
                         <PickupIcon booking={booking} size={11} />
-                        <p className="text-[#4a6a8a] text-xs truncate">{pickup}</p>
+                        <p className="text-[#3b5470] text-xs truncate">{pickup}</p>
                       </div>
 
                       {/* Date/time */}
                       {booking.travel_date && (
-                        <p className="text-[#a8c0d4] text-[10px] mt-1">
+                        <p className="text-[#5a6f88] text-[10px] mt-1">
                           {formatDate(booking.travel_date)}{booking.travel_time ? ` · ${formatTime(booking.travel_time)}` : ''}
                         </p>
                       )}

@@ -60,7 +60,7 @@ export default function MyJobsPage() {
     <div className="min-h-screen bg-[#eaeff7] px-4 pt-12 pb-4">
       <div className="mb-6">
         <h1 className="text-[#060C1A] font-bold text-xl">Active</h1>
-        <p className="text-[#7a9ab8] text-xs mt-1">Jobs currently in progress</p>
+        <p className="text-[#4f6580] text-xs mt-1">Jobs currently in progress</p>
       </div>
 
       {loading ? (
@@ -69,9 +69,9 @@ export default function MyJobsPage() {
         </div>
       ) : bookings.length === 0 ? (
         <div className="bg-white border border-[#c4d4e4] rounded-2xl p-12 text-center">
-          <Car size={32} className="mx-auto mb-3 text-[#a8c0d4]" />
-          <p className="text-[#7a9ab8] text-sm">No active jobs right now</p>
-          <p className="text-[#a8c0d4] text-xs mt-1">Jobs appear here once you start them</p>
+          <Car size={32} className="mx-auto mb-3 text-[#5a6f88]" />
+          <p className="text-[#4f6580] text-sm">No active jobs right now</p>
+          <p className="text-[#5a6f88] text-xs mt-1">Jobs appear here once you start them</p>
         </div>
       ) : (
         <div className="space-y-4">
@@ -79,7 +79,7 @@ export default function MyJobsPage() {
             const pickupAddress = booking.pickup_location ?? booking.airport ?? '—'
             const dropoffAddress = booking.dropoff_address ?? '—'
             return (
-              <div key={booking.id} className="bg-white border border-[#c4d4e4] rounded-2xl overflow-hidden">
+              <div key={booking.id} className="bg-white border border-[#c4d4e4] rounded-2xl overflow-hidden shadow-sm">
                 <div
                   className="px-4 py-2.5 flex items-center justify-between"
                   style={{
@@ -93,7 +93,7 @@ export default function MyJobsPage() {
                 >
                   <BookingStatusBadge status={booking.status} />
                   {booking.quoted_price && (
-                    <span className="text-[#d5a538] font-bold text-sm">
+                    <span className="text-[#7a5c14] font-bold text-sm">
                       £{booking.quoted_price.toFixed(2)}
                     </span>
                   )}
@@ -103,14 +103,14 @@ export default function MyJobsPage() {
                   <div className="flex items-center justify-between mb-3">
                     <div>
                       <p className="text-[#060C1A] font-semibold text-sm">{booking.customer_name}</p>
-                      <p className="text-[#7a9ab8] text-xs mt-0.5">{formatTime(booking.travel_time)}</p>
+                      <p className="text-[#7a5c14] font-bold text-base mt-0.5">{formatTime(booking.travel_time)}</p>
                     </div>
                     {booking.customer_phone && (
                       <a
                         href={`tel:${booking.customer_phone}`}
                         className="w-9 h-9 rounded-xl flex items-center justify-center border border-[#c4d4e4] bg-[#dce8f2] active:opacity-70"
                       >
-                        <Phone size={15} className="text-[#d5a538]" />
+                        <Phone size={15} className="text-[#7a5c14]" />
                       </a>
                     )}
                   </div>
@@ -119,24 +119,24 @@ export default function MyJobsPage() {
                     {/* Vertical timeline icons */}
                     <div className="flex flex-col items-center flex-shrink-0 pt-[1px]">
                       {(booking.flight_number || (booking.journey_type ?? '').toLowerCase().includes('airport') || booking.airport) ? (
-                        <PlaneLanding size={11} className="flex-shrink-0 text-[#10b981]" />
+                        <PlaneLanding size={11} className="flex-shrink-0 text-[#047857]" />
                       ) : (
-                        <MapPin size={11} className="flex-shrink-0 text-[#d5a538]" />
+                        <MapPin size={11} className="flex-shrink-0 text-[#7a5c14]" />
                       )}
                       <div className="w-px flex-1 min-h-[12px] bg-[#cad8e8] my-[3px]" />
-                      <Flag size={11} className="flex-shrink-0 text-[#7a9ab8]" />
+                      <Flag size={11} className="flex-shrink-0 text-[#4f6580]" />
                     </div>
                     {/* Addresses with nav buttons */}
                     <div className="flex-1 min-w-0 space-y-[7px]">
                       <div className="flex items-center gap-2">
-                        <p className="flex-1 text-[#4a6a8a] text-xs leading-tight truncate">{pickupAddress}</p>
-                        <button onClick={() => navigateTo(pickupAddress)} className="text-[#d5a538] flex-shrink-0 active:opacity-70">
+                        <p className="flex-1 text-[#3b5470] text-xs leading-tight truncate">{pickupAddress}</p>
+                        <button onClick={() => navigateTo(pickupAddress)} className="text-[#7a5c14] flex-shrink-0 active:opacity-70">
                           <Navigation2 size={14} />
                         </button>
                       </div>
                       <div className="flex items-center gap-2">
-                        <p className="flex-1 text-white/35 text-xs leading-tight truncate">{dropoffAddress}</p>
-                        <button onClick={() => navigateTo(dropoffAddress)} className="text-[#d5a538] flex-shrink-0 active:opacity-70">
+                        <p className="flex-1 text-[#4f6580] text-xs leading-tight truncate">{dropoffAddress}</p>
+                        <button onClick={() => navigateTo(dropoffAddress)} className="text-[#7a5c14] flex-shrink-0 active:opacity-70">
                           <Navigation2 size={14} />
                         </button>
                       </div>

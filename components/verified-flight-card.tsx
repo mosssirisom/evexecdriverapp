@@ -88,7 +88,7 @@ export function VerifiedFlightCard({ bookingId }: { bookingId: string }) {
     return (
       <div className="bg-white border border-[#c4d4e4] rounded-2xl p-4">
         <div className="flex items-center justify-between mb-1">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-[#7a9ab8] flex items-center gap-1.5">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-[#4f6580] flex items-center gap-1.5">
             <Plane size={11} /> Flight (verified)
           </p>
           <button
@@ -96,10 +96,10 @@ export function VerifiedFlightCard({ bookingId }: { bookingId: string }) {
             disabled={refreshing}
             className="w-8 h-8 rounded-xl bg-[#dce8f2] flex items-center justify-center active:opacity-70 disabled:opacity-40 flex-shrink-0"
           >
-            <RefreshCw size={13} className={`text-[#7a9ab8] ${refreshing ? 'animate-spin' : ''}`} />
+            <RefreshCw size={13} className={`text-[#4f6580] ${refreshing ? 'animate-spin' : ''}`} />
           </button>
         </div>
-        <p className="text-[#7a9ab8] text-xs">Not yet verified. Tap refresh to check.</p>
+        <p className="text-[#4f6580] text-xs">Not yet verified. Tap refresh to check.</p>
       </div>
     )
   }
@@ -111,7 +111,7 @@ export function VerifiedFlightCard({ bookingId }: { bookingId: string }) {
   return (
     <div className="bg-white border border-[#c4d4e4] rounded-2xl p-4">
       <div className="flex items-center justify-between mb-3">
-        <p className="text-[10px] font-semibold uppercase tracking-widest text-[#7a9ab8] flex items-center gap-1.5">
+        <p className="text-[10px] font-semibold uppercase tracking-widest text-[#4f6580] flex items-center gap-1.5">
           <Plane size={11} /> Flight (verified)
         </p>
         <button
@@ -119,33 +119,33 @@ export function VerifiedFlightCard({ bookingId }: { bookingId: string }) {
           disabled={refreshing}
           className="w-8 h-8 rounded-xl bg-[#dce8f2] flex items-center justify-center active:opacity-70 disabled:opacity-40 flex-shrink-0"
         >
-          <RefreshCw size={13} className={`text-[#7a9ab8] ${refreshing ? 'animate-spin' : ''}`} />
+          <RefreshCw size={13} className={`text-[#4f6580] ${refreshing ? 'animate-spin' : ''}`} />
         </button>
       </div>
       <div className="flex items-center justify-between mb-3">
         <p className="text-[#060C1A] text-base font-semibold">{verification.flight_number}</p>
         {(verification.departure_iata || verification.arrival_iata) && (
-          <p className="text-[#7a9ab8] text-xs font-medium">
+          <p className="text-[#4f6580] text-xs font-medium">
             {verification.departure_iata ?? '—'} → {verification.arrival_iata ?? '—'}
           </p>
         )}
       </div>
       <div className="grid grid-cols-2 gap-3 mb-3">
         <div>
-          <p className="text-[#7a9ab8] text-[10px] uppercase tracking-wider mb-0.5">
+          <p className="text-[#4f6580] text-[10px] uppercase tracking-wider mb-0.5">
             {verification.direction === 'arrival' ? 'Arrival' : 'Departure'}
           </p>
           <p className="text-[#060C1A] text-sm font-medium">{formatFlightDateTime(relevantTime)}</p>
         </div>
         {verification.recommended_pickup && (
           <div>
-            <p className="text-[#7a9ab8] text-[10px] uppercase tracking-wider mb-0.5">Estimated arrival</p>
+            <p className="text-[#4f6580] text-[10px] uppercase tracking-wider mb-0.5">Estimated arrival</p>
             <p className="text-[#060C1A] text-sm font-medium">{formatFlightDateTime(verification.recommended_pickup)}</p>
           </div>
         )}
       </div>
       {verification.flight_status && (
-        <p className="text-[#7a9ab8] text-xs mb-2">
+        <p className="text-[#4f6580] text-xs mb-2">
           Flight status: <span className="text-[#060C1A] font-medium">{verification.flight_status}</span>
         </p>
       )}

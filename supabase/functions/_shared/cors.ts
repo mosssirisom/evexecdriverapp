@@ -1,10 +1,10 @@
 // CORS helper for edge functions called from the driver app browser client.
 //
-// Restricts Access-Control-Allow-Origin to the configured APP_URL so that
-// the preflight and response headers are not granted to arbitrary origins.
-// Falls back to the production URL when APP_URL is not set.
+// Only the Driver App's own origin is allowed (APP_URL, default the Driver
+// App's production address), so the preflight and response headers are not
+// granted to arbitrary origins.
 
-const APP_URL = Deno.env.get('APP_URL') ?? 'https://evexec.co.uk'
+const APP_URL = Deno.env.get('APP_URL') ?? 'https://evexecdriverapp.vercel.app'
 
 export const CORS_HEADERS: Record<string, string> = {
   'Access-Control-Allow-Origin':  APP_URL,

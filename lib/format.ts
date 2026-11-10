@@ -1,12 +1,26 @@
-export function paymentInfo(method: string | null | undefined, status: string | null | undefined): { text: string; className: string } {
+// The £0 return leg of a return booking (website or Operator app). Its fare
+// was paid with the outbound booking, so there is nothing to collect.
+export function isReturnLeg(notes: string | null | undefined): boolean {
+  return /^Return leg created automatically/i.test(notes ?? '')
+}
+
+export function paymentInfo(method: string | null | undefined, status: string | null | undefined, notes?: string | null): { text: string; className: string } {
   const m = (method ?? '').toLowerCase()
   const s = (status ?? '').toLowerCase()
-  if (s === 'paid') return { text: '✓ Paid', className: 'bg-green-500/15 text-green-400' }
-  if (m.includes('cash')) return { text: 'Collect Cash', className: 'bg-amber-500/15 text-amber-400' }
-  if (m.includes('card') || m.includes('stripe')) return { text: 'Card on Arrival', className: 'bg-blue-500/15 text-blue-400' }
-  if (m.includes('account')) return { text: 'On Account', className: 'bg-purple-500/15 text-purple-400' }
-  if (method) return { text: method, className: 'bg-[#dce8f2] text-[#7a9ab8]' }
-  return { text: 'Cash/Card TBC', className: 'bg-amber-500/15 text-amber-400' }
+  if (isReturnLeg(notes)) return { text: 'Paid with Outbound', className: 'bg-green-100 text-green-800' }
+  if (s === 'paid') return { text: '✓ Paid', className: 'bg-green-100 text-green-800' }
+  if (m.includes('cash')) return { text: 'Collect Cash', className: 'bg-amber-100 text-amber-800' }
+  // Card, bank transfer and payment links are settled with the office, never
+  // collected by the driver (same rule as the website's driver emails).
+  if (m.includes('card') || m.includes('stripe') || m.includes('link') || m.includes('bank')) return { text: 'Paid to Office', className: 'bg-blue-100 text-blue-800' }
+  if (m.includes('account')) return { text: 'On Account', className: 'bg-purple-100 text-purple-800' }
+  if (method) return { text: method, className: 'bg-[#dce8f2] text-[#4f6580]' }
+  return { text: 'Cash/Card TBC', className: 'bg-amber-100 text-amber-800' }
+}
+
+/** Today's date in the UK as YYYY-MM-DD (not UTC, which is a day behind after midnight in summer). */
+export function ukToday(now: Date = new Date()): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London' }).format(now)
 }
 
 // House date style (user decision, 2026-10-04): DD/MM/YYYY, 24-hour HH:MM.

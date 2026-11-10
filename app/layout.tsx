@@ -6,6 +6,14 @@ export const metadata: Metadata = {
   title: 'EV Exec Driver',
   description: 'Driver portal for EV Exec chauffeur services',
   manifest: '/manifest.json',
+  // App icon: gold steering wheel on navy (user choice 17/10/2026), in public/icons.
+  icons: {
+    icon: [
+      { url: '/favicon.ico', sizes: '16x16 32x32 48x48' },
+      { url: '/icons/icon.svg', type: 'image/svg+xml' },
+    ],
+    apple: '/icons/apple-touch-icon.png',
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
@@ -24,9 +32,6 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <head>
-        <link rel="apple-touch-icon" href="/logo.png" />
-      </head>
       <body>
         {children}
         <SwRegister />
