@@ -39,7 +39,7 @@ self.addEventListener('push', (event) => {
   try { data = event.data?.json() ?? {} } catch { data = { body: event.data?.text() } }
   const tag = data.tag ?? `${data.url ?? '/jobs'}|${data.title ?? ''}`
   event.waitUntil(
-    self.registration.showNotification(data.title ?? 'EV Exec Driver', {
+    self.registration.showNotification(data.title ?? 'New notification', {
       body: data.body ?? 'You have an update',
       icon: '/icons/icon-192.png',
       badge: '/icons/badge-96.png',

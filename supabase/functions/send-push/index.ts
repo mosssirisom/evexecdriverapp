@@ -4,6 +4,7 @@ import { recordNotification } from '../_shared/notify.ts'
 // @ts-ignore - no type declarations published for this package
 import webpush from "npm:web-push@3.6.7"
 import { handleSendPush, type PushSub } from './handler.ts'
+import { VAPID_SUBJECT } from '../_shared/platform.ts'
 
 // Invoked by the `trg_booking_push` trigger (notify_driver_new_booking)
 // whenever a booking's assigned_driver_id is set/changed. Sends a web push
@@ -17,7 +18,7 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '
 
 if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
   webpush.setVapidDetails(
-    'mailto:driver@evexec.co.uk',
+    VAPID_SUBJECT,
     VAPID_PUBLIC_KEY,
     VAPID_PRIVATE_KEY
   )

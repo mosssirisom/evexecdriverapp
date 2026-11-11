@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import {
-  PoundSterling, Briefcase, TrendingUp, MapPin,
+  PoundSterling, Briefcase, TrendingUp,
   ChevronLeft, ChevronRight, ClipboardList, Download,
   CheckCircle2, Clock,
 } from 'lucide-react'
@@ -424,8 +424,6 @@ function EarningsContent() {
           ) : (
             <div className="space-y-3">
               {monthBookings.map((job) => {
-                const pickup = job.pickup_location ?? job.airport ?? '—'
-                const dropoff = job.dropoff_address ?? '—'
                 return (
                   <div key={job.id} className="bg-white border border-[#c4d4e4] rounded-2xl p-4">
                     <div className="flex items-start justify-between gap-2 mb-3">

@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { ArrowLeft, Loader2, MailCheck } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { BRAND } from '@/lib/brand'
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('')
@@ -34,7 +35,7 @@ export default function ForgotPasswordPage() {
     <div className="min-h-screen flex flex-col items-center justify-center px-6 bg-[#eaeff7]">
       <div className="mb-8 text-center">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/logo.png" alt="EV Exec" width={160} height={160} className="mx-auto" />
+        <img src="/logo.png" alt={BRAND.name} width={160} height={160} className="mx-auto" />
         <p className="text-[#4f6580] mt-2 tracking-widest uppercase text-xs">Driver Portal</p>
       </div>
 
@@ -72,7 +73,7 @@ export default function ForgotPasswordPage() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@evexec.co.uk"
+                  placeholder={BRAND.loginPlaceholder}
                   className="w-full bg-[#dce8f2] border border-[#c4d4e4] rounded-xl px-4 py-3 text-[#060C1A] placeholder-[#7a9ab8] text-sm focus:outline-none focus:border-[#d5a538] focus:ring-1 focus:ring-[#d5a538] transition-colors"
                 />
               </div>

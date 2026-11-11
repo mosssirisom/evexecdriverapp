@@ -21,6 +21,7 @@ import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { pushToDriver, queueEmail, type NotificationType } from '../_shared/notify.ts'
 import { reminderEmail, stopsFromNotes } from '../_shared/email.ts'
+import { loadBrand } from '../_shared/brand.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -89,7 +90,7 @@ Deno.serve(async (_req) => {
     // +/- 1 day band by date and match the exact window in code.
     const { data: rows, error } = await supabase
       .from('bookings')
-      .select('id, ref, customer_name, pickup_location, airport, dropoff_address, destination, notes, journey_type, pickup_time, travel_date, travel_time, passengers, assigned_driver_id')
+      .select('id, ref, customer_name, pickup_location, airport, dropoff_address, destination, notes, journey_type, pickup_time, travel_date, travel_time, passengers, assigned_driver_id, tenant_id')
       .in('status', ACTIVE_STATUSES)
       .not('assigned_driver_id', 'is', null)
       .gte('travel_date', dateOnly(target - 86_400_000))
@@ -227,6 +228,7 @@ Deno.serve(async (_req) => {
         stops: stopsFromNotes(booking.notes),
         type: reminderType,
         bookingUrl,
+        brand: await loadBrand(supabase, booking.tenant_id),
       })
 
       const queued = await queueEmail(supabase, { bookingId: booking.id, type: reminder.type, to: driver.email, subject, html, body: pushBody })

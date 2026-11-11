@@ -19,7 +19,8 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { CORS_HEADERS, corsPreflightResponse } from '../_shared/cors.ts'
-import { emailShell, pillHtml, PILL } from '../_shared/emailLayout.ts'
+import { emailShell, pillHtml, helpLine, PILL } from '../_shared/emailLayout.ts'
+import { loadBrand, type Brand } from '../_shared/brand.ts'
 import { queueEmail } from '../_shared/notify.ts'
 import { stopsFromNotes } from '../_shared/email.ts'
 
@@ -100,9 +101,7 @@ function totalHtml(label: string, amount: string): string {
     + `</tr></table>`
 }
 
-const FOOTNOTE = '<p style="margin:18px 0 0;font-size:14px;line-height:1.6;color:#475569">Questions? Call or WhatsApp 07721 070370.</p>'
-
-function passengerReceiptHtml(b: Record<string, unknown>, ref: string): string {
+function passengerReceiptHtml(b: Record<string, unknown>, ref: string, brand: Brand): string {
   const pickup  = (b.pickup_location as string | null) || (b.airport as string | null) || 'Not recorded'
   const dropoff = (b.dropoff_address as string | null) || (b.airport as string | null) || 'Not recorded'
   const stops   = stopsFromNotes(b.notes).map((v, i): [string, string] => [`Stop ${i + 1}`, v])
@@ -111,10 +110,10 @@ function passengerReceiptHtml(b: Record<string, unknown>, ref: string): string {
 
   return emailShell('Journey receipt', `
     ${pillHtml('Journey receipt', PILL.green)}
-    <p style="margin:18px 0 16px;font-size:15px;line-height:1.6;color:#0f1b33">Thank you for travelling with EV Exec. Here's a summary of your journey.</p>
+    <p style="margin:18px 0 16px;font-size:15px;line-height:1.6;color:#0f1b33">Thank you for travelling with ${brand.name || 'us'}. Here's a summary of your journey.</p>
     ${rowsHtml([['Reference', ref], ['Pickup', pickup], ...stops, ['Drop-off', dropoff], ['Completed', doneAt], ['Payment', paymentLine(b)]])}
     ${totalHtml('Total', price)}
-    ${FOOTNOTE}`)
+    ${helpLine(brand)}`, brand)
 }
 
 function corporateInvoiceHtml(
@@ -122,6 +121,7 @@ function corporateInvoiceHtml(
   ref: string,
   driverName: string,
   expenses: Array<{ type: string; amount: number }>,
+  brand: Brand,
 ): string {
   const pickup  = (b.pickup_location as string | null) || (b.airport as string | null) || 'Not recorded'
   const dropoff = (b.dropoff_address as string | null) || (b.airport as string | null) || 'Not recorded'
@@ -138,12 +138,12 @@ function corporateInvoiceHtml(
 
   return emailShell('Journey invoice', `
     ${pillHtml('Journey invoice', PILL.gold)}
-    <p style="margin:18px 0 16px;font-size:15px;line-height:1.6;color:#0f1b33">Invoice for your completed journey with EV Exec.</p>
+    <p style="margin:18px 0 16px;font-size:15px;line-height:1.6;color:#0f1b33">Invoice for your completed journey with ${brand.name || 'us'}.</p>
     ${rowsHtml([['Reference', ref], ['Driver', driverName], ['Pickup', pickup], ...stops, ['Drop-off', dropoff], ['Completed', doneAt]])}
     <div style="margin:0 0 4px;color:#64748b;font-size:12px;text-transform:uppercase;letter-spacing:.04em">Charges</div>
     ${rowsHtml(charges)}
     ${totalHtml('Total due', `£${grandTotal.toFixed(2)}`)}
-    ${FOOTNOTE}`)
+    ${helpLine(brand)}`, brand)
 }
 
 // ─── Handler ──────────────────────────────────────────────────────────────────
@@ -196,6 +196,8 @@ Deno.serve(async (req) => {
   }
 
   const ref = (booking.ref as string | null) ?? booking.id.slice(0, 8).toUpperCase()
+  const brand = await loadBrand(supabase, booking.tenant_id as string | null)
+  const bn = brand.name ? `${brand.name} ` : ''
 
   // Fetch driver name
   let driverName = 'Your Driver'
@@ -222,8 +224,8 @@ Deno.serve(async (req) => {
   if (booking.customer_email) {
     const ok = await queueEmail(supabase, {
       bookingId, type: 'receipt', to: booking.customer_email,
-      subject: `Your EV Exec journey receipt (Ref ${ref})`,
-      html: passengerReceiptHtml(booking, ref),
+      subject: `Your ${bn}journey receipt (Ref ${ref})`,
+      html: passengerReceiptHtml(booking, ref, brand),
     })
     if (ok) sent.push('customer_email')
   }
@@ -231,7 +233,7 @@ Deno.serve(async (req) => {
   // SMS fallback — only if no email or email send failed
   if (!sent.includes('customer_email') && booking.customer_phone) {
     const price = booking.quoted_price != null ? ` Total: £${(booking.quoted_price as number).toFixed(2)}.` : ''
-    const smsBody = `Your EV Exec journey is complete. Booking ref: ${ref}.${price} Thank you for travelling with us.`
+    const smsBody = `Your ${bn}journey is complete. Booking ref: ${ref}.${price} Thank you for travelling with us.`
     const ok = await sendSms(booking.customer_phone, smsBody)
     if (ok) sent.push('customer_sms')
   }
@@ -240,8 +242,8 @@ Deno.serve(async (req) => {
   if (booking.corporate_email) {
     const ok = await queueEmail(supabase, {
       bookingId, type: 'receipt', to: booking.corporate_email,
-      subject: `EV Exec journey invoice (Ref ${ref})`,
-      html: corporateInvoiceHtml(booking, ref, driverName, expenses),
+      subject: `${bn ? `${bn}journey invoice` : 'Journey invoice'} (Ref ${ref})`,
+      html: corporateInvoiceHtml(booking, ref, driverName, expenses, brand),
     })
     if (ok) sent.push('corporate')
   }

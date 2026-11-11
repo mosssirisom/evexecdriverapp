@@ -8,12 +8,14 @@ import {
   HelpCircle, Loader2, ClipboardList, MessageCircle, PoundSterling, Star,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { OPS_PHONE, OPS_WHATSAPP, SUPPORT_EMAIL } from '@/lib/config'
+import { BRAND } from '@/lib/brand'
+import { useBusiness } from '@/components/business'
 import type { Driver } from '@/lib/types'
 import { PushSettings } from '@/components/push-settings'
 
 export default function ProfilePage() {
   const router = useRouter()
+  const business = useBusiness()
   const [driver, setDriver] = useState<Driver | null>(null)
   const [email, setEmail] = useState<string | null>(null)
   const [tripCount, setTripCount] = useState(0)
@@ -169,19 +171,19 @@ export default function ProfilePage() {
           <ChevronRight size={15} className="text-[#5a6f88]" />
         </button>
 
-        <a
-          href={`tel:${OPS_PHONE}`}
+        {business.phone && <a
+          href={`tel:${business.phone}`}
           className="w-full flex items-center justify-between px-4 py-3.5 border-b border-[#d8e6f0] active:bg-[#dce8f2]"
         >
           <div className="flex items-center gap-3">
             <Phone size={16} className="text-[#7a5c14]" />
             <span className="text-[#1e3a5f] text-sm">Call Operations</span>
           </div>
-          <span className="text-[#4f6580] text-xs">EV Exec Dispatch</span>
-        </a>
+          <span className="text-[#4f6580] text-xs">{business.name} Dispatch</span>
+        </a>}
 
-        <a
-          href={OPS_WHATSAPP}
+        {business.whatsapp && <a
+          href={business.whatsapp}
           target="_blank"
           rel="noopener noreferrer"
           className="w-full flex items-center justify-between px-4 py-3.5 border-b border-[#d8e6f0] active:bg-[#dce8f2]"
@@ -191,10 +193,10 @@ export default function ProfilePage() {
             <span className="text-[#1e3a5f] text-sm">WhatsApp Dispatch</span>
           </div>
           <ChevronRight size={15} className="text-[#5a6f88]" />
-        </a>
+        </a>}
 
         <a
-          href={`mailto:${SUPPORT_EMAIL}`}
+          href={`mailto:${BRAND.supportEmail}`}
           className="w-full flex items-center justify-between px-4 py-3.5 active:bg-[#dce8f2]"
         >
           <div className="flex items-center gap-3">
@@ -216,7 +218,7 @@ export default function ProfilePage() {
         </button>
       </form>
 
-      <p className="text-center text-[#c4d4e4] text-xs mt-4">EV Exec Driver v1.0</p>
+      <p className="text-center text-[#c4d4e4] text-xs mt-4">{business.name} Driver v1.0</p>
     </div>
   )
 }

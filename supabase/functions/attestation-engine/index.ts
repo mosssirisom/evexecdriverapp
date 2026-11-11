@@ -33,6 +33,7 @@ import { createClient, type SupabaseClient } from 'jsr:@supabase/supabase-js@2'
 // @ts-ignore - no type declarations published for this package
 import webpush from 'npm:web-push@3.6.7'
 import { pushToDriver, recordNotification } from '../_shared/notify.ts'
+import { VAPID_SUBJECT } from '../_shared/platform.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -248,7 +249,7 @@ async function pushOperators(supabase: SupabaseClient, title: string, body: stri
 
   const payload = JSON.stringify({ title, body, url, tag: `attestation-${url}` })
   const vapidDetails = {
-    subject: config.vapid_subject || 'mailto:book@evexec.co.uk',
+    subject: config.vapid_subject || VAPID_SUBJECT,
     publicKey: config.vapid_public,
     privateKey: config.vapid_private,
   }
@@ -310,7 +311,7 @@ async function runOperatorAlert(supabase: SupabaseClient, now: Date, summary: Ru
       ? await supabase.from('tenants').select('contact_email').eq('id', b.tenant_id).maybeSingle()
       : { data: null }
     if (tenant?.contact_email) {
-      // Same branded shell as every other EV Exec notification email.
+      // Same branded shell as every other notification email.
       const { data: branded } = await supabase.rpc('evexec_notification_email', {
         p_pill: 'Pickup not confirmed', p_pill_bg: '#fde8e8', p_pill_fg: '#9b1c1c',
         p_lead: `${driverName} hasn't confirmed this pickup after two reminders. Please check in with them or reassign the job.`,

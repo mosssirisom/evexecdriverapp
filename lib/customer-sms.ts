@@ -1,5 +1,6 @@
 import type { Booking, BookingStatus } from './types'
 import { formatDate, formatTime } from './format'
+import type { Business } from './business'
 
 // Pre-filled customer update texts, sent manually from the driver's own phone
 // (sms: link) when they swipe the job progress bar. No Twilio cost.
@@ -8,6 +9,11 @@ export interface SmsDriver {
   full_name: string | null
   vehicle_model: string | null
   vehicle_registration: string | null
+}
+
+/** The business name followed by a space, or '' when it has no name. */
+function named(business: Pick<Business, 'name'>): string {
+  return business.name.trim() ? `${business.name.trim()} ` : ''
 }
 
 function firstName(name: string | null | undefined): string {
@@ -39,13 +45,14 @@ export function customerUpdateSms(
   status: BookingStatus,
   booking: Booking,
   driver: SmsDriver | null,
+  business: Pick<Business, 'name'>,
 ): string | null {
   const customer = firstName(booking.customer_name)
   const driverFirst = firstName(driver?.full_name) || 'your driver'
   const pickup = booking.pickup_location ?? booking.airport ?? 'your pickup point'
   const ref = booking.ref ?? booking.id.slice(0, 8).toUpperCase()
   const hello = customer ? `${greeting()} ${customer},` : `${greeting()},`
-  const signOff = `Kind regards,\n${driverFirst}, EV Exec`
+  const signOff = `Kind regards,\n${driverFirst}${business.name.trim() ? `, ${business.name.trim()}` : ''}`
 
   if (status === 'En Route') {
     const time = booking.travel_time ? ` for your ${formatTime(booking.travel_time)} pickup` : ''
@@ -55,7 +62,7 @@ export function customerUpdateSms(
     return [
       hello,
       ``,
-      `This is ${driverFirst}, your EV Exec driver. I'm now on my way to ${pickup}${time}.${flight}`,
+      `This is ${driverFirst}, your ${named(business)}driver. I'm now on my way to ${pickup}${time}.${flight}`,
       vehicleLine(driver, "I'll be in"),
       `I'll let you know as soon as I arrive. Booking ref: ${ref}.`,
       ``,
@@ -146,7 +153,7 @@ function dayPhrase(date: string, today: string): string {
 /** Pre-filled reminder text (week ahead or day before). "today", "tomorrow"
  *  or "in N days" is worked out from the UK date when the driver taps, so it
  *  is never stale. */
-export function customerReminderSms(booking: Booking, today: string = ukToday()): string {
+export function customerReminderSms(booking: Booking, business: Pick<Business, 'name'>, today: string = ukToday()): string {
   const info = reminderInfo(booking)
   const customer = firstName(booking.customer_name)
   const ref = booking.ref ?? booking.id.slice(0, 8).toUpperCase()
@@ -159,12 +166,12 @@ export function customerReminderSms(booking: Booking, today: string = ukToday())
   return [
     customer ? `Hi ${customer},` : 'Hi,',
     ``,
-    `Just a quick reminder that your EV Exec journey is booked for ${when}${at}.`,
+    `Just a quick reminder that your ${named(business)}journey is booked for ${when}${at}.`,
     [where, flight].filter(Boolean).join(' ') || null,
     `If you have any questions or need to make any changes, please let us know. Booking ref: ${ref}.`,
     ``,
     `Many thanks,`,
-    `EV Exec`,
+    business.name.trim() || null,
   ].filter(l => l !== null).join('\n')
 }
 

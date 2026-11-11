@@ -1,10 +1,11 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import { SwRegister } from '@/components/sw-register'
+import { BRAND } from '@/lib/brand'
 
 export const metadata: Metadata = {
-  title: 'EV Exec Driver',
-  description: 'Driver portal for EV Exec chauffeur services',
+  title: `${BRAND.name} Driver`,
+  description: `Driver portal for ${BRAND.name} ${BRAND.tagline}`,
   manifest: '/manifest.json',
   // App icon: gold steering wheel on navy (user choice 17/10/2026), in public/icons.
   icons: {
@@ -17,7 +18,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: 'EV Exec',
+    title: BRAND.name,
   },
 }
 

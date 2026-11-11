@@ -11,6 +11,7 @@ const booking = (over: Partial<Booking> = {}): Booking => ({
   travel_date: '2026-11-12', travel_time: '09:30:00', flight_number: null,
   ...over,
 } as Booking)
+const EV = { name: 'EV Exec' }
 const driver = { full_name: 'Sam Driver', vehicle_model: 'Tesla Model Y', vehicle_registration: 'ab12 cde' }
 
 afterEach(() => vi.useRealTimers())
@@ -29,7 +30,7 @@ describe('daysBetween', () => {
 describe('customer update texts', () => {
   it('En Route names the driver, pickup, time, car and reference', () => {
     vi.useFakeTimers(); vi.setSystemTime(new Date(2026, 10, 11, 8, 0))
-    const t = customerUpdateSms('En Route', booking(), driver)!
+    const t = customerUpdateSms('En Route', booking(), driver, EV)!
     expect(t).toContain('Good morning Jo,')
     expect(t).toContain('This is Sam, your EV Exec driver')
     expect(t).toContain('on my way to 1 Test Street, Southport for your 09:30 pickup.')
@@ -37,58 +38,58 @@ describe('customer update texts', () => {
     expect(t).toContain('Booking ref: EVX-TEST1.')
   })
   it('mentions the flight when there is one', () => {
-    const t = customerUpdateSms('En Route', booking({ flight_number: 'ezy123' }), driver)!
+    const t = customerUpdateSms('En Route', booking({ flight_number: 'ezy123' }), driver, EV)!
     expect(t).toContain('flight EZY123')
   })
   it('Arrived says so and gives the car', () => {
-    const t = customerUpdateSms('Arrived', booking(), driver)!
+    const t = customerUpdateSms('Arrived', booking(), driver, EV)!
     expect(t).toContain("I've arrived at 1 Test Street, Southport")
     expect(t).toContain("You'll find me in a Tesla Model Y")
   })
   it('sends nothing for statuses where the customer is already with the driver', () => {
     for (const s of ['Passenger On Board', 'Completed', 'No Show', 'Dispatched'] as const) {
-      expect(customerUpdateSms(s, booking(), driver)).toBeNull()
+      expect(customerUpdateSms(s, booking(), driver, EV)).toBeNull()
     }
   })
   it('greeting follows the hour', () => {
-    const at = (h: number) => { vi.useFakeTimers(); vi.setSystemTime(new Date(2026, 10, 11, h, 0)); return customerUpdateSms('Arrived', booking(), driver)! }
+    const at = (h: number) => { vi.useFakeTimers(); vi.setSystemTime(new Date(2026, 10, 11, h, 0)); return customerUpdateSms('Arrived', booking(), driver, EV)! }
     expect(at(9)).toContain('Good morning')
     expect(at(12)).toContain('Good afternoon')
     expect(at(17)).toContain('Good afternoon')
     expect(at(18)).toContain('Good evening')
   })
   it('copes with no driver, no name and no car', () => {
-    const t = customerUpdateSms('En Route', booking({ customer_name: undefined, travel_time: undefined }), null)!
+    const t = customerUpdateSms('En Route', booking({ customer_name: undefined, travel_time: undefined }), null, EV)!
     expect(t).toContain('This is your driver, your EV Exec driver')
     expect(t).not.toContain('undefined')
     expect(t).not.toContain('null')
     expect(t).not.toContain('pickup.')   // no time given
   })
   it('falls back to the airport, then a generic pickup point', () => {
-    expect(customerUpdateSms('Arrived', booking({ pickup_location: null }), driver)).toContain('Liverpool Airport')
-    expect(customerUpdateSms('Arrived', booking({ pickup_location: null, airport: null }), driver)).toContain('your pickup point')
+    expect(customerUpdateSms('Arrived', booking({ pickup_location: null }), driver, EV)).toContain('Liverpool Airport')
+    expect(customerUpdateSms('Arrived', booking({ pickup_location: null, airport: null }), driver, EV)).toContain('your pickup point')
   })
   it('uses the start of the id when there is no reference', () => {
-    expect(customerUpdateSms('Arrived', booking({ ref: null }), driver)).toContain('Booking ref: ABCDEF12.')
+    expect(customerUpdateSms('Arrived', booking({ ref: null }), driver, EV)).toContain('Booking ref: ABCDEF12.')
   })
 })
 
 describe('reminders', () => {
   it('says today, tomorrow, or the number of days, in house date style', () => {
     const b = booking({ travel_date: '2026-11-12' })
-    expect(customerReminderSms(b, '2026-11-12')).toContain('booked for today (12/11/2026) at 09:30')
-    expect(customerReminderSms(b, '2026-11-11')).toContain('booked for tomorrow (12/11/2026) at 09:30')
-    expect(customerReminderSms(b, '2026-11-06')).toContain('booked for 12/11/2026 (in 6 days) at 09:30')
+    expect(customerReminderSms(b, EV, '2026-11-12')).toContain('booked for today (12/11/2026) at 09:30')
+    expect(customerReminderSms(b, EV, '2026-11-11')).toContain('booked for tomorrow (12/11/2026) at 09:30')
+    expect(customerReminderSms(b, EV, '2026-11-06')).toContain('booked for 12/11/2026 (in 6 days) at 09:30')
   })
   it('never shows an ISO date', () => {
-    expect(customerReminderSms(booking(), '2026-11-11')).not.toMatch(/\d{4}-\d{2}-\d{2}/)
+    expect(customerReminderSms(booking(), EV, '2026-11-11')).not.toMatch(/\d{4}-\d{2}-\d{2}/)
   })
   it('airport pickups start at the airport and track the flight', () => {
     const b = booking({ journey_type: 'From Airport', flight_number: 'ba99', airport: 'Manchester Airport' })
     const info = reminderInfo(b)
     expect(info.pickup).toBe('Manchester Airport')
     expect(info.flight).toBe('ba99')
-    const t = customerReminderSms(b, '2026-11-11')
+    const t = customerReminderSms(b, EV, '2026-11-11')
     expect(t).toContain('with you at Manchester Airport.')
     expect(t).toContain('flight BA99')
   })
@@ -98,14 +99,14 @@ describe('reminders', () => {
     expect(info.flight).toBeNull()
   })
   it('copes with a missing date, time and name', () => {
-    const t = customerReminderSms(booking({ travel_date: null, travel_time: null, customer_name: undefined }), '2026-11-11')
+    const t = customerReminderSms(booking({ travel_date: null, travel_time: null, customer_name: undefined }), EV, '2026-11-11')
     expect(t.startsWith('Hi,')).toBe(true)
     expect(t).toContain('booked for soon.')
     expect(t).not.toContain('undefined')
   })
   it('defaults "today" to the UK date at the moment of the call', () => {
     vi.useFakeTimers(); vi.setSystemTime(new Date('2026-11-11T12:00:00Z'))
-    expect(customerReminderSms(booking({ travel_date: '2026-11-12' }))).toContain('tomorrow')
+    expect(customerReminderSms(booking({ travel_date: '2026-11-12' }), EV)).toContain('tomorrow')
   })
 })
 
@@ -118,5 +119,30 @@ describe('reminder types and sms link', () => {
   })
   it('builds a link with the text encoded and spaces removed from the number', () => {
     expect(smsHref('07700 900 123', 'Hi & bye\nOK')).toBe('sms:07700900123?&body=Hi%20%26%20bye%0AOK')
+  })
+})
+
+describe('another business', () => {
+  const COASTAL = { name: 'Coastal Cars' }
+  const NONE = { name: '' }
+  const all = (b: { name: string }) => [
+    customerUpdateSms('En Route', booking(), driver, b)!,
+    customerUpdateSms('Arrived', booking(), driver, b)!,
+    customerReminderSms(booking(), b, '2026-11-11'),
+  ]
+  it('texts use its own name and never mention EV Exec', () => {
+    for (const t of all(COASTAL)) { expect(t).toContain('Coastal Cars'); expect(t).not.toMatch(/EV Exec/i) }
+    expect(customerUpdateSms('En Route', booking(), driver, COASTAL)).toContain('your Coastal Cars driver')
+    expect(customerReminderSms(booking(), COASTAL, '2026-11-11')).toMatch(/your Coastal Cars journey[\s\S]*Many thanks,\nCoastal Cars$/)
+  })
+  it('a business with no name gets clean wording, not blanks or EV Exec', () => {
+    for (const t of all(NONE)) { expect(t).not.toMatch(/EV Exec|undefined|null|  /i) }
+    expect(customerUpdateSms('En Route', booking(), driver, NONE)).toContain('your driver.')
+    expect(customerUpdateSms('Arrived', booking(), driver, NONE)).toMatch(/Kind regards,\nSam$/)
+    expect(customerReminderSms(booking(), NONE, '2026-11-11')).toMatch(/your journey is booked[\s\S]*Many thanks,$/)
+  })
+  it('EV Exec\'s own texts are unchanged', () => {
+    expect(customerUpdateSms('Arrived', booking(), driver, EV)).toMatch(/Kind regards,\nSam, EV Exec$/)
+    expect(customerReminderSms(booking(), EV, '2026-11-11')).toContain('your EV Exec journey is booked for tomorrow (12/11/2026) at 09:30')
   })
 })

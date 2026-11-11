@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Eye, EyeOff, Loader2 } from 'lucide-react'
 import { login } from '@/app/actions/auth'
-import { LOGIN_EMAIL_PLACEHOLDER } from '@/lib/config'
+import { BRAND } from '@/lib/brand'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -35,7 +35,7 @@ export default function LoginPage() {
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src="/logo.png"
-          alt="EV Exec"
+          alt={BRAND.name}
           width={160}
           height={160}
           className="mx-auto"
@@ -56,7 +56,7 @@ export default function LoginPage() {
               type="email"
               name="email"
               required
-              placeholder={LOGIN_EMAIL_PLACEHOLDER}
+              placeholder={BRAND.loginPlaceholder}
               className="w-full bg-[#dce8f2] border border-[#c4d4e4] rounded-xl px-4 py-3 text-[#060C1A] placeholder-[#7a9ab8] text-sm focus:outline-none focus:border-[#d5a538] focus:ring-1 focus:ring-[#d5a538] transition-colors"
             />
           </div>
@@ -107,7 +107,7 @@ export default function LoginPage() {
         </form>
 
         <p className="text-center text-xs text-[#5a6f88] mt-6">
-          Account access is managed by EV Exec
+          Account access is managed by {BRAND.name}
         </p>
       </div>
     </div>

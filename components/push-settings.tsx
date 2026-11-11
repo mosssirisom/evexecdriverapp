@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { BellRing } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { enablePush, pushState, sendTestPush, syncPush, type PushState } from '@/lib/push'
+import { BRAND } from '@/lib/brand'
 
 const LABEL: Record<PushState, string> = {
   on: 'On',
@@ -61,10 +62,10 @@ export function PushSettings() {
       </div>
 
       {state === 'needs-install' && (
-        <p className="text-[#3b5470] text-sm mt-3">In Safari tap Share, then &ldquo;Add to Home Screen&rdquo;, and open EV Exec from the Home Screen.</p>
+        <p className="text-[#3b5470] text-sm mt-3">In Safari tap Share, then &ldquo;Add to Home Screen&rdquo;, and open {BRAND.name} from the Home Screen.</p>
       )}
       {state === 'denied' && (
-        <p className="text-[#3b5470] text-sm mt-3">Turn them on in your phone&rsquo;s Settings › Notifications › EV Exec.</p>
+        <p className="text-[#3b5470] text-sm mt-3">Turn them on in your phone&rsquo;s Settings › Notifications › {BRAND.name}.</p>
       )}
 
       {state === 'off' && (
