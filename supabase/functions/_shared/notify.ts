@@ -9,6 +9,7 @@ import type { SupabaseClient } from 'jsr:@supabase/supabase-js@2'
 // @ts-ignore - no type declarations published for this package
 import webpush from 'npm:web-push@3.6.7'
 import { emailShell, pillHtml, PILL } from './emailLayout.ts'
+import { loadBrand, type Brand } from './brand.ts'
 import { VAPID_SUBJECT } from './platform.ts'
 
 const VAPID_PUBLIC_KEY  = Deno.env.get('VAPID_PUBLIC_KEY') ?? ''
@@ -86,7 +87,7 @@ export async function queueEmail(
   return !error
 }
 
-function driverEmailHtml(title: string, body: string, jobUrl: string): string {
+function driverEmailHtml(title: string, body: string, jobUrl: string, brand: Brand): string {
   return emailShell(title, `
     ${pillHtml('Driver notification', PILL.blue)}
     <h2 style="color:#0f1b33;font-size:17px;font-weight:700;margin:18px 0 10px">${escapeHtml(title)}</h2>
@@ -94,7 +95,7 @@ function driverEmailHtml(title: string, body: string, jobUrl: string): string {
     <a href="${APP_URL}${jobUrl}"
        style="display:inline-block;background:#C9A550;color:#0B132B;font-weight:700;font-size:14px;padding:12px 24px;border-radius:8px;text-decoration:none">
       View Job
-    </a>`)
+    </a>`, brand)
 }
 
 function escapeHtml(s: string): string {
@@ -129,7 +130,9 @@ async function sendEmailToDriver(
     return false
   }
 
-  return queueEmail(supabase, { bookingId, type, to: driver.email, subject: title, html: driverEmailHtml(title, body, url), body })
+  const { data: job } = await supabase.from('bookings').select('tenant_id').eq('id', bookingId).maybeSingle()
+  const brand = await loadBrand(supabase, job?.tenant_id)
+  return queueEmail(supabase, { bookingId, type, to: driver.email, subject: title, html: driverEmailHtml(title, body, url, brand), body })
 }
 
 export interface PushParams {
