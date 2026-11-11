@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
+    "check:functions": "bash scripts/check-functions.sh",
     "test:functions": "node --test --experimental-strip-types supabase/functions/tests/*.test.ts",
     "test": "vitest run",
     "test:watch": "vitest"
