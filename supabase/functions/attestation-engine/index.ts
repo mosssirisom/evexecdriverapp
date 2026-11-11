@@ -228,8 +228,8 @@ async function runSecondGate(supabase: SupabaseClient, now: Date, summary: RunSu
   }
 }
 
-/** Pushes to every operator device registered in the operator dashboard. */
-async function pushOperators(supabase: SupabaseClient, title: string, body: string, url: string): Promise<number> {
+/** Pushes to the operator devices of one business (devices with no business, a platform admin's, get every business's alerts). */
+async function pushOperators(supabase: SupabaseClient, title: string, body: string, url: string, tenantId?: string | null): Promise<number> {
   const { data: config } = await supabase
     .from('push_config')
     .select('vapid_public, vapid_private, vapid_subject')
@@ -237,7 +237,13 @@ async function pushOperators(supabase: SupabaseClient, title: string, body: stri
     .maybeSingle()
   if (!config?.vapid_public || !config?.vapid_private) return 0
 
-  const { data: subs } = await supabase.from('operator_push_subscriptions').select('id, endpoint, p256dh, auth')
+  let subsQuery = supabase.from('operator_push_subscriptions').select('id, endpoint, p256dh, auth')
+  if (tenantId) subsQuery = subsQuery.or(`tenant_id.eq.${tenantId},tenant_id.is.null`)
+  let { data: subs, error: subsError } = await subsQuery
+  if (subsError && tenantId) {
+    // The business column is not in the database yet: every device, as before.
+    ;({ data: subs } = await supabase.from('operator_push_subscriptions').select('id, endpoint, p256dh, auth'))
+  }
   if (!subs || subs.length === 0) return 0
 
   const payload = JSON.stringify({ title, body, url, tag: `attestation-${url}` })
@@ -292,7 +298,7 @@ async function runOperatorAlert(supabase: SupabaseClient, now: Date, summary: Ru
     const title = `Driver hasn't confirmed: ${ref}`
     const message = `${driverName} hasn't confirmed ${pickupSummary(b)} after two reminders. Please check in with them${driver?.phone ? ` on ${driver.phone}` : ''} or reassign the job.`
 
-    const pushed = await pushOperators(supabase, title, message, '/operator/dispatch')
+    const pushed = await pushOperators(supabase, title, message, '/operator/dispatch', b.tenant_id)
     await recordNotification(supabase, {
       bookingId: b.id, type: 'operator_panic', channel: 'push', recipient: 'operators',
       body: message, delivered: pushed > 0, error: pushed > 0 ? undefined : 'No operator push delivered',
