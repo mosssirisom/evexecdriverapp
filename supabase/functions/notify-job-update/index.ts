@@ -9,6 +9,7 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { pushToDriver, queueEmail } from '../_shared/notify.ts'
+import { loadBrand } from '../_shared/brand.ts'
 import { handleJobUpdate } from './handler.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
@@ -27,12 +28,13 @@ Deno.serve((req) => {
     loadBooking: async (id) => {
       const { data } = await supabase
         .from('bookings')
-        .select('id, ref, status, assigned_driver_id, customer_name, travel_date, travel_time, pickup_location, airport, dropoff_address, notes')
+        .select('id, ref, status, assigned_driver_id, customer_name, travel_date, travel_time, pickup_location, airport, dropoff_address, notes, tenant_id')
         .eq('id', id)
         .maybeSingle()
       return data ?? null
     },
     pushToDriver: (p) => pushToDriver(supabase, p),
+    loadBrand: (tenantId) => loadBrand(supabase, tenantId),
     loadDriver: async (id) => {
       const { data } = await supabase.from('drivers').select('email, full_name').eq('id', id).maybeSingle()
       return data ?? null

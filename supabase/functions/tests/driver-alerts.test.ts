@@ -1,6 +1,7 @@
 // Fix 2 (audit H-1): driver-alert functions accept only the database
 // trigger's secret and never take the driver or message from the request.
 // Run: npm run test:functions   (node --test --experimental-strip-types)
+import { brandFromRow } from '../_shared/brand.ts'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { safeEqual, isTrustedTrigger } from '../_shared/webhookAuth.ts'
@@ -131,6 +132,7 @@ function jobDeps(booking: JobBooking | null) {
     loadWebhookSecret: async () => SECRET,
     loadBooking: async (id) => (booking && booking.id === id ? booking : null),
     pushToDriver: async (p) => { calls.pushes.push({ driverId: p.driverId, title: p.title, body: p.body }); return true },
+    loadBrand: async () => brandFromRow({ name: 'Test Cars', contact_phone: '07123456789' }),
     loadDriver: async () => ({ email: 'driver@example.com', full_name: 'Driver One' }),
     queueEmail: async (r) => { calls.emails.push(r.to); return true },
   }

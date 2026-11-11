@@ -3,11 +3,12 @@
 // email key).
 
 import { emailShell } from './emailLayout.ts'
+import type { Brand } from './brand.ts'
 
 // ─── Shared layout helpers ────────────────────────────────────────────────────
 
-function base(title: string, content: string): string {
-  return emailShell(title, content)
+function base(title: string, content: string, brand: Brand): string {
+  return emailShell(title, content, brand)
 }
 
 function pill(text: string, bg: string, color: string): string {
@@ -56,6 +57,7 @@ export function reminderEmail(opts: {
   stops?: string[]
   type: '24h' | '1h'
   bookingUrl: string
+  brand: Brand
 }): { subject: string; html: string } {
   const subject = opts.type === '24h'
     ? `Reminder: job tomorrow, ${opts.ref}`
@@ -91,7 +93,7 @@ export function reminderEmail(opts: {
     ${infoCard(rows)}
     <p style="color:#475569;font-size:13px;margin:0 0 24px">${note}</p>
     ${ctaButton('View Job Details', opts.bookingUrl)}
-  `)
+  `, opts.brand)
 
   return { subject, html }
 }
@@ -104,6 +106,7 @@ export function cancellationEmail(opts: {
   time?: string
   pickup?: string
   bookingUrl: string
+  brand: Brand
 }): { subject: string; html: string } {
   const subject = `Job cancelled, ${opts.ref}`
 
@@ -124,7 +127,7 @@ export function cancellationEmail(opts: {
     </p>
     ${rows.length > 0 ? infoCard(rows) : ''}
     ${ctaButton('View Booking', opts.bookingUrl)}
-  `)
+  `, opts.brand)
 
   return { subject, html }
 }
@@ -139,6 +142,7 @@ export function updateEmail(opts: {
   dropoff: string
   stops?: string[]
   bookingUrl: string
+  brand: Brand
 }): { subject: string; html: string } {
   const subject = `Job updated, ${opts.ref}`
 
@@ -160,7 +164,7 @@ export function updateEmail(opts: {
     </p>
     ${infoCard(rows)}
     ${ctaButton('View Updated Job', opts.bookingUrl)}
-  `)
+  `, opts.brand)
 
   return { subject, html }
 }

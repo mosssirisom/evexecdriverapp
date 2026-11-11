@@ -6,10 +6,12 @@ import { ArrowLeft, Printer, CheckCircle2, MessageSquare, Mail } from 'lucide-re
 import { createClient } from '@/lib/supabase/client'
 import { formatDate, formatTime, paymentInfo, formatStamp } from '@/lib/format'
 import type { Booking, BookingExpense } from '@/lib/types'
+import { useBusiness } from '@/components/business'
 
 export default function ReceiptPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const router = useRouter()
+  const business = useBusiness()
   const [booking, setBooking] = useState<Booking | null>(null)
   const [expenses, setExpenses] = useState<BookingExpense[]>([])
   const [driverName, setDriverName] = useState<string>('')
@@ -57,7 +59,7 @@ export default function ReceiptPage({ params }: { params: Promise<{ id: string }
 
   // Build receipt text for SMS / email
   const lines = [
-    `EV Exec Journey Receipt`,
+    `${business.name} Journey Receipt`.trim(),
     `Ref: ${ref}`,
     ``,
     `Passenger: ${booking.customer_name}`,
@@ -70,12 +72,12 @@ export default function ReceiptPage({ params }: { params: Promise<{ id: string }
     totalCharged > 0 ? `Total: £${totalCharged.toFixed(2)}` : null,
     `Payment: ${p.text}`,
     ``,
-    `EV Exec`,
+    business.name || null,
   ].filter(Boolean).join('\n')
 
   const smsHref = `sms:${booking.customer_phone}&body=${encodeURIComponent(lines)}`
   const emailHref = booking.customer_email
-    ? `mailto:${booking.customer_email}?subject=${encodeURIComponent(`EV Exec Journey Receipt – ${ref}`)}&body=${encodeURIComponent(lines)}`
+    ? `mailto:${booking.customer_email}?subject=${encodeURIComponent(`${business.name} Journey Receipt – ${ref}`.trim())}&body=${encodeURIComponent(lines)}`
     : null
 
   const hasContact = booking.customer_phone || emailHref
@@ -140,7 +142,7 @@ export default function ReceiptPage({ params }: { params: Promise<{ id: string }
           {/* Header */}
           <div className="text-center mb-6 pb-5 border-b border-[#c4d4e4] print-divider">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo.png" alt="EV Exec" width={64} height={64} className="mx-auto mb-3" />
+            <img src="/logo.png" alt={business.name} width={64} height={64} className="mx-auto mb-3" />
             <p className="text-[#4f6580] text-[10px] uppercase tracking-widest print-gray">Journey Receipt</p>
             <h1 className="text-[#7a5c14] font-bold text-2xl mt-1 tracking-wide print-black">
               {ref}
@@ -217,7 +219,7 @@ export default function ReceiptPage({ params }: { params: Promise<{ id: string }
 
           {/* Footer */}
           <p className="text-center text-[#5a6f88] text-[10px] mt-6 print-label">
-            EV Exec
+            {business.name}
           </p>
         </div>
       </div>

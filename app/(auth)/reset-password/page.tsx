@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Eye, EyeOff, Loader2, CheckCircle2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { BRAND } from '@/lib/brand'
 
 export default function ResetPasswordPage() {
   const router = useRouter()
@@ -82,7 +83,7 @@ export default function ResetPasswordPage() {
     <div className="min-h-screen flex flex-col items-center justify-center px-6 bg-[#eaeff7]">
       <div className="mb-8 text-center">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/logo.png" alt="EV Exec" width={160} height={160} className="mx-auto" />
+        <img src="/logo.png" alt={BRAND.name} width={160} height={160} className="mx-auto" />
         <p className="text-[#4f6580] mt-2 tracking-widest uppercase text-xs">Driver Portal</p>
       </div>
 

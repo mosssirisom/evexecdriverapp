@@ -16,6 +16,7 @@
 
 import { isTrustedTrigger, UUID_RE, type SecretLoader } from '../_shared/webhookAuth.ts'
 import { cancellationEmail, updateEmail, stopsFromNotes } from '../_shared/email.ts'
+import type { Brand } from '../_shared/brand.ts'
 
 export const CANCELLED_STATUSES = ['cancelled', 'Cancelled', 'canceled', 'Canceled']
 const WATCH = ['travel_date', 'travel_time', 'pickup_location', 'airport', 'dropoff_address'] as const
@@ -32,6 +33,7 @@ export interface JobBooking {
   airport: string | null
   dropoff_address: string | null
   notes: string | null
+  tenant_id?: string | null
 }
 
 export interface JobUpdateDeps {
@@ -42,6 +44,7 @@ export interface JobUpdateDeps {
     driverId: string; bookingId: string; type: 'job_cancelled' | 'job_updated'
     title: string; body: string; url: string; noEmailFallback: boolean
   }) => Promise<boolean>
+  loadBrand: (tenantId: string | null) => Promise<Brand>
   loadDriver: (id: string) => Promise<{ email: string | null; full_name: string | null } | null>
   queueEmail: (r: { bookingId: string; type: string; to: string; subject: string; html: string; body?: string }) => Promise<boolean>
 }
@@ -135,6 +138,7 @@ export async function handleJobUpdate(req: Request, deps: JobUpdateDeps): Promis
   const pickupAddr  = booking.pickup_location || booking.airport || ''
   const dropoffAddr = booking.dropoff_address || booking.airport || ''
   const stops = stopsFromNotes(booking.notes)
+  const brand = await deps.loadBrand(booking.tenant_id ?? null)
 
   const emailContent = isCancelled
     ? cancellationEmail({
@@ -144,6 +148,7 @@ export async function handleJobUpdate(req: Request, deps: JobUpdateDeps): Promis
         time: formatTime(booking.travel_time),
         pickup: pickupAddr,
         bookingUrl,
+        brand,
       })
     : updateEmail({
         driverName: driver.full_name ?? 'Driver',
@@ -154,6 +159,7 @@ export async function handleJobUpdate(req: Request, deps: JobUpdateDeps): Promis
         dropoff: dropoffAddr,
         stops,
         bookingUrl,
+        brand,
       })
 
   const emailed = await deps.queueEmail({ bookingId, type: notifType, to: driver.email, ...emailContent, body: pushBody })

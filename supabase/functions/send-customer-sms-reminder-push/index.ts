@@ -30,6 +30,7 @@ import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
 import { createClient, type SupabaseClient } from 'jsr:@supabase/supabase-js@2'
 // @ts-ignore - no type declarations published for this package
 import webpush from 'npm:web-push@3.6.7'
+import { VAPID_SUBJECT } from '../_shared/platform.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -37,7 +38,7 @@ const VAPID_PUBLIC_KEY = Deno.env.get('VAPID_PUBLIC_KEY') ?? ''
 const VAPID_PRIVATE_KEY = Deno.env.get('VAPID_PRIVATE_KEY') ?? ''
 
 if (VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
-  webpush.setVapidDetails('mailto:driver@evexec.co.uk', VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY)
+  webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY)
 }
 
 const OPERATOR_APP_URL = (Deno.env.get('OPERATOR_APP_URL') ?? 'https://evexecoperator.vercel.app').replace(/\/$/, '')
@@ -163,7 +164,7 @@ async function pushToDriver(supabase: SupabaseClient, params: {
 }
 
 /** Push every office device (Operator app) through its dispatch route. */
-async function pushOffice(supabase: SupabaseClient, title: string, body: string): Promise<boolean> {
+async function pushOffice(supabase: SupabaseClient, title: string, body: string, tenantId?: string | null): Promise<boolean> {
   const { data } = await supabase.from('push_config').select('webhook_secret').eq('id', true).maybeSingle()
   const secret = data?.webhook_secret
   if (!secret) return false
@@ -171,7 +172,7 @@ async function pushOffice(supabase: SupabaseClient, title: string, body: string)
     const res = await fetch(`${OPERATOR_APP_URL}/api/push/dispatch`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-webhook-secret': secret },
-      body: JSON.stringify({ notification: { title, body, url: '/operator/today', tag: 'texts-to-send' } }),
+      body: JSON.stringify({ tenant_id: tenantId ?? undefined, notification: { title, body, url: '/operator/today', tag: 'texts-to-send' } }),
     })
     return res.ok
   } catch (e) {
@@ -186,7 +187,7 @@ Deno.serve(async (_req) => {
 
   const { data: pending, error } = await supabase
     .from('driver_sms_reminders')
-    .select('id, booking_id, driver_id, reminder_type, customer_name, travel_date, travel_time')
+    .select('id, booking_id, driver_id, tenant_id, reminder_type, customer_name, travel_date, travel_time')
     .eq('status', 'pending')
     .is('pushed_at', null)
     .limit(50)
@@ -207,7 +208,7 @@ Deno.serve(async (_req) => {
     const whenText = [longDate(row.travel_date), hhmm(row.travel_time)].filter(Boolean).join(' at ')
 
     if (partners.has(row.driver_id)) {
-      await pushOffice(supabase, `Text ${name} their reminder`, whenText ? `Partner job ${whenText}. Open Today → Texts to send.` : 'Partner job. Open Today → Texts to send.')
+      await pushOffice(supabase, `Text ${name} their reminder`, whenText ? `Partner job ${whenText}. Open Today → Texts to send.` : 'Partner job. Open Today → Texts to send.', row.tenant_id)
       await supabase.from('driver_sms_reminders').update({ pushed_at: new Date().toISOString() }).eq('id', row.id)
       summary.office++
       continue

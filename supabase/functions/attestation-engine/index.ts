@@ -33,6 +33,7 @@ import { createClient, type SupabaseClient } from 'jsr:@supabase/supabase-js@2'
 // @ts-ignore - no type declarations published for this package
 import webpush from 'npm:web-push@3.6.7'
 import { pushToDriver, recordNotification } from '../_shared/notify.ts'
+import { VAPID_SUBJECT } from '../_shared/platform.ts'
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -228,8 +229,8 @@ async function runSecondGate(supabase: SupabaseClient, now: Date, summary: RunSu
   }
 }
 
-/** Pushes to every operator device registered in the operator dashboard. */
-async function pushOperators(supabase: SupabaseClient, title: string, body: string, url: string): Promise<number> {
+/** Pushes to the operator devices of one business (devices with no business, a platform admin's, get every business's alerts). */
+async function pushOperators(supabase: SupabaseClient, title: string, body: string, url: string, tenantId?: string | null): Promise<number> {
   const { data: config } = await supabase
     .from('push_config')
     .select('vapid_public, vapid_private, vapid_subject')
@@ -237,12 +238,18 @@ async function pushOperators(supabase: SupabaseClient, title: string, body: stri
     .maybeSingle()
   if (!config?.vapid_public || !config?.vapid_private) return 0
 
-  const { data: subs } = await supabase.from('operator_push_subscriptions').select('id, endpoint, p256dh, auth')
+  let subsQuery = supabase.from('operator_push_subscriptions').select('id, endpoint, p256dh, auth')
+  if (tenantId) subsQuery = subsQuery.or(`tenant_id.eq.${tenantId},tenant_id.is.null`)
+  let { data: subs, error: subsError } = await subsQuery
+  if (subsError && tenantId) {
+    // The business column is not in the database yet: every device, as before.
+    ;({ data: subs } = await supabase.from('operator_push_subscriptions').select('id, endpoint, p256dh, auth'))
+  }
   if (!subs || subs.length === 0) return 0
 
   const payload = JSON.stringify({ title, body, url, tag: `attestation-${url}` })
   const vapidDetails = {
-    subject: config.vapid_subject || 'mailto:book@evexec.co.uk',
+    subject: config.vapid_subject || VAPID_SUBJECT,
     publicKey: config.vapid_public,
     privateKey: config.vapid_private,
   }
@@ -292,7 +299,7 @@ async function runOperatorAlert(supabase: SupabaseClient, now: Date, summary: Ru
     const title = `Driver hasn't confirmed: ${ref}`
     const message = `${driverName} hasn't confirmed ${pickupSummary(b)} after two reminders. Please check in with them${driver?.phone ? ` on ${driver.phone}` : ''} or reassign the job.`
 
-    const pushed = await pushOperators(supabase, title, message, '/operator/dispatch')
+    const pushed = await pushOperators(supabase, title, message, '/operator/dispatch', b.tenant_id)
     await recordNotification(supabase, {
       bookingId: b.id, type: 'operator_panic', channel: 'push', recipient: 'operators',
       body: message, delivered: pushed > 0, error: pushed > 0 ? undefined : 'No operator push delivered',
@@ -304,7 +311,7 @@ async function runOperatorAlert(supabase: SupabaseClient, now: Date, summary: Ru
       ? await supabase.from('tenants').select('contact_email').eq('id', b.tenant_id).maybeSingle()
       : { data: null }
     if (tenant?.contact_email) {
-      // Same branded shell as every other EV Exec notification email.
+      // Same branded shell as every other notification email.
       const { data: branded } = await supabase.rpc('evexec_notification_email', {
         p_pill: 'Pickup not confirmed', p_pill_bg: '#fde8e8', p_pill_fg: '#9b1c1c',
         p_lead: `${driverName} hasn't confirmed this pickup after two reminders. Please check in with them or reassign the job.`,

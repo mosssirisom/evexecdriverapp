@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts"
 import { createClient } from "jsr:@supabase/supabase-js@2"
 // @ts-ignore - no type declarations published for this package
 import webpush from "npm:web-push@3.6.7"
+import { VAPID_SUBJECT } from '../_shared/platform.ts'
 
 // "Send test notification" on the Driver App's Profile screen. Sends one
 // push to the signed-in driver's OWN registered phones only (nobody else's),
@@ -37,9 +38,9 @@ Deno.serve(async (req: Request) => {
     .eq('driver_id', user.id)
   if (!subs || subs.length === 0) return json({ sent: 0, total: 0 })
 
-  webpush.setVapidDetails('mailto:driver@evexec.co.uk', VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY)
+  webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY)
   const payload = JSON.stringify({
-    title: 'EV Exec test notification',
+    title: 'Test notification',
     body: 'Notifications are working on this phone.',
     url: '/profile',
     tag: `test-${Date.now()}`,

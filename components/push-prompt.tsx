@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { BellRing, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { enablePush, pushState, type PushState } from '@/lib/push'
+import { BRAND } from '@/lib/brand'
 
 const HIDE_KEY = 'evexec_push_prompt_hidden'
 
@@ -38,9 +39,9 @@ export function PushPrompt() {
   }
 
   const text = state === 'needs-install'
-    ? 'To get job alerts, tap Share then "Add to Home Screen", and open EV Exec from there.'
+    ? 'To get job alerts, tap Share then "Add to Home Screen", and open ' + BRAND.name + ' from there.'
     : state === 'denied'
-      ? 'Notifications are blocked. Turn them on in Settings › Notifications › EV Exec.'
+      ? 'Notifications are blocked. Turn them on in Settings › Notifications › ' + BRAND.name + '.'
       : 'Turn on notifications so you get new jobs and changes straight away.'
 
   return (

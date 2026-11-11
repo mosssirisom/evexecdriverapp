@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import {
   ArrowLeft, Phone, MessageSquare, Navigation2, User, FileText, CheckCircle2,
   AlertOctagon, ChevronRight, Loader2, Users, Luggage, CreditCard,
-  UserX, X, Plus, Car, MapPin, RefreshCw, Camera, Trash2, ArrowLeftRight, Banknote, Clock,
+  UserX, X, Car, MapPin, RefreshCw, Camera, Trash2, ArrowLeftRight, Banknote, Clock,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useToast } from '@/components/toast'
@@ -14,77 +14,15 @@ import { BookingStatusBadge } from '@/components/badges'
 import { PickupIcon, DropoffIcon } from '@/components/route-icons'
 import { JobMap } from '@/components/job-map'
 import { VerifiedFlightCard } from '@/components/verified-flight-card'
-import { formatDate, formatTime, paymentInfo, isReturnLeg } from '@/lib/format'
-import { OPS_PHONE } from '@/lib/config'
+import { formatDate, formatTime, isReturnLeg } from '@/lib/format'
+import { useBusiness } from '@/components/business'
 import {
   customerUpdateSms, smsHref, type SmsDriver,
   customerReminderSms, reminderInfo, ukToday, daysBetween,
   WEEK_REMINDER_TYPE, REMINDER_TYPES, isReminderType, reminderLabel, type ReminderType,
 } from '@/lib/customer-sms'
 import type { Booking, BookingStatus } from '@/lib/types'
-
-// ─── Status flow ─────────────────────────────────────────────────────────────
-
-type StatusStep = { from: BookingStatus; to: BookingStatus; label: string }
-
-const STATUS_FLOW: StatusStep[] = [
-  { from: 'accepted',           to: 'En Route', label: 'Head to Pickup' },
-  { from: 'confirmed',          to: 'En Route', label: 'Head to Pickup' },
-  { from: 'Dispatched',         to: 'En Route', label: 'Head to Pickup' },
-  { from: 'En Route',           to: 'Arrived',  label: 'Arrived at Pickup' },
-  { from: 'en_route',           to: 'Arrived',  label: 'Arrived at Pickup' },
-  { from: 'Arrived',            to: 'Passenger On Board', label: 'Passenger On Board' },
-  { from: 'arrived',            to: 'Passenger On Board', label: 'Passenger On Board' },
-  { from: 'Passenger On Board', to: 'Completed', label: 'Complete Journey' },
-  { from: 'active',             to: 'Completed', label: 'Complete Journey' },
-  { from: 'Active',             to: 'Completed', label: 'Complete Journey' },
-]
-
-// Timestamp column to stamp when entering each status
-const TIMESTAMP_FIELD: Partial<Record<string, string>> = {
-  'En Route':           'tracking_started_at',
-  'Arrived':            'arrived_at',
-  'Passenger On Board': 'passenger_onboard_at',
-  'Completed':          'completed_at',
-}
-
-const PROGRESS_STEPS: BookingStatus[] = ['En Route', 'Arrived', 'Passenger On Board', 'Completed']
-const STEP_LABELS: Record<string, string> = {
-  'En Route':           'En Route',
-  'Arrived':            'Arrived',
-  'Passenger On Board': 'On Board',
-  'Completed':          'Done',
-}
-
-// ─── Wait grace period ────────────────────────────────────────────────────────
-
-function getGraceMinutes(journeyType: string | null, flightNumber: string | null, override: number | null): number {
-  if (override != null) return override
-  if (flightNumber || (journeyType ?? '').toLowerCase().includes('airport')) return 60
-  if ((journeyType ?? '').toLowerCase().includes('hotel')) return 30
-  if ((journeyType ?? '').toLowerCase().includes('station') || (journeyType ?? '').toLowerCase().includes('train')) return 20
-  return 15
-}
-
-// ─── Passenger preferences ────────────────────────────────────────────────────
-
-const PREF_LABELS: Record<string, string> = {
-  quiet_ride:          'Quiet ride',
-  no_music:            'No music',
-  music_on:            'Music on',
-  cool_temperature:    'Cool A/C',
-  warm_temperature:    'Warm',
-  water_provided:      'Water',
-  help_with_luggage:   'Luggage help',
-  wheelchair:          'Wheelchair',
-  child_seat:          'Child seat',
-  meet_and_greet:      'Meet & greet',
-  name_board:          'Name board',
-}
-
-function formatPref(pref: string): string {
-  return PREF_LABELS[pref] ?? pref.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
-}
+import { STATUS_FLOW, TIMESTAMP_FIELD, PROGRESS_STEPS, STEP_LABELS, getGraceMinutes, formatPref } from '@/lib/job'
 
 // ─── SwipeToConfirm ───────────────────────────────────────────────────────────
 
@@ -232,6 +170,7 @@ function WaitTimer({ since, graceMinutes }: { since: string | null; graceMinutes
 // ─── Completion overlay ───────────────────────────────────────────────────────
 
 function CompletionOverlay({ ref: bookingRef, price, onDone }: { ref: string; price: number | null; onDone: () => void }) {
+  const wordmark = useBusiness().name.toUpperCase()
   useEffect(() => {
     const t = setTimeout(onDone, 3000)
     return () => clearTimeout(t)
@@ -281,9 +220,9 @@ function CompletionOverlay({ ref: bookingRef, price, onDone }: { ref: string; pr
           </p>
         )}
 
-        {/* EV Exec wordmark */}
+        {/* Business wordmark */}
         <p className="evx-fade absolute bottom-14 text-[#d5a538] text-xs font-bold tracking-[4px] opacity-40"
-          style={{ animationDelay: '1s' }}>EV EXEC</p>
+          style={{ animationDelay: '1s' }}>{wordmark}</p>
       </div>
     </>
   )
@@ -411,6 +350,7 @@ function openMaps(destination: string, from?: string) {
 export default function JobDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const router = useRouter()
+  const business = useBusiness()
   const supabase = createClient()
   const { addToast } = useToast()
 
@@ -430,7 +370,6 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
   const pobIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // Expense modal shown before completing journey
-  const [showExpenseModal, setShowExpenseModal] = useState(false)
 
   // Payment modal + completion overlay
   const [showPaymentModal, setShowPaymentModal] = useState(false)
@@ -495,7 +434,6 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
       })))
     }
     setLoading(false)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, supabase])
 
   useEffect(() => { loadBooking() }, [loadBooking])
@@ -530,9 +468,12 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
   const gpsWatchRef = useRef<number | null>(null)
   const gpsLastPushRef = useRef<number>(0)
 
+  const bookingStatus = booking?.status
+  const bookingDriverId = booking?.assigned_driver_id
+
   useEffect(() => {
-    const statusNeedsGps = booking && ['En Route', 'en_route', 'Arrived', 'arrived'].includes(booking.status)
-    const driverId = booking?.assigned_driver_id
+    const statusNeedsGps = bookingStatus && ['En Route', 'en_route', 'Arrived', 'arrived'].includes(bookingStatus)
+    const driverId = bookingDriverId
 
     if (!statusNeedsGps || !driverId || typeof navigator === 'undefined' || !navigator.geolocation) {
       if (gpsWatchRef.current != null) {
@@ -565,7 +506,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
         gpsWatchRef.current = null
       }
     }
-  }, [booking?.status, booking?.assigned_driver_id, supabase])
+  }, [bookingStatus, bookingDriverId, supabase])
 
   // Ask for location up front on "Head to Pickup" so the permission prompt
   // appears while the driver is still on this screen, and push a first fix
@@ -596,7 +537,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
 
   const openCustomerSms = (status: BookingStatus, b: Booking) => {
     if (!b.customer_phone) return
-    const body = customerUpdateSms(status, b, smsDriver)
+    const body = customerUpdateSms(status, b, smsDriver, business)
     if (!body) return
     const href = smsHref(b.customer_phone, body)
     setPendingSms({ href, label: status === 'En Route' ? 'Text customer: on my way' : 'Text customer: arrived' })
@@ -609,7 +550,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
     if (!booking?.customer_phone || !driverId) return
     if (again && !window.confirm('This reminder has already been sent. Open it again?')) return
     const info = reminderInfo(booking)
-    const body = customerReminderSms(booking)
+    const body = customerReminderSms(booking, business)
     const now = new Date().toISOString()
     setReminders(prev => ({ ...prev, [type]: { status: 'sent', sent_at: now } }))
     window.location.href = smsHref(booking.customer_phone, body)
@@ -1178,7 +1119,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <a
                     href={(() => {
-                      const body = customerUpdateSms(booking.status, booking, smsDriver)
+                      const body = customerUpdateSms(booking.status, booking, smsDriver, business)
                       return body ? smsHref(booking.customer_phone, body) : `sms:${booking.customer_phone}`
                     })()}
                     className="w-10 h-10 rounded-xl flex items-center justify-center border border-[#c4d4e4] bg-[#dce8f2] active:opacity-70"
@@ -1408,13 +1349,15 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
           </div>
 
           {/* ── Dispatch + SOS ───────────────────────────────────────────── */}
-          <div className={`grid gap-3 ${!isDone ? 'grid-cols-2' : 'grid-cols-1'}`}>
-            <a
-              href={`tel:${OPS_PHONE}`}
-              className="py-3 rounded-xl font-semibold text-[#7a5c14] text-sm flex items-center justify-center gap-2 border border-[#d5a538]/25 bg-[#d5a538]/8 active:opacity-70"
-            >
-              <Phone size={14} /> Call Dispatch
-            </a>
+          <div className={`grid gap-3 ${!isDone && business.phone ? 'grid-cols-2' : 'grid-cols-1'}`}>
+            {business.phone && (
+              <a
+                href={`tel:${business.phone}`}
+                className="py-3 rounded-xl font-semibold text-[#7a5c14] text-sm flex items-center justify-center gap-2 border border-[#d5a538]/25 bg-[#d5a538]/8 active:opacity-70"
+              >
+                <Phone size={14} /> Call Dispatch
+              </a>
+            )}
             {!isDone && (
               <a
                 href="tel:999"
