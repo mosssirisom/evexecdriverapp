@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { logout } from '@/app/actions/auth'
 import {
   Car, ChevronRight, Phone, Mail, LogOut, Bell,
-  HelpCircle, Loader2, ClipboardList, MessageCircle, PoundSterling, Star,
+  HelpCircle, Loader2, ClipboardList, MessageCircle, PoundSterling,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { BRAND } from '@/lib/brand'
@@ -73,21 +73,6 @@ export default function ProfilePage() {
             <p className="text-[#4f6580] text-xs mt-0.5">
               {tripCount > 0 ? `${tripCount} trips completed` : 'No trips yet'}
             </p>
-            {driver?.rating != null && (
-              <div className="flex items-center gap-1.5 mt-1.5">
-                <div className="flex items-center gap-0.5">
-                  {[1, 2, 3, 4, 5].map(i => (
-                    <Star
-                      key={i}
-                      size={12}
-                      className={i <= Math.round(driver.rating!) ? 'text-[#7a5c14] fill-[#d5a538]' : 'text-[#c4d4e4]'}
-                    />
-                  ))}
-                </div>
-                <span className="text-[#2d4c6d] text-xs font-bold">{(driver.rating as number).toFixed(1)}</span>
-                <span className="text-[#4f6580] text-xs">driver rating</span>
-              </div>
-            )}
           </div>
         </div>
         <div className="mt-4 pt-4 border-t border-[#d8e6f0] space-y-2">
