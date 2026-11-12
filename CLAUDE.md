@@ -86,3 +86,10 @@ Supabase Auth now requires passwords of at least 8 characters with a letter and 
 - `components/job-notifier.tsx` no longer pops "Job cancelled" for the driver's own no-show (status `No Show`, or the `[No Show]` note).
 - The database allows this since migration `20261110133454` (in `evexec`): a driver-only login can set `No Show` only from En Route or Arrived. Since migration `20261110200525` (10/11/2026) a driver can no longer set `Cancelled` at all; cancelling is the office's. Never make the app send `Cancelled`. A tab left open from before the 10/11 deploy still sends `Cancelled` and is refused until refreshed.
 - The branch was merged with `main` first (11 commits behind); `package.json` keeps `lint`, `typecheck` and `test:functions`.
+
+## Update — 2026-11-12: branded sign-in screens
+
+A business's drivers reach the app through its link, `https://<driver app>/login?b=<business short name>`. The short name is remembered on the phone (localStorage `evx_business`), so later opens and the password screens keep the look. The sign-in, forgot-password and set-password screens then show that business's logo (or its name as a wordmark if it has no logo), and its two colours (page background on sign-in, button colour on all three). No link or an unknown one: the app's own EV Exec look.
+- Data: the public database function `business_signin_brand(slug)` (migration `20261112240000` in `evexec`, applied) returns only name, logo address and #RRGGBB colours for an active business; nothing else is readable before sign-in.
+- Code: `lib/signin-brand.ts` (checks, readable text colour), `lib/use-signin-brand.ts` (link, memory, lookup), tests in `lib/signin-brand.test.ts`. A failed lookup never blocks sign-in.
+- Not branded per business: app icon, installed-app name, push notifications, signed-in screens.

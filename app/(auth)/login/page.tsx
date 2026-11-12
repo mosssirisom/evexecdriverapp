@@ -6,8 +6,10 @@ import Link from 'next/link'
 import { Eye, EyeOff, Loader2 } from 'lucide-react'
 import { login } from '@/app/actions/auth'
 import { BRAND } from '@/lib/brand'
+import { useSigninBrand } from '@/lib/use-signin-brand'
 
 export default function LoginPage() {
+  const brand = useSigninBrand()
   const router = useRouter()
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
@@ -29,17 +31,21 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-6 bg-[#020813]">
+    <div className="min-h-screen flex flex-col items-center justify-center px-6 bg-[#020813]" style={brand ? { background: brand.primary } : undefined}>
       {/* Logo */}
       <div className="mb-8 text-center">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src="/logo.png"
-          alt={BRAND.name}
-          width={160}
-          height={160}
-          className="mx-auto"
-        />
+        {brand && !brand.logoUrl ? (
+          <p className="mx-auto max-w-xs text-2xl font-semibold tracking-widest uppercase" style={{ color: brand.accent }}>{brand.name}</p>
+        ) : (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={brand?.logoUrl || '/logo.png'}
+            alt={brand?.name || BRAND.name}
+            width={160}
+            height={160}
+            className="mx-auto max-h-40 w-auto object-contain"
+          />
+        )}
         <p className="text-white/50 mt-2 tracking-widest uppercase text-xs">Driver Portal</p>
       </div>
 
@@ -56,7 +62,7 @@ export default function LoginPage() {
               type="email"
               name="email"
               required
-              placeholder={BRAND.loginPlaceholder}
+              placeholder={brand ? 'you@example.com' : BRAND.loginPlaceholder}
               className="w-full bg-[#dce8f2] border border-[#c4d4e4] rounded-xl px-4 py-3 text-[#060C1A] placeholder-[#7a9ab8] text-sm focus:outline-none focus:border-[#d5a538] focus:ring-1 focus:ring-[#d5a538] transition-colors"
             />
           </div>
@@ -99,7 +105,7 @@ export default function LoginPage() {
             type="submit"
             disabled={isPending}
             className="w-full py-3.5 rounded-xl font-semibold text-[#020813] text-sm flex items-center justify-center gap-2 disabled:opacity-60 transition-opacity mt-2"
-            style={{ background: 'linear-gradient(135deg, #f1c56a, #d5a538 55%, #a97918)' }}
+            style={brand ? { background: brand.accent, color: brand.onAccent } : { background: 'linear-gradient(135deg, #f1c56a, #d5a538 55%, #a97918)' }}
           >
             {isPending ? <Loader2 size={16} className="animate-spin" /> : null}
             {isPending ? 'Signing in…' : 'Sign In'}
@@ -107,7 +113,7 @@ export default function LoginPage() {
         </form>
 
         <p className="text-center text-xs text-[#5a6f88] mt-6">
-          Account access is managed by {BRAND.name}
+          Account access is managed by {brand?.name || BRAND.name}
         </p>
       </div>
     </div>

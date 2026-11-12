@@ -6,8 +6,10 @@ import Link from 'next/link'
 import { Eye, EyeOff, Loader2, CheckCircle2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { BRAND } from '@/lib/brand'
+import { useSigninBrand } from '@/lib/use-signin-brand'
 
 export default function ResetPasswordPage() {
+  const brand = useSigninBrand()
   const router = useRouter()
   const [showPassword, setShowPassword] = useState(false)
   const [password, setPassword] = useState('')
@@ -82,8 +84,12 @@ export default function ResetPasswordPage() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-6 bg-[#eaeff7]">
       <div className="mb-8 text-center">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/logo.png" alt={BRAND.name} width={160} height={160} className="mx-auto" />
+        {brand && !brand.logoUrl ? (
+          <p className="mx-auto max-w-xs text-2xl font-semibold tracking-widest uppercase text-[#060C1A]">{brand.name}</p>
+        ) : (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={brand?.logoUrl || '/logo.png'} alt={brand?.name || BRAND.name} width={160} height={160} className="mx-auto max-h-40 w-auto object-contain" />
+        )}
         <p className="text-[#4f6580] mt-2 tracking-widest uppercase text-xs">Driver Portal</p>
       </div>
 
@@ -155,7 +161,7 @@ export default function ResetPasswordPage() {
                 type="submit"
                 disabled={isPending || !ready}
                 className="w-full py-3.5 rounded-xl font-semibold text-[#020813] text-sm flex items-center justify-center gap-2 disabled:opacity-60 transition-opacity mt-2"
-                style={{ background: 'linear-gradient(135deg, #f1c56a, #d5a538 55%, #a97918)' }}
+                style={brand ? { background: brand.accent, color: brand.onAccent } : { background: 'linear-gradient(135deg, #f1c56a, #d5a538 55%, #a97918)' }}
               >
                 {isPending ? <Loader2 size={16} className="animate-spin" /> : null}
                 {isPending ? 'Saving…' : invite ? 'Set Password' : 'Update Password'}
