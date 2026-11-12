@@ -93,3 +93,7 @@ A business's drivers reach the app through its link, `https://<driver app>/login
 - Data: the public database function `business_signin_brand(slug)` (migration `20261112240000` in `evexec`, applied) returns only name, logo address and #RRGGBB colours for an active business; nothing else is readable before sign-in.
 - Code: `lib/signin-brand.ts` (checks, readable text colour), `lib/use-signin-brand.ts` (link, memory, lookup), tests in `lib/signin-brand.test.ts`. A failed lookup never blocks sign-in.
 - Not branded per business: app icon, installed-app name, push notifications, signed-in screens.
+
+## Update — 2026-11-12: the platform is software only
+
+The Driver App is software supplied to operators. The platform provider is not a private hire operator and does not employ, vet, supervise or insure drivers; licences, insurance, vehicles and driver checks are each operator's alone (see `evexec/docs/legal/operator-responsibilities.md`). Never add screens, checks or wording that make the platform responsible for, or imply it verifies, any of these.
