@@ -8,6 +8,7 @@ import { BookingStatusBadge } from '@/components/badges'
 import { RouteDisplay } from '@/components/route-icons'
 import { formatDate, formatTime, ukToday } from '@/lib/format'
 import type { Booking, Driver } from '@/lib/types'
+import { useToast } from '@/components/toast'
 
 type AttestBooking = Pick<Booking, 'id' | 'ref' | 'customer_name' | 'travel_date' | 'travel_time' | 'pickup_location' | 'airport' | 'attestation_status'>
 
@@ -17,6 +18,7 @@ export default function DashboardPage() {
   const [completedTodayCount, setCompletedTodayCount] = useState(0)
   const [attestationBookings, setAttestationBookings] = useState<AttestBooking[]>([])
   const [confirmingJobId, setConfirmingJobId] = useState<string | null>(null)
+  const { addToast } = useToast()
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
 
@@ -86,11 +88,17 @@ export default function DashboardPage() {
 
   const confirmJob = async (bookingId: string) => {
     setConfirmingJobId(bookingId)
-    await supabase.from('bookings').update({
+    // Only take the job off the list once the confirmation is saved. Otherwise the office
+    // would still get a 'driver hasn't confirmed' alert, and the driver would think it was done.
+    const { data, error } = await supabase.from('bookings').update({
       driver_confirmed_at: new Date().toISOString(),
       attestation_status: 'confirmed',
-    }).eq('id', bookingId)
-    setAttestationBookings(prev => prev.filter(b => b.id !== bookingId))
+    }).eq('id', bookingId).select('id')
+    if (error || !data?.length) {
+      addToast({ title: 'Not confirmed', message: 'Could not confirm the pickup. Check your connection and try again.' })
+    } else {
+      setAttestationBookings(prev => prev.filter(b => b.id !== bookingId))
+    }
     setConfirmingJobId(null)
   }
 
