@@ -516,15 +516,22 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
       if (typeof navigator === 'undefined' || !navigator.geolocation) return resolve()
       navigator.geolocation.getCurrentPosition(
         async (pos) => {
-          if (driverId) {
-            gpsLastPushRef.current = Date.now()
-            await supabase.from('drivers').update({
-              current_lat: pos.coords.latitude,
-              current_lng: pos.coords.longitude,
-              location_updated_at: new Date().toISOString(),
-            }).eq('id', driverId)
+          // Always resolve, even if saving the position fails: the status update waits on
+          // this, and a stuck promise would leave the job screen 'updating' with no text sent.
+          try {
+            if (driverId) {
+              gpsLastPushRef.current = Date.now()
+              await supabase.from('drivers').update({
+                current_lat: pos.coords.latitude,
+                current_lng: pos.coords.longitude,
+                location_updated_at: new Date().toISOString(),
+              }).eq('id', driverId)
+            }
+          } catch (err) {
+            console.warn('[GPS] could not save position', err)
+          } finally {
+            resolve()
           }
-          resolve()
         },
         (err) => {
           addToast({ title: 'Location off', message: 'Enable location so the customer can track you.' })
