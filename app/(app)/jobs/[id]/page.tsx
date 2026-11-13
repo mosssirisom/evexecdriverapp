@@ -471,6 +471,15 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
   const bookingStatus = booking?.status
   const bookingDriverId = booking?.assigned_driver_id
 
+  // Stop tracking when the driver leaves this screen. Tracking only ever runs while the
+  // screen is open on an active job; it must not carry on in the background.
+  useEffect(() => () => {
+    if (gpsWatchRef.current != null && typeof navigator !== 'undefined' && navigator.geolocation) {
+      navigator.geolocation.clearWatch(gpsWatchRef.current)
+      gpsWatchRef.current = null
+    }
+  }, [])
+
   useEffect(() => {
     const statusNeedsGps = bookingStatus && ['En Route', 'en_route', 'Arrived', 'arrived'].includes(bookingStatus)
     const driverId = bookingDriverId
