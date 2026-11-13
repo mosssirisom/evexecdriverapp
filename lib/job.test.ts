@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { STATUS_FLOW, TIMESTAMP_FIELD, PROGRESS_STEPS, STEP_LABELS, getGraceMinutes, formatPref } from './job'
+import { STATUS_FLOW, TIMESTAMP_FIELD, PROGRESS_STEPS, STEP_LABELS, getGraceMinutes, formatPref, isNoShowJob } from './job'
 
 // The statuses the database lets a driver-only login set (evexec hardening, 10/11/2026).
 const DRIVER_ALLOWED = ['En Route', 'Arrived', 'Passenger On Board', 'Completed', 'No Show']
@@ -68,5 +68,20 @@ describe('passenger preferences', () => {
   })
   it('title-cases anything unknown', () => {
     expect(formatPref('extra_legroom')).toBe('Extra Legroom')
+  })
+})
+
+describe('no-show detection', () => {
+  it('a job marked No Show is a no-show', () => {
+    expect(isNoShowJob({ status: 'No Show', driver_notes: null })).toBe(true)
+  })
+  it('an older no-show saved as Cancelled with the note is still a no-show', () => {
+    expect(isNoShowJob({ status: 'Cancelled', driver_notes: '[No Show] Passenger was not at the pickup location.' })).toBe(true)
+  })
+  it('an office cancellation is not a no-show', () => {
+    expect(isNoShowJob({ status: 'Cancelled', driver_notes: 'Customer rang to cancel' })).toBe(false)
+  })
+  it('a job in progress is not a no-show', () => {
+    expect(isNoShowJob({ status: 'Arrived', driver_notes: null })).toBe(false)
   })
 })

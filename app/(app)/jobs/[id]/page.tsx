@@ -22,7 +22,7 @@ import {
   WEEK_REMINDER_TYPE, REMINDER_TYPES, isReminderType, reminderLabel, type ReminderType,
 } from '@/lib/customer-sms'
 import type { Booking, BookingStatus } from '@/lib/types'
-import { STATUS_FLOW, TIMESTAMP_FIELD, PROGRESS_STEPS, STEP_LABELS, getGraceMinutes, formatPref } from '@/lib/job'
+import { STATUS_FLOW, TIMESTAMP_FIELD, PROGRESS_STEPS, STEP_LABELS, getGraceMinutes, formatPref, isNoShowJob } from '@/lib/job'
 
 // ─── SwipeToConfirm ───────────────────────────────────────────────────────────
 
@@ -774,7 +774,7 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
   const nextStep = STATUS_FLOW.find(s => s.from === booking.status)
   const isDone = ['completed', 'Completed', 'cancelled', 'Cancelled', 'rejected', 'No Show'].includes(booking.status)
   // A no-show is its own status now; older ones were Cancelled with a note.
-  const isNoShow = booking.status === 'No Show' || (booking.status === 'Cancelled' && (booking.driver_notes ?? '').includes('[No Show]'))
+  const isNoShow = isNoShowJob(booking)
   const isEnRoute = ['En Route', 'en_route'].includes(booking.status)
   const isArrived = ['Arrived', 'arrived'].includes(booking.status)
   const isPob = booking.status === 'Passenger On Board'
