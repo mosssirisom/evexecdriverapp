@@ -678,11 +678,13 @@ export default function JobDetailPage({ params }: { params: Promise<{ id: string
     setNoShowConfirm(false)
     const noShowNote = [driverNote.trim(), '[No Show] Passenger was not at the pickup location.']
       .filter(Boolean).join('\n\n')
-    const { error } = await supabase.from('bookings').update({
+    const { data, error } = await supabase.from('bookings').update({
       status: 'No Show', driver_notes: noShowNote, updated_at: new Date().toISOString(),
-    }).eq('id', booking.id)
-    if (error) {
-      setUpdateError(error.message ?? 'Failed to mark no show. Please try again.')
+    }).eq('id', booking.id).select('id')
+    // No row back = the update didn't apply (for example the office has moved the job on).
+    // Don't show 'No Show' on screen unless it was saved.
+    if (error || !data?.length) {
+      setUpdateError(error?.message ?? 'The no show could not be saved. The job may have been changed by the office. Refresh and try again.')
     } else {
       setBooking({ ...booking, status: 'No Show', driver_notes: noShowNote })
       setDriverNote(noShowNote)
