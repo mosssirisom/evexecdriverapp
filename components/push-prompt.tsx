@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { usePathname } from 'next/navigation'
 import { BellRing, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { enablePush, pushState, type PushState } from '@/lib/push'
@@ -13,13 +14,16 @@ export function PushPrompt() {
   const [state, setState] = useState<PushState | null>(null)
   const [busy, setBusy] = useState(false)
   const [hidden, setHidden] = useState(false)
+  const pathname = usePathname()
 
   useEffect(() => {
     setState(pushState())
     try { setHidden(sessionStorage.getItem(HIDE_KEY) === '1') } catch { /* private mode */ }
   }, [])
 
-  if (hidden || !state || state === 'on' || state === 'unsupported') return null
+  // Never in the way on a job: the driver needs the whole screen there.
+  const onJob = /^\/jobs\/[^/]+/.test(pathname || '')
+  if (hidden || onJob || !state || state === 'on' || state === 'unsupported') return null
 
   const turnOn = async () => {
     setBusy(true)
@@ -45,21 +49,19 @@ export function PushPrompt() {
       : 'Turn on notifications so you get new jobs and changes straight away.'
 
   return (
-    <div className="mx-4 mt-3 mb-1 bg-[#020813] text-white rounded-2xl p-4 flex items-start gap-3">
-      <BellRing size={18} className="text-[#d5a538] mt-0.5 flex-shrink-0" />
-      <div className="flex-1 min-w-0">
-        <p className="text-sm leading-snug">{text}</p>
-        {state === 'off' && (
-          <button
-            onClick={turnOn}
-            disabled={busy}
-            className="mt-3 px-4 py-2 rounded-xl bg-[#d5a538] text-[#020813] text-sm font-bold active:opacity-80 disabled:opacity-60"
-          >
-            {busy ? 'Turning on…' : 'Turn on notifications'}
-          </button>
-        )}
-      </div>
-      <button onClick={hide} aria-label="Hide" className="p-1 -m-1 text-white/50">
+    <div className="mx-4 mt-3 mb-1 bg-[#020813] text-white rounded-2xl px-3.5 py-3 flex items-center gap-3">
+      <BellRing size={18} className="text-[#d5a538] flex-shrink-0" />
+      <p className="flex-1 min-w-0 text-[13px] leading-snug">{text}</p>
+      {state === 'off' && (
+        <button
+          onClick={turnOn}
+          disabled={busy}
+          className="flex-shrink-0 px-3.5 min-h-[40px] rounded-xl bg-[#d5a538] text-[#020813] text-sm font-bold active:opacity-80 disabled:opacity-60"
+        >
+          {busy ? 'Turning on…' : 'Turn on'}
+        </button>
+      )}
+      <button onClick={hide} aria-label="Hide" className="flex-shrink-0 flex items-center justify-center w-10 h-10 -mr-2 text-white/50">
         <X size={16} />
       </button>
     </div>

@@ -78,6 +78,9 @@ function BookingCard({ booking }: { booking: Booking }) {
 
 export default function JobsPage() {
   const [tab, setTab] = useState<Tab>('active')
+  // Set once the driver picks a tab themselves, so the automatic choice below never overrides them.
+  const [tabChosen, setTabChosen] = useState(false)
+  const chooseTab = (t: Tab) => { setTabChosen(true); setTab(t) }
   const [dateFilter, setDateFilter] = useState<DateFilter>('all')
   const [bookings, setBookings] = useState<Booking[]>([])
   const [loading, setLoading] = useState(true)
@@ -155,6 +158,11 @@ export default function JobsPage() {
   const active = sortNearestFirst(bookings.filter((b) => ['En Route', 'en_route', 'Passenger On Board', 'Arrived', 'arrived', 'Active', 'active'].includes(b.status)))
   const completed = sortNearestFirst(bookings.filter((b) => ['completed', 'Completed', 'cancelled', 'Cancelled', 'No Show'].includes(b.status)))
 
+  // Nothing under way but jobs coming up: open on those, not an empty list.
+  useEffect(() => {
+    if (!loading && !tabChosen && tab === 'active' && active.length === 0 && upcoming.length > 0) setTab('upcoming')
+  }, [loading, tabChosen, tab, active.length, upcoming.length])
+
   const applyDateFilter = (list: Booking[]) => {
     const now = new Date()
     const pad = (n: number) => String(n).padStart(2, '0')
@@ -193,7 +201,7 @@ export default function JobsPage() {
         <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#4f6580] pointer-events-none" />
         <input
           type="text"
-          placeholder="Search by name or ref (EVX-…)"
+          placeholder="Search by name or reference"
           value={search}
           onChange={e => setSearch(e.target.value)}
           className="w-full bg-[#dce8f2] border border-[#c4d4e4] rounded-xl pl-8 pr-8 py-2.5 text-[#060C1A] text-sm placeholder-[#7a9ab8] focus:outline-none focus:border-[#d5a538]/50"
@@ -234,7 +242,7 @@ export default function JobsPage() {
         ]).map(({ key, label }) => (
           <button
             key={key}
-            onClick={() => setTab(key)}
+            onClick={() => chooseTab(key)}
             className={`flex-1 py-2 rounded-lg text-xs font-semibold transition-all ${
               tab === key ? 'text-[#020813]' : 'text-[#4f6580] hover:text-[#3b5470]'
             }`}
