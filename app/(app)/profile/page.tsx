@@ -192,6 +192,22 @@ export default function ProfilePage() {
         </a>
       </div>
 
+      {/* Your data: what is tracked and how long it is kept, plus a way to ask for a copy */}
+      <div className="bg-white border border-[#c4d4e4] rounded-2xl p-4 mb-4">
+        <h3 className="text-[#060C1A] font-semibold text-sm mb-2">Your data</h3>
+        <ul className="text-[#3b5470] text-xs leading-relaxed list-disc pl-4 space-y-1">
+          <li>Your location is shared only while a job is on its way: from Head to Pickup until the passenger is on board.</li>
+          <li>Only your latest position is kept. There is no travel history of where you have been.</li>
+          <li>Job records are kept for the business&apos;s own records, as set out in its privacy notice.</li>
+        </ul>
+        <a
+          href={`mailto:${BRAND.supportEmail}?subject=${encodeURIComponent('My data request')}`}
+          className="mt-3 inline-flex items-center gap-2 text-[#1e3a5f] text-sm font-semibold underline"
+        >
+          Ask for a copy of your data
+        </a>
+      </div>
+
       {/* Logout */}
       <form action={logout}>
         <button
