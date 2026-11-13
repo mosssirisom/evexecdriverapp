@@ -64,3 +64,13 @@ export const PREF_LABELS: Record<string, string> = {
 export function formatPref(pref: string): string {
   return PREF_LABELS[pref] ?? pref.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
 }
+
+/**
+ * A job is a no-show when the driver marked it 'No Show', or it's an older no-show that was
+ * saved as Cancelled with the "[No Show]" note. Used by the job screen and the notifier so the
+ * driver is not told "job cancelled" for their own no-show.
+ */
+export function isNoShowJob(job: { status: string | null | undefined; driver_notes?: string | null }): boolean {
+  if (job.status === 'No Show') return true
+  return job.status === 'Cancelled' && (job.driver_notes ?? '').includes('[No Show]')
+}
